@@ -242,7 +242,7 @@ class AuthService {
 
     await user.save();
 
-    return "2FA enabled";
+    return true;
   }
   async disableTwoFactorAuth(user, data) {
     const { token } = data;
@@ -258,7 +258,7 @@ class AuthService {
     user.backupCodes = [];
 
     await user.save();
-    return "2FA disabled";
+    return true;
   }
   async generateBackupCodes(user) {
     const rawCodes = twoFactorService.generateBackupCodes();
@@ -287,7 +287,7 @@ class AuthService {
     match.used = true;
     await user.save();
 
-    return "Backup code accepted";
+    return true;
   }
   async regenerateBackupCodes(user) {
     const rawCodes = twoFactorService.generateBackupCodes();
@@ -306,12 +306,12 @@ class AuthService {
 
     await user.save();
 
-    return "Backup codes disabled";
+    return true;
   }
   async enableBackupCodes(user) {
     user.backupCodesEnabled = true;
     await user.save();
-    return "Backup codes enabled";
+    return true;
   }
 }
 
