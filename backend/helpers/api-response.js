@@ -6,7 +6,12 @@ function sendSuccess(res, data, status = 200, message = "Success") {
   });
 }
 
-function sendError(res, error, status = 500, message = "An error occurred") {
+function sendError(
+  res,
+  message = "An error occurred",
+  status = 500,
+  error = null,
+) {
   return res.status(status).json({
     success: false,
     message: message,

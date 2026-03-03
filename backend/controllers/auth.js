@@ -41,11 +41,11 @@ class AuthController {
     return sendSuccess(res, null, 200, "Verification email resent");
   }
   async changePassword(req, res) {
-    await this.service.changePassword(req.user, req.validated);
+    await this.service.changePassword(req.validated);
     return sendSuccess(res, null, 200, "Password changed successfully");
   }
   async updateProfile(req, res) {
-    const data = await this.service.updateProfile(req.user, req.validated);
+    const data = await this.service.updateProfile(req.validated);
     return sendSuccess(res, data, 200, "Profile updated successfully");
   }
   async deleteAccount(req, res) {
@@ -58,8 +58,8 @@ class AuthController {
   }
   async oauthCallback(req, res) {
     const data = await this.service.oauthCallback(
-      req.params.provider,
-      req.query,
+      req.validated.params.provider,
+      req.validated.query,
     );
     return sendSuccess(res, data);
   }
@@ -72,7 +72,7 @@ class AuthController {
     return sendSuccess(res, null, 200, "Two-factor authentication verified");
   }
   async disableTwoFactorAuth(req, res) {
-    await this.service.disableTwoFactorAuth(req.user);
+    await this.service.disableTwoFactorAuth(req.user, req.validated);
     return sendSuccess(res, null, 200, "Two-factor authentication disabled");
   }
   async generateBackupCodes(req, res) {

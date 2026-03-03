@@ -1,10 +1,20 @@
 const User = require("../models/user");
 const {
   generateTokens,
+  generateAccessToken,
+  generateRefreshToken,
   verifyRefreshToken,
 } = require("../helpers/utilities/jwt");
-const { NotFoundException, UnauthorizedException } = require("../utils/errors");
+const generateCode = require("../helpers/utilities/random-code");
+const {
+  NotFoundException,
+  UnauthorizedException,
+  ConflictException,
+} = require("../helpers/errors/index");
 const { hash, compare } = require("../helpers/utilities/password");
+const emailService = require("./email.service");
+const oauthService = require("./oauth.service");
+const twoFactorService = require("./two-factor.service");
 
 class AuthService {
   async login(data) {
@@ -65,7 +75,6 @@ class AuthService {
     if (!payload) {
       throw new UnauthorizedException("Invalid refresh token");
     }
-
     const user = await User.findById(payload.id);
     if (!user || !user.token) {
       throw new UnauthorizedException("Invalid refresh token");
@@ -75,25 +84,29 @@ class AuthService {
     if (!isTokenValid) {
       throw new UnauthorizedException("Invalid refresh token");
     }
-
-    const newAccessToken = generateAccessToken({
+    const payloadJWT = {
       id: user._id,
       email: user.email,
       role: user.role,
-    });
-
-    return { accessToken: newAccessToken, refreshToken };
+    };
+    const newAccessToken = generateAccessToken(payloadJWT);
+    const newRefreshToken = generateRefreshToken(payloadJWT);
+    user.token = await hash(newRefreshToken);
+    await user.save();
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
   }
   async forgotPassword(data) {
     const user = await User.findOne({ email: data.email });
     if (!user) {
       throw new NotFoundException("User with this email does not exist");
     }
-    await emailService.sendPasswordResetEmail(user.email, user._id);
+    const code = generateCode();
+    user.emailVerificationCode = code;
+    await emailService.sendPasswordResetEmail(user.email, code);
     return true;
   }
   async resetPassword(data) {
-    const user = await User.findById(data.email);
+    const user = await User.findById(data.user._id);
     if (!user) {
       throw new NotFoundException("User with this email does not exist");
     }
@@ -103,14 +116,14 @@ class AuthService {
     return true;
   }
   async verifyEmail(data) {
-    const user = await User.findById(data.email);
+    const user = await User.findById(data.user._id);
     if (!user) {
       throw new NotFoundException("User with this email does not exist");
     }
     if (user.isVerified) {
       throw new ConflictException("Email is already verified");
     }
-    if (data.code != user.verificationCode) {
+    if (data.code != user.emailVerificationCode) {
       throw new ConflictException("Invalid verification code");
     }
     user.isVerified = true;
@@ -125,7 +138,10 @@ class AuthService {
     if (user.isVerified) {
       throw new ConflictException("Email is already verified");
     }
-    await emailService.sendVerificationEmail(user.email, user._id);
+    const code = generateCode();
+    user.emailVerificationCode = code;
+    await user.save();
+    await emailService.sendVerificationEmail(user.email, code);
     return true;
   }
   async changePassword(data) {
@@ -157,37 +173,145 @@ class AuthService {
   }
   async oauthLogin(provider) {
     provider = provider.toLowerCase();
-    if (!["google", "facebook", "github"].includes(provider)) {
+    if (!["google", "github"].includes(provider)) {
       throw new BadRequestException("Unsupported OAuth provider");
     }
-    // Implement OAuth login logic (e.g., redirect to provider's auth page)
+    const res = oauthService.getAuthUrl(provider);
+    console.log(res);
+    return res;
   }
   async oauthCallback(provider, query) {
-    // Implement OAuth callback logic (e.g., handle provider's response and authenticate user)
+    provider = provider.toLowerCase();
+    if (!["google", "github"].includes(provider)) {
+      throw new BadRequestException("Unsupported OAuth provider");
+    }
+    query = query || {};
+    const data = await oauthService.getUserFromCode(
+      provider,
+      query.code,
+      query.state,
+    );
+    let user = await User.findOne({ email: data.user.email });
+    if (!user) {
+      user = new User({
+        email: data.user.email,
+        name: data.user.name,
+        isVerified: data.user.emailVerified,
+      });
+      await user.save();
+    }
+
+    const accessToken = generateAccessToken({
+      id: user._id,
+      email: user.email,
+      role: user.role,
+    });
+    const refreshToken = generateRefreshToken({
+      id: user._id,
+      email: user.email,
+      role: user.role,
+    });
+    user.lastLogin = new Date();
+    user.token = hash(refreshToken);
+    await user.save();
+    return { accessToken, refreshToken, user };
   }
   async setupTwoFactorAuth(user) {
-    // Implement 2FA setup logic (e.g., generate secret and QR code)
+    const currUser = await User.findById(user._id);
+    const secret = twoFactorService.generateSecret(user.email);
+    currUser.twoFactorTempSecret = secret.base32;
+    await currUser.save();
+    const QR = await twoFactorService.generateQRCode(secret.otpauth_url);
+    return QR;
   }
   async verifyTwoFactorAuth(user, data) {
-    // Implement 2FA verification logic (e.g., verify TOTP code)
+    const { token } = data;
+
+    const isValid = twoFactorService.verifyToken(
+      user.twoFactorTempSecret,
+      token,
+    );
+
+    if (!isValid) {
+      throw new BadRequestException("Invalid code");
+    }
+
+    user.twoFactorSecret = user.twoFactorTempSecret;
+    user.twoFactorTempSecret = null;
+    user.twoFactorEnabled = true;
+
+    await user.save();
+
+    return "2FA enabled";
   }
-  async disableTwoFactorAuth(user) {
-    // Implement 2FA disable logic (e.g., remove 2FA secret from user)
+  async disableTwoFactorAuth(user, data) {
+    const { token } = data;
+
+    const isValid = twoFactorService.verifyToken(user.twoFactorSecret, token);
+
+    if (!isValid) {
+      throw new BadRequestException("Invalid code");
+    }
+
+    user.twoFactorEnabled = false;
+    user.twoFactorSecret = null;
+    user.backupCodes = [];
+
+    await user.save();
+    return "2FA disabled";
   }
   async generateBackupCodes(user) {
-    // Implement backup codes generation logic (e.g., generate and store backup codes)
+    const rawCodes = twoFactorService.generateBackupCodes();
+
+    user.backupCodes = rawCodes.map((code) => ({
+      code: twoFactorService.hashCode(code),
+      used: false,
+    }));
+
+    user.backupCodesEnabled = true;
+
+    await user.save();
+
+    return rawCodes;
   }
   async verifyBackupCode(user, data) {
-    // Implement backup code verification logic (e.g., verify provided backup code)
+    const { code } = data;
+
+    const hashed = twoFactorService.hashCode(code);
+    const match = user.backupCodes.find((c) => c.code === hashed && !c.used);
+
+    if (!match) {
+      throw new BadRequestException("Invalid backup code");
+    }
+
+    match.used = true;
+    await user.save();
+
+    return "Backup code accepted";
   }
   async regenerateBackupCodes(user) {
-    // Implement backup codes regeneration logic (e.g., invalidate old codes and generate new ones)
+    const rawCodes = twoFactorService.generateBackupCodes();
+    user.backupCodes = rawCodes.map((code) => ({
+      code: twoFactorService.hashCode(code),
+      used: false,
+    }));
+
+    await user.save();
+
+    return rawCodes;
   }
   async disableBackupCodes(user) {
-    // Implement backup codes disable logic (e.g., remove backup codes from user)
+    user.backupCodes = [];
+    user.backupCodesEnabled = false;
+
+    await user.save();
+
+    return "Backup codes disabled";
   }
   async enableBackupCodes(user) {
-    // Implement backup codes enable logic (e.g., generate and store backup codes if not already enabled)
+    user.backupCodesEnabled = true;
+    await user.save();
+    return "Backup codes enabled";
   }
 }
 
