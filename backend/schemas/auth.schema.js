@@ -1,5 +1,5 @@
 const { z } = require("zod");
-const { emailSchema, passwordSchema } = require("./common.schema");
+const { emailSchema, passwordSchema, idSchema } = require("./common.schema");
 
 const loginSchema = z.object({
   email: emailSchema,
@@ -32,18 +32,29 @@ const oauthSchema = z.object({
 });
 const verifyTwoFactorAuthSchema = z.object({
   token: z.string().nonempty("Missing two factor verification token"),
+  userId: idSchema.optional(),
 });
 
 const verifyBackupCodeSchema = z.object({
   code: z.string().nonempty("Missing code"),
 });
 
+const twoFaLoginSchema = z
+  .object({
+    userId: idSchema,
+    token: z.string().optional(),
+    backupCode: z.string().optional(),
+  })
+  .refine((data) => !!data.token || !!data.backupCode, {
+    message: "Either token or backupCode is required",
+    path: ["token | backupCode"],
+  });
 const withUser = { withUser: true };
 const withUserAndDefaults = { withUser: true, defaults: true };
 
 module.exports = {
   login: [{ body: loginSchema }],
-  register: [{ body: registerSchema }],
+  register: [{ body: registerSchema }, withUserAndDefaults],
   refreshToken: [{ body: refreshTokenSchema }],
   forgotPassword: [{ body: forgotPasswordSchema }],
   resetPassword: [{ body: resetPasswordSchema }],
@@ -51,7 +62,8 @@ module.exports = {
   resendVerificationEmail: [{ body: resendVerificationEmailSchema }],
   changePassword: [{ body: changePasswordSchema }, withUserAndDefaults],
   updateProfile: [{ body: updateProfileSchema }, withUserAndDefaults],
-  oauth: [oauthSchema],
+  oauth: [oauthSchema, { defaults: true }],
   twoFaToken: [verifyTwoFactorAuthSchema],
   backupCode: [verifyBackupCodeSchema],
+  twoFaLogin: [twoFaLoginSchema],
 };

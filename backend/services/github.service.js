@@ -6,7 +6,7 @@ class GithubOAuthProvider {
   constructor() {
     this.clientId = env.GITHUB_CLIENT_ID;
     this.clientSecret = env.GITHUB_CLIENT_SECRET;
-    this.redirectUri = "http://localhost:8888/auth/oauth/github/callback";
+    this.redirectUri = env.GITHUB_OAUTH_REDIRECT_URL;
   }
 
   getAuthUrl() {

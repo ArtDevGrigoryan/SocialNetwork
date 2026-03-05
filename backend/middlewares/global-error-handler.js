@@ -1,7 +1,10 @@
 const { sendError } = require("../helpers/api-response");
+const { ZodError } = require("zod");
+const mongoose = require("mongoose");
 
 module.exports = function globalErrorHandler(err, req, res, next) {
-  console.error("🔥 GLOBAL ERROR:", err);
+  console.log("🔥 GLOBAL ERROR:\n");
+  console.dir(err, { depth: Infinity, colors: true });
 
   let statusCode = 500;
   let message = "Internal Server Error";
@@ -35,6 +38,12 @@ module.exports = function globalErrorHandler(err, req, res, next) {
   } else if (err instanceof mongoose.Error.CastError) {
     statusCode = 400;
     message = `Invalid ${err.path}: ${err.value}`;
+  } else if (err.name === "JsonWebTokenError") {
+    statusCode = 401;
+    message = "Invalid token";
+  } else if (err.name === "TokenExpiredError") {
+    statusCode = 401;
+    message = "Token has expired";
   } else if (err instanceof Error) {
     message = err.message;
   }

@@ -7,7 +7,7 @@ class GoogleOAuthProvider {
     this.client = new OAuth2Client(
       env.GOOGLE_CLIENT_ID,
       env.GOOGLE_CLIENT_SECRET,
-      "http://localhost:8888/api/auth/oauth/google/callback",
+      env.GOOGLE_OAUTH_REDIRECT_URL,
     );
   }
 

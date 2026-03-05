@@ -14,6 +14,8 @@ module.exports = function validateEnvVariables(env) {
     "APP_NAME",
     "GITHUB_CLIENT_ID",
     "GITHUB_CLIENT_SECRET",
+    "GOOGLE_OAUTH_REDIRECT_URL",
+    "GITHUB_OAUTH_REDIRECT_URL",
   ];
   const missingVariables = requiredVariables.filter(
     (variable) => !env[variable],
@@ -35,9 +37,11 @@ module.exports = function validateEnvVariables(env) {
     EMAIL_SECURE: env.EMAIL_SECURE === "true",
     GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
+    GOOGLE_OAUTH_REDIRECT_URL: env.GOOGLE_OAUTH_REDIRECT_URL,
     MONGO_URI: env.MONGO_URI,
     APP_NAME: env.APP_NAME,
     GITHUB_CLIENT_ID: env.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: env.GITHUB_CLIENT_SECRET,
+    GITHUB_OAUTH_REDIRECT_URL: env.GITHUB_OAUTH_REDIRECT_URL,
   };
 };

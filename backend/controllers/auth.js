@@ -5,11 +5,11 @@ class AuthController {
     this.service = require("../services/auth.service");
   }
   async login(req, res) {
-    const data = await this.service.login(req.validated);
+    const data = await this.service.login(req.validated.body);
     return sendSuccess(res, data);
   }
   async register(req, res) {
-    const data = await this.service.register(req.validated);
+    const data = await this.service.register(req.validated.body);
     return sendSuccess(res, data, 201);
   }
   async logout(req, res) {
@@ -56,10 +56,10 @@ class AuthController {
     const data = await this.service.oauthLogin(req.params.provider);
     return sendSuccess(res, data);
   }
-  async oauthCallback(req, res) {
+  async oauthCallback(req, res) {console.log(req.params, req.query)
     const data = await this.service.oauthCallback(
-      req.validated.params.provider,
-      req.validated.query,
+      req.params.provider,
+      req.query,
     );
     return sendSuccess(res, data);
   }
@@ -68,11 +68,11 @@ class AuthController {
     return sendSuccess(res, data);
   }
   async verifyTwoFactorAuth(req, res) {
-    await this.service.verifyTwoFactorAuth(req.user, req.validated);
+    await this.service.verifyTwoFactorAuth(req.user, req.body);
     return sendSuccess(res, null, 200, "Two-factor authentication verified");
   }
   async disableTwoFactorAuth(req, res) {
-    await this.service.disableTwoFactorAuth(req.user, req.validated);
+    await this.service.disableTwoFactorAuth(req.user, req.body);
     return sendSuccess(res, null, 200, "Two-factor authentication disabled");
   }
   async generateBackupCodes(req, res) {
@@ -80,7 +80,7 @@ class AuthController {
     return sendSuccess(res, data);
   }
   async verifyBackupCode(req, res) {
-    await this.service.verifyBackupCode(req.user, req.validated);
+    await this.service.verifyBackupCode(req.user, req.body);
     return sendSuccess(res, null, 200, "Backup code verified");
   }
   async regenerateBackupCodes(req, res) {
@@ -93,6 +93,10 @@ class AuthController {
   }
   async enableBackupCodes(req, res) {
     const data = await this.service.enableBackupCodes(req.user);
+    return sendSuccess(res, data);
+  }
+  async twoFaLogin(req, res) {
+    const data = await this.service.twoFaLogin(req.body);
     return sendSuccess(res, data);
   }
 }
