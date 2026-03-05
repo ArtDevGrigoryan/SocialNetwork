@@ -26,5 +26,6 @@ router.post("/2fa/backup-codes/verify",isAuth, validate(schemas.backupCode), con
 router.post("/2fa/backup-codes/regenerate", isAuth, controller.regenerateBackupCodes.bind(controller));
 router.post("/2fa/backup-codes/disable", isAuth, controller.disableBackupCodes.bind(controller));
 router.post("/2fa/backup-codes/enable", isAuth, controller.enableBackupCodes.bind(controller));
+router.post("/2fa/login", validate(schemas.twoFaLogin), controller.twoFaLogin.bind(controller))
 
 module.exports = router;

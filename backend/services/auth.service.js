@@ -10,6 +10,7 @@ const {
   NotFoundException,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
 } = require("../helpers/errors/index");
 const { hash, compare } = require("../helpers/utilities/password");
 const emailService = require("./email.service");
@@ -26,18 +27,16 @@ class AuthService {
     if (!isPasswordValid) {
       throw new NotFoundException("Invalid email or password");
     }
-    const accessToken = generateAccessToken({
-      id: user._id,
-      email: user.email,
-      role: user.role,
-    });
-    const refreshToken = generateRefreshToken({
+    if (user.twoFactorEnabled) {
+      return { twoFactorCredintals: true, userId: user._id };
+    }
+    const { accessToken, refreshToken } = generateTokens({
       id: user._id,
       email: user.email,
       role: user.role,
     });
     user.lastLogin = new Date();
-    user.token = hash(refreshToken);
+    user.token = await hash(refreshToken);
     await user.save();
     return { accessToken, refreshToken, user };
   }
@@ -177,10 +176,10 @@ class AuthService {
       throw new BadRequestException("Unsupported OAuth provider");
     }
     const res = oauthService.getAuthUrl(provider);
-    console.log(res);
     return res;
   }
   async oauthCallback(provider, query) {
+    console.log(provider, query);
     provider = provider.toLowerCase();
     if (!["google", "github"].includes(provider)) {
       throw new BadRequestException("Unsupported OAuth provider");
@@ -191,30 +190,32 @@ class AuthService {
       query.code,
       query.state,
     );
-    let user = await User.findOne({ email: data.user.email });
+    if (!data) {
+      throw new BadRequestException("Invalid Credintals");
+    }
+    let user = await User.findOne({ email: data.email });
     if (!user) {
       user = new User({
-        email: data.user.email,
-        name: data.user.name,
-        isVerified: data.user.emailVerified,
+        email: data.email,
+        name: data.name,
+        isVerified: data.emailVerified,
+        avatar: data.avatar,
       });
       await user.save();
     }
-
-    const accessToken = generateAccessToken({
+    const { accessToken, refreshToken } = generateTokens({
       id: user._id,
       email: user.email,
       role: user.role,
     });
-    const refreshToken = generateRefreshToken({
-      id: user._id,
-      email: user.email,
-      role: user.role,
-    });
+    user.avatar = user.avatar ?? data.avatar;
     user.lastLogin = new Date();
-    user.token = hash(refreshToken);
+    user.token = await hash(refreshToken);
     await user.save();
-    return { accessToken, refreshToken, user };
+    const current = await User.findById(user._id).select(
+      "-password -backupCodes -emailVerificationCode -twoFactorTempSecret -twoFactorSecret",
+    );
+    return { accessToken, refreshToken, user: current };
   }
   async setupTwoFactorAuth(user) {
     const currUser = await User.findById(user._id);
@@ -222,7 +223,7 @@ class AuthService {
     currUser.twoFactorTempSecret = secret.base32;
     await currUser.save();
     const QR = await twoFactorService.generateQRCode(secret.otpauth_url);
-    return QR;
+    return { qrCode: QR, secret: secret.base32 };
   }
   async verifyTwoFactorAuth(user, data) {
     const { token } = data;
@@ -245,8 +246,18 @@ class AuthService {
     return true;
   }
   async disableTwoFactorAuth(user, data) {
-    const { token } = data;
+    const { token, userId } = data;
+    if (user.role == "admin" && user._id != userId) {
+      const currentUser = await User.findById(userId);
+      if (!currentUser) {
+        throw new BadRequestException("User not found");
+      }
+      currentUser.twoFactorEnabled = false;
+      currentUser.twoFactorSecret = null;
+      currentUser.backupCodes = [];
 
+      await currentUser.save();
+    }
     const isValid = twoFactorService.verifyToken(user.twoFactorSecret, token);
 
     if (!isValid) {
@@ -312,6 +323,40 @@ class AuthService {
     user.backupCodesEnabled = true;
     await user.save();
     return true;
+  }
+  async twoFaLogin(data) {
+    const { token, backupCode, userId } = data;
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+    if (token) {
+      const isValid = twoFactorService.verifyToken(user.twoFactorSecret, token);
+      if (!isValid) {
+        throw new BadRequestException("Invalid token");
+      }
+      return generateTokens({
+        id: user._id,
+        email: user.email,
+        role: user.role,
+      });
+    } else {
+      const index = twoFactorService.verifyBackupCode(
+        backupCode,
+        user.backupCodes,
+      );
+      if (index < 0) {
+        throw new BadRequestException("Invalid backup code");
+      }
+      user.backupCodes[index].used = true;
+      await user.save();
+
+      return generateTokens({
+        id: user._id,
+        email: user.email,
+        role: user.role,
+      });
+    }
   }
 }
 

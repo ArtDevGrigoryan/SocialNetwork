@@ -30,8 +30,11 @@ class TwoFactorService {
     for (let i = 0; i < 8; i++) {
       codes.push(crypto.randomBytes(4).toString("hex"));
     }
-
     return codes;
+  }
+  verifyBackupCode(code, hashedCodes) {
+    const hashedInput = this.hashCode(code);
+    return hashedCodes.findIndex((c) => c.code === hashedInput && !c.used);
   }
 
   hashCode(code) {
