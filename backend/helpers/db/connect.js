@@ -1,10 +1,17 @@
 const mongoose = require("mongoose");
 const env = require("../env");
+const cache = require("./redis");
 
 module.exports.connect = async function connect() {
   try {
     await mongoose.connect(`${env.MONGO_URI}/${env.APP_NAME}`);
+    await cache.connect();
+    cache.on("error", (err) => {
+      console.log("Redis Client Error", err);
+      throw err;
+    });
     console.dir("Connected to MongoDB", { colors: true });
+    console.dir("Connected to Redis", { colors: true });
   } catch (error) {
     console.error("Failed to connect to MongoDB:", error);
     process.exit(1);
