@@ -1,6 +1,6 @@
 const axios = require("axios");
-const stateStore = require("./oauth-state.store");
-const env = require("../helpers/env");
+const stateStore = require("@services/oauth-state.store");
+const env = require("@helpers/env");
 
 class GithubOAuthProvider {
   constructor() {

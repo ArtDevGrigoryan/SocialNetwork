@@ -1,21 +1,21 @@
-const User = require("../models/user");
+const User = require("@models/user");
 const {
   generateTokens,
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
-} = require("../helpers/utilities/jwt");
-const generateCode = require("../helpers/utilities/random-code");
+} = require("@utilities/jwt");
+const generateCode = require("@utilities/random-code");
 const {
   NotFoundException,
   UnauthorizedException,
   ConflictException,
   BadRequestException,
-} = require("../helpers/errors/index");
-const { hash, compare } = require("../helpers/utilities/password");
-const emailService = require("./email.service");
-const oauthService = require("./oauth.service");
-const twoFactorService = require("./two-factor.service");
+} = require("@helpers/errors/index");
+const { hash, compare } = require("@utilities/password");
+const emailService = require("@services/email.service");
+const oauthService = require("@services/oauth.service");
+const twoFactorService = require("@services/two-factor.service");
 
 class AuthService {
   async login(data) {

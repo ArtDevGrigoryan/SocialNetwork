@@ -1,8 +1,8 @@
 const router = require("express").Router();
-const controller = require("../controllers/auth");
-const validate = require("../middlewares/validate");
-const isAuth = require("../middlewares/is-auth")
-const schemas = require("../schemas/auth.schema");
+const controller = require("@controllers/auth");
+const validate = require("@middlewares/validate");
+const isAuth = require("@middlewares/is-auth")
+const schemas = require("@schemas/auth.schema");
 
 router.post("/login", validate(schemas.login), controller.login.bind(controller));
 router.post("/register", validate(schemas.register), controller.register.bind(controller));

@@ -1,7 +1,17 @@
-const cache = require("../helpers/db/redis");
-const chatService = require("./chat.service");
+const { cache } = require("@db/redis");
+const validate = require("@helpers/validate");
+const { joinRoomSchema } = require("@schemas/cache.schema");
+const chatService = require("@services/chat.service");
+const { SocketNotFoundException } = require("@helpers/socket-errors/");
 
 class SocketHandlerService {
+  constructor() {
+    this.eventsHandlers = {
+      connection: this.connection.bind(this),
+      disconnect: this.handleDisconnect.bind(this),
+      join_room: validate(joinRoomSchema, this.joinRoom.bind(this)),
+    };
+  }
   getIO() {
     return require("../socket").getIO();
   }
@@ -10,19 +20,35 @@ class SocketHandlerService {
     io.on("connection", this.connection.bind(this));
   }
   async connection(socket) {
-    console.log("User connected:", socket.id);
-    cache.set(cacheKey, "connected");
+    const cacheKey = `socket:${socket.id}`;
+    await cache.set(cacheKey, "connected");
 
-    socket.on("disconnect", async () => {
-      console.log("User disconnected:", socket.id);
-      await cache.del(cacheKey);
-    });
-    socket.on("join_room", async (data) => {
-      console.log("joined room");
-      const chat = await chatService.find(data.chatId);
-      const cacheKey = `room:${chat._id}`;
-      const room = await cache.get(cacheKey);
-    });
+    for (const [event, handler] of Object.entries(this.eventsHandlers)) {
+      socket.on(event, async (data, cb) => {
+        try {
+          return await handler.call(this, socket, data, cb);
+        } catch (err) {
+          return socket.emit(err.event ?? "error", { message: err.message });
+        }
+      });
+    }
+  }
+  async handleDisconnect(socket) {
+    const cacheKey = `socket:${socket.id}`;
+    await cache.del(cacheKey);
+  }
+
+  async joinRoom(socket, data) {
+    const cacheKey = `room:${data.id}`;
+    const chat = await chatService.find(data.id);
+
+    if (!chat) {
+      throw new SocketNotFoundException();
+    }
+    socket.join(data.id);
+
+    await cache.joinRoom(cacheKey, data);
+    return { joined: true };
   }
 }
 

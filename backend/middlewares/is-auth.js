@@ -1,6 +1,6 @@
-const { UnauthorizedException } = require("../helpers/errors");
-const { verifyAccessToken } = require("../helpers/utilities/jwt");
-const User = require("../models/user");
+const { UnauthorizedException } = require("@helpers/errors");
+const { verifyAccessToken } = require("@utilities/jwt");
+const User = require("@models/user");
 
 async function isAuth(req, _, next) {
   const token = req.headers.authorization?.split(" ")[1];

@@ -1,5 +1,5 @@
-const logger = require("../helpers/utilities/logger.js");
-const env = require("../helpers/env.js");
+const logger = require("@utilities/logger.js");
+const env = require("@helpers/env.js");
 
 const requestLogger = (req, res, next) => {
   const startTime = Date.now();

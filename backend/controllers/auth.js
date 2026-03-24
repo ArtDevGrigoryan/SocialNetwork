@@ -1,8 +1,8 @@
-const { sendSuccess } = require("../helpers/api-response");
+const { sendSuccess } = require("@helpers/api-response");
 
 class AuthController {
   constructor() {
-    this.service = require("../services/auth.service");
+    this.service = require("@services/auth.service");
   }
   async login(req, res) {
     const data = await this.service.login(req.validated.body);
@@ -56,7 +56,8 @@ class AuthController {
     const data = await this.service.oauthLogin(req.params.provider);
     return sendSuccess(res, data);
   }
-  async oauthCallback(req, res) {console.log(req.params, req.query)
+  async oauthCallback(req, res) {
+    console.log(req.params, req.query);
     const data = await this.service.oauthCallback(
       req.params.provider,
       req.query,

@@ -1,6 +1,6 @@
 const nodemailer = require("nodemailer");
-const env = require("../helpers/env");
-const generateCode = require("../helpers/utilities/random-code");
+const env = require("@helpers/env");
+const generateCode = require("@utilities/random-code");
 
 class EmailService {
   constructor() {

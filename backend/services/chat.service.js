@@ -1,4 +1,4 @@
-const Chat = require("../models/chat");
+const Chat = require("@models/chat");
 
 class ChatService {
   async find(id) {

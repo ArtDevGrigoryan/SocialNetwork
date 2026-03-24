@@ -1,6 +1,6 @@
 const { OAuth2Client } = require("google-auth-library");
-const stateStore = require("./oauth-state.store");
-const env = require("../helpers/env");
+const stateStore = require("@services/oauth-state.store");
+const env = require("@helpers/env");
 
 class GoogleOAuthProvider {
   constructor() {

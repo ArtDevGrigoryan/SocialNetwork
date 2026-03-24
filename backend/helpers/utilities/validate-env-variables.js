@@ -17,6 +17,7 @@ module.exports = function validateEnvVariables(env) {
     "GOOGLE_OAUTH_REDIRECT_URL",
     "GITHUB_OAUTH_REDIRECT_URL",
     "REDIS_URI",
+    "FRONTENTD_URL",
   ];
   const missingVariables = requiredVariables.filter(
     (variable) => !env[variable],
@@ -45,5 +46,6 @@ module.exports = function validateEnvVariables(env) {
     GITHUB_CLIENT_SECRET: env.GITHUB_CLIENT_SECRET,
     GITHUB_OAUTH_REDIRECT_URL: env.GITHUB_OAUTH_REDIRECT_URL,
     REDIS_URI: env.REDIS_URI,
+    FRONTENTD_URL: env.FRONTENTD_URL,
   };
 };

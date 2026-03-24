@@ -20,6 +20,7 @@
     "express": "^5.2.1",
     "google-auth-library": "^10.6.1",
     "jsonwebtoken": "^9.0.3",
+    "module-alias": "^2.3.4",
     "mongoose": "^9.2.3",
     "nodemailer": "^8.0.1",
     "pino": "^10.3.1",
@@ -29,5 +30,26 @@
     "socket.io": "^4.8.3",
     "speakeasy": "^2.0.0",
     "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.5.0",
+    "@types/redis": "^4.0.10",
+    "@types/socket.io": "^3.0.1",
+    "@types/speakeasy": "^2.0.10"
+  },
+  "_moduleAliases": {
+    "@helpers": "helpers",
+    "@middlewares": "middlewares",
+    "@utilities": "helpers/utilities",
+    "@schemas": "schemas",
+    "@services": "services",
+    "@controllers": "controllers",
+    "@constants": "constants",
+    "@db": "helpers/db",
+    "@models": "models",
+    "@routes": "routes"
   }
 }

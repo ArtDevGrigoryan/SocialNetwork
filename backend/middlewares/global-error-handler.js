@@ -1,6 +1,7 @@
-const { sendError } = require("../helpers/api-response");
+const { sendError } = require("@helpers/api-response");
 const { ZodError } = require("zod");
 const mongoose = require("mongoose");
+const { HTTPException } = require("@helpers/errors");
 
 module.exports = function globalErrorHandler(err, req, res, next) {
   console.log("🔥 GLOBAL ERROR:\n");
@@ -44,6 +45,9 @@ module.exports = function globalErrorHandler(err, req, res, next) {
   } else if (err.name === "TokenExpiredError") {
     statusCode = 401;
     message = "Token has expired";
+  } else if (err instanceof HTTPException) {
+    statusCode = err.statusCode;
+    message = err.message;
   } else if (err instanceof Error) {
     message = err.message;
   }

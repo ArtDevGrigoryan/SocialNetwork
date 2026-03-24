@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "module": "commonjs",
+    "baseUrl": "./",
+    "allowJs": true,
+    "noEmit": true,
+    "checkJs": false,
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@helpers/*": ["helpers/*"],
+      "@middlewares/*": ["middlewares/*"],
+      "@utilities/*": ["helpers/utilities/*"],
+      "@schemas/*": ["schemas/*"],
+      "@services/*": ["services/*"],
+      "@constants/*": ["constants/*"],
+      "@db/*": ["helpers/db/*"],
+      "@models/*": ["models/*"],
+      "@routes/*": ["routes/*"],
+      "@controllers/*": ["controllers/*"]
+    }
+  },
+  "include": ["**/*.js"],
+  "exclude": ["node_modules", ".cache"]
+}

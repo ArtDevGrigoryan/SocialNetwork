@@ -1,5 +1,5 @@
 const apiRouter = require("express").Router();
-const authRouter = require("./auth");
+const authRouter = require("@routes/auth");
 
 apiRouter.use("/auth", authRouter);
 

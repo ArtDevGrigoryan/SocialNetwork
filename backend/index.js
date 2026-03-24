@@ -1,16 +1,18 @@
+require("module-alias/register");
 const socketio = require("socket.io");
 const express = require("express");
 const cors = require("cors");
-const env = require("./helpers/env");
-const processEventHandler = require("./helpers/utilities/process-exit");
-const globalErrorHandler = require("./middlewares/global-error-handler");
-const notFoundHandler = require("./middlewares/not-found");
-const { connect: connectDB } = require("./helpers/db/connect");
+const corsOrigin = require("@constants/cors-origin");
+const env = require("@helpers/env");
+const processEventHandler = require("@utilities/process-exit");
+const globalErrorHandler = require("@middlewares/global-error-handler");
+const notFoundHandler = require("@middlewares/not-found");
+const { connect: connectDB } = require("@db/connect");
 const cookieParser = require("cookie-parser");
-const requestLogger = require("./middlewares/request-logger");
+const requestLogger = require("@middlewares/request-logger");
 const { createServer } = require("http");
 const { initSocket } = require("./socket");
-const socketHandlerService = require("./services/socket.handler");
+const socketHandlerService = require("@services/socket.handler");
 
 // IIFE to connect to the database before starting the server
 (async () => {
@@ -23,7 +25,7 @@ const appServer = createServer(app);
 
 const io = initSocket(appServer);
 
-app.use(cors());
+app.use(cors(corsOrigin));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

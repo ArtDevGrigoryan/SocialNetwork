@@ -1,7 +1,7 @@
 const speakeasy = require("speakeasy");
 const QRCode = require("qrcode");
 const crypto = require("crypto");
-const env = require("../helpers/env");
+const env = require("@helpers/env");
 
 class TwoFactorService {
   generateSecret(email) {
