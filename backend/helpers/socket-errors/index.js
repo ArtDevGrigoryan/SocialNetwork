@@ -28,10 +28,16 @@ class SocketConflictException extends SocketException {
     super("error", err, message, 409);
   }
 }
+class SocketUnauthorizedException extends SocketException {
+  constructor(err, message) {
+    super("error", err, message, 401);
+  }
+}
 
 module.exports = {
   SocketException,
   SocketNotFoundException,
   SocketValidationException,
   SocketConflictException,
+  SocketUnauthorizedException,
 };

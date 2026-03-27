@@ -18,6 +18,8 @@ module.exports = function validateEnvVariables(env) {
     "GITHUB_OAUTH_REDIRECT_URL",
     "REDIS_URI",
     "FRONTENTD_URL",
+    "EMAIL_FROM",
+    "FAILED_LIMIT",
   ];
   const missingVariables = requiredVariables.filter(
     (variable) => !env[variable],
@@ -32,6 +34,7 @@ module.exports = function validateEnvVariables(env) {
     PORT: parseInt(env.PORT, 10),
     JWT_SECRET: env.JWT_SECRET,
     JWT_REFRESH_SECRET: env.JWT_REFRESH_SECRET,
+    EMAIL_FROM: env.EMAIL_FROM,
     EMAIL_USER: env.EMAIL_USER,
     EMAIL_PASS: env.EMAIL_PASS,
     EMAIL_HOST: env.EMAIL_HOST,
@@ -47,5 +50,6 @@ module.exports = function validateEnvVariables(env) {
     GITHUB_OAUTH_REDIRECT_URL: env.GITHUB_OAUTH_REDIRECT_URL,
     REDIS_URI: env.REDIS_URI,
     FRONTENTD_URL: env.FRONTENTD_URL,
+    FAILED_LIMIT: Number(env.FAILED_LIMIT),
   };
 };

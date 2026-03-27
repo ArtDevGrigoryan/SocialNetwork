@@ -50,6 +50,7 @@
     "@constants": "constants",
     "@db": "helpers/db",
     "@models": "models",
-    "@routes": "routes"
+    "@routes": "routes",
+    "@mongoose-middleware": "models/middlewares"
   }
 }

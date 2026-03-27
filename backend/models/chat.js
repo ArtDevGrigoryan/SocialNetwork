@@ -9,12 +9,13 @@ const chatSchema = new mongoose.Schema(
         required: true,
       },
     ],
-    messages: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Message",
-      },
-    ],
+
+    isGroup: { type: Boolean, default: false },
+    groupName: String,
+
+    admins: [{ type: mongoose.Types.ObjectId, ref: "User" }],
+
+    lastMessage: { type: mongoose.Types.ObjectId, ref: "Message" },
   },
   { timestamps: true },
 );

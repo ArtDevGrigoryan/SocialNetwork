@@ -7,7 +7,7 @@ class EmailService {
     this.transporter = null;
   }
 
-  async init() {
+  init() {
     this.transporter = nodemailer.createTransport({
       host: env.EMAIL_HOST,
       port: env.EMAIL_PORT,
@@ -22,10 +22,10 @@ class EmailService {
 
   async sendEmail(to, subject, text) {
     if (!this.transporter) {
-      await this.init();
+      this.init();
     }
-    return this.transporter.sendMail({
-      from: env.EMAIL_USER,
+    return await this.transporter.sendMail({
+      from: env.EMAIL_FROM,
       to,
       subject,
       text,
@@ -40,8 +40,7 @@ class EmailService {
   async sendPasswordResetEmail(to, code) {
     const subject = "Password Reset Request";
     const text = `You requested a password reset. Use the following code to reset your password: ${code}`;
-    return this.sendEmail(to, subject, text);
+    return await this.sendEmail(to, subject, text);
   }
 }
-
 module.exports = new EmailService().init();

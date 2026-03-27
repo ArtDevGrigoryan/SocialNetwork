@@ -1,4 +1,5 @@
 require("module-alias/register");
+require("dns").setDefaultResultOrder("ipv4first");
 const socketio = require("socket.io");
 const express = require("express");
 const cors = require("cors");
@@ -11,19 +12,18 @@ const { connect: connectDB } = require("@db/connect");
 const cookieParser = require("cookie-parser");
 const requestLogger = require("@middlewares/request-logger");
 const { createServer } = require("http");
-const { initSocket } = require("./socket");
-const socketHandlerService = require("@services/socket.handler");
-
-// IIFE to connect to the database before starting the server
-(async () => {
-  await connectDB();
-  socketHandlerService.registerEventHandlers.call(socketHandlerService);
-})();
+const { initSocket } = require("./socket/socket");
+const socket = require("./socket/socket-controller");
 
 const app = express();
 const appServer = createServer(app);
 
 const io = initSocket(appServer);
+// IIFE to connect to the database before starting the server
+(async () => {
+  await connectDB();
+  await socket.registerEvents();
+})();
 
 app.use(cors(corsOrigin));
 app.use(express.json());

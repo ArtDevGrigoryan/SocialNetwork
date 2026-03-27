@@ -17,7 +17,7 @@ class AuthController {
     return sendSuccess(res, null, 204, "Logged out successfully");
   }
   async getCurrentUser(req, res) {
-    const data = await this.service.getCurrentUser(req.user);
+    const data = this.service.getCurrentUser(req.user);
     return sendSuccess(res, data);
   }
   async refreshToken(req, res) {
@@ -25,27 +25,27 @@ class AuthController {
     return sendSuccess(res, data);
   }
   async forgotPassword(req, res) {
-    await this.service.forgotPassword(req.validated);
+    await this.service.forgotPassword(req.validated.body);
     return sendSuccess(res, null, 200, "Password reset email sent");
   }
   async resetPassword(req, res) {
-    await this.service.resetPassword(req.validated);
-    return sendSuccess(res, null, 200, "Password reset successful");
+    const data = await this.service.resetPassword(req.validated.body);
+    return sendSuccess(res, data, 200, "Password reset successful");
   }
   async verifyEmail(req, res) {
-    await this.service.verifyEmail(req.validated);
+    await this.service.verifyEmail(req.validated.body, req.user);
     return sendSuccess(res, null, 200, "Email verified successfully");
   }
   async resendVerificationEmail(req, res) {
-    await this.service.resendVerificationEmail(req.validated);
+    await this.service.resendVerificationEmail(req.validated.body);
     return sendSuccess(res, null, 200, "Verification email resent");
   }
   async changePassword(req, res) {
-    await this.service.changePassword(req.validated);
+    await this.service.changePassword(req.validated.body, req.user);
     return sendSuccess(res, null, 200, "Password changed successfully");
   }
   async updateProfile(req, res) {
-    const data = await this.service.updateProfile(req.validated);
+    const data = await this.service.updateProfile(req.validated.body, req.user);
     return sendSuccess(res, data, 200, "Profile updated successfully");
   }
   async deleteAccount(req, res) {

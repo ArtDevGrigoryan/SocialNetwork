@@ -1,4 +1,5 @@
 const User = require("@models/user");
+const UserConfig = require("@models/user-config");
 const {
   generateTokens,
   generateAccessToken,
@@ -16,12 +17,19 @@ const { hash, compare } = require("@utilities/password");
 const emailService = require("@services/email.service");
 const oauthService = require("@services/oauth.service");
 const twoFactorService = require("@services/two-factor.service");
+const env = require("@helpers/env");
+const TwoFactor = require("@models/two-factor");
 
 class AuthService {
   async login(data) {
     const user = await User.findOne({ email: data.email });
     if (!user) {
       throw new NotFoundException("Invalid email or password");
+    }
+    if (user.deactived) {
+      throw new ConflictException(
+        "This acccount deactived please contact the support team",
+      );
     }
     const isPasswordValid = await compare(data.password, user.password);
     if (!isPasswordValid) {
@@ -38,7 +46,8 @@ class AuthService {
     user.lastLogin = new Date();
     user.token = await hash(refreshToken);
     await user.save();
-    return { accessToken, refreshToken, user };
+    const userObj = user.toObject();
+    return { accessToken, refreshToken, user: userObj };
   }
   async register(data) {
     const existingUser = await User.findOne({ email: data.email });
@@ -49,7 +58,7 @@ class AuthService {
     const user = new User({
       email: data.email,
       password: hashedPassword,
-      name: data.name,
+      username: data.name,
     });
     const jwtPayload = {
       email: user.email,
@@ -57,17 +66,18 @@ class AuthService {
       id: user._id,
     };
     const { accessToken, refreshToken } = generateTokens(jwtPayload);
-    user.token = hash(refreshToken);
+    user.token = await hash(refreshToken);
     await user.save();
-    return { accessToken, refreshToken, user };
+    const userObj = user.toObject();
+    return { accessToken, refreshToken, user: userObj };
   }
   async logout(user) {
     user.token = null;
     await user.save();
     return true;
   }
-  async getCurrentUser(user) {
-    return user;
+  getCurrentUser(user) {
+    return user.toObject();
   }
   async refreshToken(refreshToken) {
     const payload = verifyRefreshToken(refreshToken);
@@ -75,6 +85,11 @@ class AuthService {
       throw new UnauthorizedException("Invalid refresh token");
     }
     const user = await User.findById(payload.id);
+    if (user.deactived) {
+      throw new ConflictException(
+        "This acccount deactived please contact the support team",
+      );
+    }
     if (!user || !user.token) {
       throw new UnauthorizedException("Invalid refresh token");
     }
@@ -99,75 +114,189 @@ class AuthService {
     if (!user) {
       throw new NotFoundException("User with this email does not exist");
     }
+    if (user.deactived) {
+      throw new ConflictException(
+        "This acccount deactived please contact the support team",
+      );
+    }
+    if (!user.isVerified) {
+      throw new BadRequestException("Email is not verified");
+    }
+    const config = await this.handleUserConfigExpiration(user.userConfig);
+
     const code = generateCode();
-    user.emailVerificationCode = code;
+    const codeExpiration = new Date(Date.now() + 15 * 60 * 1000);
+    config.forgotPasswordCode = await hash(code);
+    config.forgotPasswordExpires = codeExpiration;
+    await config.save();
     await emailService.sendPasswordResetEmail(user.email, code);
     return true;
   }
   async resetPassword(data) {
-    const user = await User.findById(data.user._id);
+    const user = await User.findOne({ email: data.email });
     if (!user) {
       throw new NotFoundException("User with this email does not exist");
     }
+    if (user.deactived) {
+      throw new ConflictException(
+        "This acccount deactived please contact the support team",
+      );
+    }
+    if (!user.isVerified) {
+      throw new BadRequestException("User email is not verified");
+    }
+    const config = await this.handleUserConfigExpiration(user.userConfig);
+
+    if (!config.forgotPasswordCode) {
+      throw new BadRequestException("No active password reset request");
+    }
+    const isMatch = await compare(data.code, config.forgotPasswordCode);
+    if (!isMatch) {
+      await config.updateOne({ $inc: { limit: 1 } });
+      throw new BadRequestException("Invalid or incorrect code");
+    }
+    const now = Date.now();
+    if (config.forgotPasswordExpires?.getTime() < now) {
+      await config.updateOne({ $inc: { limit: 1 } });
+      throw new ConflictException("Verification code has expired");
+    }
+
     const hashedPassword = await hash(data.newPassword);
     user.password = hashedPassword;
     await user.save();
-    return true;
+    await config.updateOne({
+      limit: 0,
+      limitExpiration: null,
+      forgotPasswordCode: "",
+      forgotPasswordExpires: null,
+    });
+    const userObj = user.toObject();
+    const { accessToken, refreshToken } = generateTokens({
+      id: user._id,
+      email: user.email,
+      role: user.role,
+    });
+    return { accessToken, refreshToken, user: userObj };
   }
-  async verifyEmail(data) {
-    const user = await User.findById(data.user._id);
+  async verifyEmail(data, account) {
+    const user = await User.findById(account._id);
     if (!user) {
       throw new NotFoundException("User with this email does not exist");
+    }
+    if (user.deactived) {
+      throw new ConflictException(
+        "This acccount deactived please contact the support team",
+      );
     }
     if (user.isVerified) {
       throw new ConflictException("Email is already verified");
     }
-    if (data.code != user.emailVerificationCode) {
+    const config = await this.handleUserConfigExpiration(user.userConfig);
+    if (!config.emailVerificationCode) {
+      throw new BadRequestException("No active email verification request");
+    }
+    const isMatch = await compare(data.code, config.emailVerificationCode);
+    if (!isMatch) {
+      await config.updateOne({ $inc: { limit: 1 } });
       throw new ConflictException("Invalid verification code");
+    }
+    if (config.emailVerificationExpires?.getTime() < Date.now()) {
+      await config.updateOne({ $inc: { limit: 1 } });
+      throw new ConflictException("Verification code has expired");
     }
     user.isVerified = true;
     await user.save();
+    await config.updateOne({
+      limit: 0,
+      limitExpiration: null,
+      emailVerificationCode: "",
+      emailVerificationExpires: null,
+    });
     return true;
+  }
+  async handleUserConfigExpiration(userConfigId) {
+    const config = await UserConfig.findById(userConfigId);
+
+    if (config.limit >= env.FAILED_LIMIT) {
+      if (!config.limitExpiration) {
+        config.limitExpiration = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await config.save();
+        const diff = config.limitExpiration.getTime() - Date.now();
+        const hours = Math.ceil(diff / (60 * 60 * 1000));
+        throw new ConflictException(
+          `Too many failed attempts. Try again in ${hours} hours`,
+        );
+      } else if (config.limitExpiration?.getTime() > Date.now()) {
+        const diff = config.limitExpiration.getTime() - Date.now();
+        const hours = Math.ceil(diff / (60 * 60 * 1000));
+        throw new BadRequestException(
+          `Too many attempts. Try again in ${hours} hours`,
+        );
+      } else {
+        config.limit = 0;
+        config.limitExpiration = null;
+        await config.save();
+      }
+    }
+    return config;
   }
   async resendVerificationEmail(data) {
     const user = await User.findOne({ email: data.email });
     if (!user) {
       throw new NotFoundException("User with this email does not exist");
     }
+    if (user.deactived) {
+      throw new ConflictException(
+        "This acccount deactived please contact the support team",
+      );
+    }
     if (user.isVerified) {
       throw new ConflictException("Email is already verified");
     }
+    const config = await this.handleUserConfigExpiration(user.userConfig);
+
     const code = generateCode();
-    user.emailVerificationCode = code;
-    await user.save();
+    config.emailVerificationCode = await hash(code);
+    config.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await config.save();
     await emailService.sendVerificationEmail(user.email, code);
     return true;
   }
-  async changePassword(data) {
-    const user = await User.findById(data.user._id);
+  async changePassword(data, account) {
+    const user = await User.findById(account._id);
     if (!user) {
       throw new NotFoundException("User not found");
+    }
+    if (user.deactived) {
+      throw new ConflictException(
+        "This acccount deactived please contact the support team",
+      );
     }
     const isPasswordValid = await compare(data.oldPassword, user.password);
     if (!isPasswordValid) {
       throw new ConflictException("Old password is incorrect");
     }
-    const hashedPassword = await hash(data.newPassword);
-    user.password = hashedPassword;
+
+    user.password = await hash(data.newPassword);
     await user.save();
     return true;
   }
-  async updateProfile(data) {
-    const user = await User.findById(data.user._id);
+  async updateProfile(data, account) {
+    const user = await User.findById(account._id);
     if (!user) {
       throw new NotFoundException("User not found");
     }
-    if (data.name) user.name = data.name;
+    if (user.deactived) {
+      throw new ConflictException(
+        "This acccount deactived please contact the support team",
+      );
+    }
+    if (data.name) user.username = data.name;
     await user.save();
     return user;
   }
   async deleteAccount(user) {
-    await User.findByIdAndDelete(user._id);
+    await User.findByIdAndUpdate(user._id, { deactived: true });
     return true;
   }
   async oauthLogin(provider) {
@@ -179,7 +308,6 @@ class AuthService {
     return res;
   }
   async oauthCallback(provider, query) {
-    console.log(provider, query);
     provider = provider.toLowerCase();
     if (!["google", "github"].includes(provider)) {
       throw new BadRequestException("Unsupported OAuth provider");
@@ -218,120 +346,141 @@ class AuthService {
     return { accessToken, refreshToken, user: current };
   }
   async setupTwoFactorAuth(user) {
-    const currUser = await User.findById(user._id);
+    const twoFa = await TwoFactor.findById(user.twoFa);
+
+    if (user.deactived) {
+      throw new ConflictException(
+        "This acccount deactived please contact the support team",
+      );
+    }
     const secret = twoFactorService.generateSecret(user.email);
-    currUser.twoFactorTempSecret = secret.base32;
-    await currUser.save();
+    twoFa.twoFactorTempSecret = secret.base32;
+
+    await twoFa.save();
     const QR = await twoFactorService.generateQRCode(secret.otpauth_url);
     return { qrCode: QR, secret: secret.base32 };
   }
   async verifyTwoFactorAuth(user, data) {
     const { token } = data;
+    const twoFa = await TwoFactor.findById(user.twoFa);
 
     const isValid = twoFactorService.verifyToken(
-      user.twoFactorTempSecret,
+      twoFa.twoFactorTempSecret,
       token,
     );
 
     if (!isValid) {
-      throw new BadRequestException("Invalid code");
+      throw new BadRequestException("Invalid or incorrect code");
     }
 
-    user.twoFactorSecret = user.twoFactorTempSecret;
-    user.twoFactorTempSecret = null;
-    user.twoFactorEnabled = true;
+    twoFa.twoFactorSecret = twoFa.twoFactorTempSecret;
+    twoFa.twoFactorTempSecret = null;
+    twoFa.twoFactorEnabled = true;
 
-    await user.save();
+    await twoFa.save();
 
     return true;
   }
   async disableTwoFactorAuth(user, data) {
     const { token, userId } = data;
     if (user.role == "admin" && user._id != userId) {
-      const currentUser = await User.findById(userId);
-      if (!currentUser) {
+      const twoFa = await TwoFactor.findOne({ user: userId });
+      if (!twoFa) {
         throw new BadRequestException("User not found");
       }
-      currentUser.twoFactorEnabled = false;
-      currentUser.twoFactorSecret = null;
-      currentUser.backupCodes = [];
+      twoFa.twoFactorEnabled = false;
+      twoFa.twoFactorSecret = null;
+      twoFa.backupCodes = [];
 
-      await currentUser.save();
+      await twoFa.save();
+      return true;
     }
-    const isValid = twoFactorService.verifyToken(user.twoFactorSecret, token);
+    const twoFa = await TwoFactor.findById(user.twoFa);
+    const isValid = twoFactorService.verifyToken(twoFa.twoFactorSecret, token);
 
     if (!isValid) {
-      throw new BadRequestException("Invalid code");
+      throw new BadRequestException("Invalid or incorrect code");
     }
 
-    user.twoFactorEnabled = false;
-    user.twoFactorSecret = null;
-    user.backupCodes = [];
+    twoFa.twoFactorEnabled = false;
+    twoFa.twoFactorSecret = null;
+    twoFa.backupCodes = [];
 
-    await user.save();
+    await twoFa.save();
     return true;
   }
   async generateBackupCodes(user) {
+    const twoFa = await TwoFactor.findById(user.twoFa);
     const rawCodes = twoFactorService.generateBackupCodes();
 
-    user.backupCodes = rawCodes.map((code) => ({
+    twoFa.backupCodes = rawCodes.map((code) => ({
       code: twoFactorService.hashCode(code),
       used: false,
     }));
 
-    user.backupCodesEnabled = true;
+    twoFa.backupCodesEnabled = true;
 
-    await user.save();
+    await twoFa.save();
 
     return rawCodes;
   }
   async verifyBackupCode(user, data) {
     const { code } = data;
+    const twoFa = await TwoFactor.findById(user.twoFa);
 
     const hashed = twoFactorService.hashCode(code);
-    const match = user.backupCodes.find((c) => c.code === hashed && !c.used);
+    const match = twoFa.backupCodes.find((c) => c.code === hashed && !c.used);
 
     if (!match) {
       throw new BadRequestException("Invalid backup code");
     }
 
     match.used = true;
-    await user.save();
+    await twoFa.save();
 
     return true;
   }
   async regenerateBackupCodes(user) {
+    const twoFa = await TwoFactor.findById(user.twoFa);
     const rawCodes = twoFactorService.generateBackupCodes();
-    user.backupCodes = rawCodes.map((code) => ({
+    twoFa.backupCodes = rawCodes.map((code) => ({
       code: twoFactorService.hashCode(code),
       used: false,
     }));
 
-    await user.save();
+    await twoFa.save();
 
     return rawCodes;
   }
   async disableBackupCodes(user) {
-    user.backupCodes = [];
-    user.backupCodesEnabled = false;
+    const twoFa = await TwoFactor.findById(user.twoFa);
 
-    await user.save();
+    twoFa.backupCodes = [];
+    twoFa.backupCodesEnabled = false;
+
+    await twoFa.save();
 
     return true;
   }
   async enableBackupCodes(user) {
-    user.backupCodesEnabled = true;
-    await user.save();
+    const twoFa = await TwoFactor.findById(user.twoFa);
+
+    twoFa.backupCodesEnabled = true;
+    await twoFa.save();
     return true;
   }
   async twoFaLogin(data) {
     const { token, backupCode, userId } = data;
     const user = await User.findById(userId);
-    if (!user) {
+    const twoFa = await TwoFactor.findOne({ user: userId });
+    if (!twoFa || !user) {
       throw new NotFoundException("User not found");
     }
     if (token) {
-      const isValid = twoFactorService.verifyToken(user.twoFactorSecret, token);
+      const isValid = twoFactorService.verifyToken(
+        twoFa.twoFactorSecret,
+        token,
+      );
       if (!isValid) {
         throw new BadRequestException("Invalid token");
       }
@@ -343,13 +492,13 @@ class AuthService {
     } else {
       const index = twoFactorService.verifyBackupCode(
         backupCode,
-        user.backupCodes,
+        twoFa.backupCodes,
       );
       if (index < 0) {
         throw new BadRequestException("Invalid backup code");
       }
-      user.backupCodes[index].used = true;
-      await user.save();
+      twoFa.backupCodes[index].used = true;
+      await twoFa.save();
 
       return generateTokens({
         id: user._id,

@@ -21,7 +21,7 @@ module.exports = function globalErrorHandler(err, req, res, next) {
   } else if (err instanceof ZodError) {
     statusCode = 400;
     message = "Validation failed";
-    errors = err.errors.map((e) => ({
+    errors = err.errors?.map((e) => ({
       field: e.path.join("."),
       message: e.message,
     }));
