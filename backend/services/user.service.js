@@ -11,6 +11,12 @@ class UserService {
       missing: ids.filter((id) => !foundIds.has(String(id))),
     };
   }
+  async updateStatus(id, status = "OFFLINE") {
+    await User.findByIdAndUpdate(id, { status });
+  }
+  findById(id) {
+    return User.findById(id);
+  }
 }
 
 module.exports = new UserService();

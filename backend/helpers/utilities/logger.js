@@ -31,7 +31,6 @@ if (isProd) {
     }),
   );
 } else {
-  // Development - տարբերվող transport API
   pinoLogger = pino({
     level: "debug",
     transport: {

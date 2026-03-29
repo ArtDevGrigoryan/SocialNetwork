@@ -6,14 +6,24 @@ const notificationSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["LIKE", "FOLLOW", "MESSAGE", "COMMENT"],
+      enum: [
+        "LIKE",
+        "FOLLOW",
+        "UNFOLLOW",
+        "FOLLOW_REQUEST",
+        "FOLLOW_ACCEPTED",
+        "FOLLOW_DECLINED",
+        "FOLLOW_CANCELED",
+        "MESSAGE",
+        "COMMENT",
+      ],
     },
 
-    data: Object,
+    entityId: mongoose.Types.ObjectId,
 
     isRead: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Notifications", notificationSchema);

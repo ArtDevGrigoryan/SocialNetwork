@@ -1,6 +1,6 @@
 class SocketException extends Error {
   constructor(
-    event = "error",
+    event = "error_event",
     err = null,
     message = "something went wrong",
     code = 500,
@@ -14,23 +14,29 @@ class SocketException extends Error {
 
 class SocketNotFoundException extends SocketException {
   constructor(err, message) {
-    super("error", err, message, 404);
+    super("error_event", err, message, 404);
   }
 }
 
 class SocketValidationException extends SocketException {
   constructor(err, message) {
-    super("error", err, message, 422);
+    super("error_event", err, message, 422);
   }
 }
 class SocketConflictException extends SocketException {
   constructor(err, message) {
-    super("error", err, message, 409);
+    super("error_event", err, message, 409);
   }
 }
 class SocketUnauthorizedException extends SocketException {
   constructor(err, message) {
-    super("error", err, message, 401);
+    super("error_event", err, message, 401);
+  }
+}
+
+class SocketBadRequestException extends SocketException {
+  constructor(err, message = "Bad request") {
+    super("error_event", err, message);
   }
 }
 
@@ -40,4 +46,5 @@ module.exports = {
   SocketValidationException,
   SocketConflictException,
   SocketUnauthorizedException,
+  SocketBadRequestException,
 };

@@ -1,7 +1,7 @@
 const event = require("../core/event");
 const socketEvent = require("./socket-event");
 const isAuth = require("../middlewares/is-auth");
-const { joinRoomSchema } = require("@schemas/socket.schema");
+const { joinRoomSchema, followSchema } = require("@schemas/socket.schema");
 const validate = require("../middlewares/validate");
 
 module.exports = {
@@ -12,5 +12,21 @@ module.exports = {
     validate(joinRoomSchema),
     socketEvent.joinRoom.bind(socketEvent),
   ),
-  // follow: event(isAuth, validate(followSchema), socketEvent.follow)
+  follow: event(isAuth, validate(followSchema), socketEvent.follow),
+  unfollow: event(isAuth, validate(followSchema), socketEvent.unfollow),
+  accept_request: event(
+    isAuth,
+    validate(followSchema),
+    socketEvent.acceptRequest,
+  ),
+  decline_request: event(
+    isAuth,
+    validate(followSchema),
+    socketEvent.declineRequest,
+  ),
+  cancel_request: event(
+    isAuth,
+    validate(followSchema),
+    socketEvent.cancelRequest,
+  ),
 };

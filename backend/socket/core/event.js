@@ -1,8 +1,9 @@
+const createLoggerMiddleware = require("../middlewares/logger");
 const compose = require("./compose");
 const errorHandler = require("./error-handler");
 
 module.exports = function event(...middlewares) {
-  const pipeline = compose(...middlewares);
+  const pipeline = compose(createLoggerMiddleware, ...middlewares);
 
   return async (socket, data) => {
     try {

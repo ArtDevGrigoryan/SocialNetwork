@@ -10,13 +10,13 @@ function errorHandler(socket, err) {
       status: err.status,
     });
   } else if (err instanceof ZodError) {
-    return socket.emit("error", {
+    return socket.emit("error_event", {
       message: err.message,
       status: 422,
     });
   }
 
-  socket.emit("error", {
+  socket.emit("error_event", {
     message: "Internal server error",
     status: 500,
   });

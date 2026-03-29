@@ -12,9 +12,8 @@ const userSchema = new mongoose.Schema(
     bio: String,
     website: String,
 
-    followers: [{ type: mongoose.Types.ObjectId, ref: "User" }],
-    followings: [{ type: mongoose.Types.ObjectId, ref: "User" }],
-
+    followersCount: { type: Number, default: 0 },
+    followingCount: { type: Number, default: 0 },
     friendRequests: [{ type: mongoose.Types.ObjectId, ref: "FriendRequest" }],
 
     posts: [{ type: mongoose.Types.ObjectId, ref: "Posts" }],
