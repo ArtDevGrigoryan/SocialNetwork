@@ -45,7 +45,7 @@ async function addFollow(sender, receiver, session) {
       { session },
     ),
     // Create single document correctly with session
-    Follow.create({ follower: sender, following: receiver }, { session }),
+    Follow.create([{ follower: sender, following: receiver }], { session }),
   ]);
 }
 

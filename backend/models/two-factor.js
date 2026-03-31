@@ -22,7 +22,7 @@ const twoFaSchema = new mongoose.Schema(
 
     backupCodesEnabled: { type: Boolean, default: false },
   },
-  { timeseries: true },
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("TwoFa", twoFaSchema);

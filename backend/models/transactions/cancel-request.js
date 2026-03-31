@@ -21,17 +21,34 @@ module.exports = async function cancelRequest(sender, receiver) {
         },
         { session },
       );
-      const notification = await Notification.create(
-        [
-          {
-            user: receiver,
-            entityId: sender,
-            type: "FOLLOW_CANCELED",
-          },
-        ],
+      const existingNotification = await Notification.findOne(
+        {
+          user: receiver,
+          entity: sender,
+          type: "FOLLOW_CANCELED",
+        },
+        null,
         { session },
       );
-      result.notification = notification._id;
+      if (existingNotification) {
+        existingNotification.isRead = false;
+        existingNotification.isSended = false;
+        await existingNotification.save({ session });
+      }
+      const notification = !existingNotification
+        ? await Notification.create(
+            [
+              {
+                user: receiver,
+                entity: sender,
+                entityModel: "User",
+                type: "FOLLOW_CANCELED",
+              },
+            ],
+            { session },
+          )
+        : [existingNotification];
+      result.notification = notification[0]._id;
       return result;
     });
     return result;

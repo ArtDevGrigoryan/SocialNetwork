@@ -16,14 +16,32 @@ const notificationSchema = new mongoose.Schema(
         "FOLLOW_CANCELED",
         "MESSAGE",
         "COMMENT",
+        "START_DM",
+        "JOINED_CHAT",
       ],
     },
 
-    entityId: mongoose.Types.ObjectId,
+    entity: {
+      type: mongoose.Types.ObjectId,
+      refPath: "entityModel",
+    },
 
+    entityModel: {
+      type: String,
+      enum: ["User", "Post", "Comment", "Message"],
+    },
+
+    isSended: { type: Boolean, default: false },
     isRead: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
+
+notificationSchema.pre("find", function () {
+  this.populate("entity");
+});
+notificationSchema.pre("findOne", function () {
+  this.populate("entity");
+});
 
 module.exports = mongoose.model("Notifications", notificationSchema);

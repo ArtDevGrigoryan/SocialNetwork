@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const User = require("@models/user");
 const FriendReqeust = require("@models/friend-request");
 const Notification = require("@models/notification");
-const { addFollow } = require("@models/transactions/helpers/follow");
+const { addFollow } = require("@transaction/helpers/follow");
 const Follow = require("@models/follow");
 const { SocketConflictException } = require("@helpers/socket-errors");
 
@@ -27,23 +27,40 @@ module.exports = async function followTransaction(sender, receiver) {
           await addFollow(sender, receiver, session);
           type = "FOLLOW";
         }
-        const notification = await Notification.create(
-          [
-            {
-              user: receiver,
-              entityId: sender,
-              type,
-            },
-          ],
+        const existingNotification = await Notification.findOne(
+          {
+            user: receiver,
+            entity: sender,
+            type,
+          },
+          null,
           { session },
         );
+        if (existingNotification) {
+          existingNotification.isRead = false;
+          existingNotification.isSended = false;
+          await existingNotification.save({ session });
+        }
+        const notification = !existingNotification
+          ? await Notification.create(
+              [
+                {
+                  user: receiver,
+                  entity: sender,
+                  entityModel: "User",
+                  type,
+                },
+              ],
+              { session },
+            )
+          : [existingNotification];
         await FriendReqeust.findByIdAndUpdate(
           existing._id,
           { status },
           { session },
         );
         result.message = receiverUser.isPrivate ? "Request-sent" : "Followed";
-        result.notification = notification._id;
+        result.notification = notification[0]._id;
         return result;
       }
       const status = receiverUser.isPrivate ? "PENDING" : "ACCEPTED";
@@ -56,12 +73,24 @@ module.exports = async function followTransaction(sender, receiver) {
         await addFollow(sender, receiver, session);
         type = "FOLLOW";
       }
-      const notification = await Notification.create(
-        [{ user: receiver, entityId: sender, type }],
-        { session },
-      );
+      const existingNotification = await Notification.findOne({
+        user: receiver,
+        entity: sender,
+        type,
+      });
+      if (existingNotification) {
+        existingNotification.isRead = false;
+        existingNotification.isSended = false;
+        await existingNotification.save({ session });
+      }
+      const notification = !existingNotification
+        ? await Notification.create(
+            [{ user: receiver, entity: sender, entityModel: "User", type }],
+            { session },
+          )
+        : [existingNotification];
       result.message = receiverUser.isPrivate ? "Request-sent" : "Followed";
-      result.notification = notification._id;
+      result.notification = notification[0]._id;
       return result;
     });
     return result;

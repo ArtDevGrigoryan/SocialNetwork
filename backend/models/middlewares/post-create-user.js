@@ -5,13 +5,12 @@ module.exports = async function postInsertUser(doc, next) {
   try {
     const twoFa = await createTwoFa(doc);
     const userConfig = await createUserConfig(doc);
-    if (twoFa && userConfig) {
-      await doc.updateOne({
-        $set: {
-          twoFa,
-          userConfig,
-        },
-      });
+    const update = {};
+    if (twoFa) update.twoFa = twoFa;
+    if (userConfig) update.userConfig = userConfig;
+
+    if (Object.keys(update).length) {
+      await doc.updateOne({ $set: update });
     }
     next();
   } catch (err) {

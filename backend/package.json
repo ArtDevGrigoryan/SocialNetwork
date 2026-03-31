@@ -51,6 +51,7 @@
     "@db": "helpers/db",
     "@models": "models",
     "@routes": "routes",
-    "@mongoose-middleware": "models/middlewares"
+    "@mongoose-middleware": "models/middlewares",
+    "@transaction": "models/transactions"
   }
 }

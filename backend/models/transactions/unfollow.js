@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 const FriendRequest = require("@models/friend-request");
 const Notification = require("@models/notification");
-const { removeFollow } = require("./helpers/follow");
+const { removeFollow } = require("@transaction/helpers/follow");
+const { SocketConflictException } = require("@helpers/socket-errors");
 
 module.exports = async function unfollow(myId, targetId) {
   const session = await mongoose.startSession();
@@ -12,22 +13,39 @@ module.exports = async function unfollow(myId, targetId) {
         {
           sender: myId,
           receiver: targetId,
+          status: { $ne: "DECLINED" },
         },
         { status: "DECLINED" },
         { session },
       );
+      if (!request) {
+        throw new SocketConflictException("Already unfollowed");
+      }
       await removeFollow(myId, targetId, session);
-      const notification = await Notification.create(
-        [
-          {
-            user: targetId,
-            entityId: myId,
-            type: "UNFOLLOW",
-          },
-        ],
+      const existingNotification = await Notification.findOne(
+        { user: targetId, entity: myId, type: "UNFOLLOW" },
+        null,
         { session },
       );
-      result.notification = notification._id;
+      if (existingNotification) {
+        existingNotification.isRead = false;
+        existingNotification.isSended = false;
+        await existingNotification.save({ session });
+      }
+      const notification = !existingNotification
+        ? await Notification.create(
+            [
+              {
+                user: targetId,
+                entity: myId,
+                entityModel: "User",
+                type: "UNFOLLOW",
+              },
+            ],
+            { session },
+          )
+        : [existingNotification];
+      result.notification = notification[0]._id;
       return result;
     });
     return result;

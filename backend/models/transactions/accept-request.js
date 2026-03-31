@@ -2,7 +2,7 @@ const { SocketBadRequestException } = require("@helpers/socket-errors");
 const FriendRequest = require("@models/friend-request");
 const Notification = require("@models/notification");
 const mongoose = require("mongoose");
-const { addFollow } = require("./helpers/follow");
+const { addFollow } = require("@transaction/helpers/follow");
 
 module.exports = async function acceptRequest(sender, receiver) {
   const session = await mongoose.startSession();
@@ -20,18 +20,35 @@ module.exports = async function acceptRequest(sender, receiver) {
         { status: "ACCEPTED" },
         { session },
       );
-      const notification = Notification.create(
-        [
-          {
-            user: sender,
-            entityId: receiver,
-            type: "FOLLOW_ACCEPTED",
-          },
-        ],
+      const existingNotification = await Notification.findOne(
+        {
+          user: sender,
+          entity: receiver,
+          type: "FOLLOW_ACCEPTED",
+        },
+        null,
         { session },
       );
+      if (existingNotification) {
+        existingNotification.isRead = false;
+        existingNotification.isSended = false;
+        await existingNotification.save({ session });
+      }
+      const notification = !existingNotification
+        ? await Notification.create(
+            [
+              {
+                user: sender,
+                entity: receiver,
+                entityModel: "User",
+                type: "FOLLOW_ACCEPTED",
+              },
+            ],
+            { session },
+          )
+        : [existingNotification];
       await addFollow(sender, receiver, session);
-      result.notification = notification._id;
+      result.notification = notification[0]._id;
       return result;
     });
     return result;

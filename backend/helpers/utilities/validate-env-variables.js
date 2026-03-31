@@ -20,6 +20,7 @@ module.exports = function validateEnvVariables(env) {
     "FRONTENTD_URL",
     "EMAIL_FROM",
     "FAILED_LIMIT",
+    "NODE_ENV",
   ];
   const missingVariables = requiredVariables.filter(
     (variable) => !env[variable],
@@ -51,5 +52,6 @@ module.exports = function validateEnvVariables(env) {
     REDIS_URI: env.REDIS_URI,
     FRONTENTD_URL: env.FRONTENTD_URL,
     FAILED_LIMIT: Number(env.FAILED_LIMIT),
+    NODE_ENV: env.NODE_ENV,
   };
 };

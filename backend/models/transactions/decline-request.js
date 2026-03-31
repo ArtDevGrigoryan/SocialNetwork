@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Notification = require("@models/notification");
 const FriendRequest = require("@models/friend-request");
-const { removeFollow } = require("@models/transactions/helpers/follow");
+const { removeFollow } = require("@transaction/helpers/follow");
 const { SocketBadRequestException } = require("@helpers/socket-errors");
 
 module.exports = async function declineRequest(sender, receiver) {
@@ -20,17 +20,30 @@ module.exports = async function declineRequest(sender, receiver) {
         { status: "DECLINED" },
         { session },
       );
-      const notification = await Notification.create(
-        [
-          {
-            user: sender,
-            entityId: receiver,
-            type: "FOLLOW_DECLINED",
-          },
-        ],
+      const existingNotification = await Notification.findOne(
+        { user: sender, entity: receiver, type: "FOLLOW_DECLINED" },
+        null,
         { session },
       );
-      result.notification = notification._id;
+      if (existingNotification) {
+        existingNotification.isRead = false;
+        existingNotification.isSended = false;
+        await existingNotification.save({ session });
+      }
+      const notification = !existingNotification
+        ? await Notification.create(
+            [
+              {
+                user: sender,
+                entity: receiver,
+                entityModel: "User",
+                type: "FOLLOW_DECLINED",
+              },
+            ],
+            { session },
+          )
+        : [existingNotification];
+      result.notification = notification[0]._id;
       return result;
     });
     return result;

@@ -6,8 +6,8 @@ const client = createClient({
 });
 
 class Cache {
-  async del(cacheKey) {
-    return await client.del(cacheKey);
+  del(cacheKey) {
+    return client.del(cacheKey);
   }
   async get(cacheKey) {
     const cachedData = await client.get(cacheKey);
@@ -16,16 +16,17 @@ class Cache {
   async set(cacheKey, data, options = undefined) {
     await client.set(cacheKey, JSON.stringify(data), options);
   }
-  async updateRoom(cacheKey, data) {
-    let cached = (await client.get(cacheKey)) ?? "{}";
-    cached = JSON.parse(cached);
+  removeRoom(cachekey, userId) {
+    return client.sRem(cachekey, userId.toString());
   }
-  async joinRoom(cacheKey, data) {
-    let cached = (await client.get(cacheKey)) ?? "{}";
-    cached = JSON.parse(cached);
-    cached.roomId = data.roomId;
-    cached.users = cached.users ?? [];
-    cached.users.push(...data.users);
+  joinRoom(cacheKey, userId) {
+    return client.sAdd(cacheKey, userId.toString());
+  }
+  checkInRoom(cacheKey, userId) {
+    return client.sIsMember(cacheKey, userId);
+  }
+  getAllMembers(cacheKey) {
+    return client.sMembers(cacheKey);
   }
 }
 
