@@ -21,6 +21,7 @@ module.exports = function validateEnvVariables(env) {
     "EMAIL_FROM",
     "FAILED_LIMIT",
     "NODE_ENV",
+    "PINN_LIMIT",
   ];
   const missingVariables = requiredVariables.filter(
     (variable) => !env[variable],
@@ -53,5 +54,6 @@ module.exports = function validateEnvVariables(env) {
     FRONTENTD_URL: env.FRONTENTD_URL,
     FAILED_LIMIT: Number(env.FAILED_LIMIT),
     NODE_ENV: env.NODE_ENV,
+    PINN_LIMIT: env.PINN_LIMIT,
   };
 };

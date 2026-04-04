@@ -1,12 +1,13 @@
 const router = require("express").Router();
 const controller = require("@controllers/auth");
 const validate = require("@middlewares/validate");
+const userAgent = require("@middlewares/user-agent");
 const isAuth = require("@middlewares/is-auth")
 const schemas = require("@schemas/auth.schema");
 const twoFaRouter = require("@routes/auth-2fa");
 
-router.post("/login", validate(schemas.login), controller.login.bind(controller));
-router.post("/register", validate(schemas.register), controller.register.bind(controller));
+router.post("/login", validate(schemas.login), userAgent, controller.login.bind(controller));
+router.post("/register", validate(schemas.register), userAgent,controller.register.bind(controller));
 router.post("/logout", isAuth, controller.logout.bind(controller));
 router.get("/me", isAuth, controller.getCurrentUser.bind(controller));
 router.post("/refresh-token", validate(schemas.refreshToken), controller.refreshToken.bind(controller));

@@ -19,9 +19,11 @@ const oauthService = require("@services/oauth.service");
 const twoFactorService = require("@services/two-factor.service");
 const env = require("@helpers/env");
 const TwoFactor = require("@models/two-factor");
+const newUserTx = require("@transaction/new-user");
 
 class AuthService {
-  async login(data) {
+  async login(data, userAgent) {
+    console.log(userAgent);
     const user = await User.findOne({ email: data.email });
     if (!user) {
       throw new NotFoundException("Invalid email or password");
@@ -49,27 +51,20 @@ class AuthService {
     const userObj = user.toObject();
     return { accessToken, refreshToken, user: userObj };
   }
-  async register(data) {
+  async register(data, userAgent) {
+    console.log(userAgent);
     const existingUser = await User.findOne({ email: data.email });
     if (existingUser) {
       throw new ConflictException("Email already in use");
     }
-    const hashedPassword = await hash(data.password);
-    const user = new User({
-      email: data.email,
-      password: hashedPassword,
-      username: data.name,
-    });
-    const jwtPayload = {
-      email: user.email,
-      role: user.role,
-      id: user._id,
-    };
-    const { accessToken, refreshToken } = generateTokens(jwtPayload);
-    user.token = await hash(refreshToken);
-    await user.save();
-    const userObj = user.toObject();
-    return { accessToken, refreshToken, user: userObj };
+    return await newUserTx(
+      {
+        username: data.name,
+        email: data.email,
+        password: data.password,
+      },
+      userAgent,
+    );
   }
   async logout(user) {
     user.token = null;
@@ -119,10 +114,7 @@ class AuthService {
         "This acccount deactived please contact the support team",
       );
     }
-    if (!user.isVerified) {
-      throw new BadRequestException("Email is not verified");
-    }
-    const config = await this.handleUserConfigExpiration(user.userConfig);
+    const config = await this.handleUserConfigExpiration(user._id);
 
     const code = generateCode();
     const codeExpiration = new Date(Date.now() + 15 * 60 * 1000);
@@ -142,10 +134,7 @@ class AuthService {
         "This acccount deactived please contact the support team",
       );
     }
-    if (!user.isVerified) {
-      throw new BadRequestException("User email is not verified");
-    }
-    const config = await this.handleUserConfigExpiration(user.userConfig);
+    const config = await this.handleUserConfigExpiration(user._id);
 
     if (!config.forgotPasswordCode) {
       throw new BadRequestException("No active password reset request");
@@ -188,10 +177,8 @@ class AuthService {
         "This acccount deactived please contact the support team",
       );
     }
-    if (user.isVerified) {
-      throw new ConflictException("Email is already verified");
-    }
-    const config = await this.handleUserConfigExpiration(user.userConfig);
+    const config = await this.handleUserConfigExpiration(user._id);
+
     if (!config.emailVerificationCode) {
       throw new BadRequestException("No active email verification request");
     }
@@ -204,19 +191,21 @@ class AuthService {
       await config.updateOne({ $inc: { limit: 1 } });
       throw new ConflictException("Verification code has expired");
     }
-    user.isVerified = true;
-    await user.save();
     await config.updateOne({
       limit: 0,
       limitExpiration: null,
       emailVerificationCode: "",
       emailVerificationExpires: null,
+      isVerified: true,
     });
     return true;
   }
-  async handleUserConfigExpiration(userConfigId) {
-    const config = await UserConfig.findById(userConfigId);
+  async handleUserConfigExpiration(user) {
+    const config = await UserConfig.findOne({ user });
 
+    if (!config.isVerified) {
+      throw new ConflictException("Please contact the support team");
+    }
     if (config.limit >= env.FAILED_LIMIT) {
       if (!config.limitExpiration) {
         config.limitExpiration = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -249,9 +238,6 @@ class AuthService {
       throw new ConflictException(
         "This acccount deactived please contact the support team",
       );
-    }
-    if (user.isVerified) {
-      throw new ConflictException("Email is already verified");
     }
     const config = await this.handleUserConfigExpiration(user.userConfig);
 
@@ -346,13 +332,13 @@ class AuthService {
     return { accessToken, refreshToken, user: current };
   }
   async setupTwoFactorAuth(user) {
-    const twoFa = await TwoFactor.findById(user.twoFa);
-
     if (user.deactived) {
       throw new ConflictException(
         "This acccount deactived please contact the support team",
       );
     }
+    const twoFa = await TwoFactor.findOne({ user: user._id });
+
     const secret = twoFactorService.generateSecret(user.email);
     twoFa.twoFactorTempSecret = secret.base32;
 
@@ -362,7 +348,7 @@ class AuthService {
   }
   async verifyTwoFactorAuth(user, data) {
     const { token } = data;
-    const twoFa = await TwoFactor.findById(user.twoFa);
+    const twoFa = await TwoFactor.findOne({ user: user._id });
 
     const isValid = twoFactorService.verifyToken(
       twoFa.twoFactorTempSecret,
@@ -410,7 +396,7 @@ class AuthService {
     return true;
   }
   async generateBackupCodes(user) {
-    const twoFa = await TwoFactor.findById(user.twoFa);
+    const twoFa = await TwoFactor.findOne({ user: user._id });
     const rawCodes = twoFactorService.generateBackupCodes();
 
     twoFa.backupCodes = rawCodes.map((code) => ({
@@ -426,7 +412,7 @@ class AuthService {
   }
   async verifyBackupCode(user, data) {
     const { code } = data;
-    const twoFa = await TwoFactor.findById(user.twoFa);
+    const twoFa = await TwoFactor.findOne({ user: user._id });
 
     const hashed = twoFactorService.hashCode(code);
     const match = twoFa.backupCodes.find((c) => c.code === hashed && !c.used);
@@ -441,7 +427,7 @@ class AuthService {
     return true;
   }
   async regenerateBackupCodes(user) {
-    const twoFa = await TwoFactor.findById(user.twoFa);
+    const twoFa = await TwoFactor.findOne({ user: user._id });
     const rawCodes = twoFactorService.generateBackupCodes();
     twoFa.backupCodes = rawCodes.map((code) => ({
       code: twoFactorService.hashCode(code),
@@ -453,7 +439,7 @@ class AuthService {
     return rawCodes;
   }
   async disableBackupCodes(user) {
-    const twoFa = await TwoFactor.findById(user.twoFa);
+    const twoFa = await TwoFactor.findOne({ user: user._id });
 
     twoFa.backupCodes = [];
     twoFa.backupCodesEnabled = false;
@@ -463,7 +449,7 @@ class AuthService {
     return true;
   }
   async enableBackupCodes(user) {
-    const twoFa = await TwoFactor.findById(user.twoFa);
+    const twoFa = await TwoFactor.findOne({ user: user._id });
 
     twoFa.backupCodesEnabled = true;
     await twoFa.save();
@@ -471,8 +457,10 @@ class AuthService {
   }
   async twoFaLogin(data) {
     const { token, backupCode, userId } = data;
-    const user = await User.findById(userId);
-    const twoFa = await TwoFactor.findOne({ user: userId });
+    const [user, twoFa] = await Promise.all([
+      User.findById(userId),
+      TwoFactor.findOne({ user: userId }),
+    ]);
     if (!twoFa || !user) {
       throw new NotFoundException("User not found");
     }

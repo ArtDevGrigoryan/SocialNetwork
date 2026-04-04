@@ -1,11 +1,12 @@
 const mongoose = require("mongoose");
-const followTx = require("@transaction/follow");
-const unfollowTx = require("@transaction/unfollow");
-const cancelRequestTx = require("@transaction/cancel-request");
-const acceptRequestTx = require("@transaction/accept-request");
-const declineRequestTx = require("@transaction/decline-request");
+const followTx = require("@models/transactions/friendship/follow");
+const unfollowTx = require("@models/transactions/friendship/unfollow");
+const cancelRequestTx = require("@models/transactions/friendship/cancel-request");
+const acceptRequestTx = require("@models/transactions/friendship/accept-request");
+const declineRequestTx = require("@models/transactions/friendship/decline-request");
 const Follow = require("@models/follow");
 const { SocketConflictException } = require("@helpers/socket-errors");
+const FriendRequest = require("@models/friend-request");
 
 class FriendService {
   async follow(sender, receiver) {
@@ -46,6 +47,23 @@ class FriendService {
       .skip(skip)
       .limit(limit)
       .populate("following", "_id username avatar");
+  }
+  handleBlock(userId, targetId) {
+    return Promise.all([
+      Follow.deleteMany({
+        $or: [
+          { follower: userId, following: targetId },
+          { follower: targetId, following: userId },
+        ],
+      }),
+
+      FriendRequest.deleteMany({
+        $or: [
+          { sender: userId, receiver: targetId },
+          { sender: targetId, receiver: userId },
+        ],
+      }),
+    ]);
   }
 }
 

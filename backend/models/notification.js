@@ -18,6 +18,9 @@ const notificationSchema = new mongoose.Schema(
         "COMMENT",
         "START_DM",
         "JOINED_CHAT",
+        "CHAT_DELETED",
+        "USER_REMOVED",
+        "USER_REMOVED_NOTICE",
       ],
     },
 

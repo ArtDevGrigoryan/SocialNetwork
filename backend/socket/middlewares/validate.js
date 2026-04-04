@@ -1,6 +1,5 @@
 const validate = (schema) => {
-  return async function validateSchema(socket, data, next) {
-    console.log(data)
+  return function validateSchema(socket, data, next) {
     schema.parse(data);
     return next();
   };

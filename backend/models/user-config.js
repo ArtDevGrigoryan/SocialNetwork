@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 
 const configSchema = new mongoose.Schema({
   user: { type: mongoose.Types.ObjectId, ref: "User", unique: true },
+  user_agent: { type: String },
+  isVerified: { type: Boolean, default: false },
   emailVerificationCode: String,
   emailVerificationExpires: Date,
   forgotPasswordCode: String,

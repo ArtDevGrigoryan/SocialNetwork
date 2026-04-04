@@ -7,9 +7,8 @@ const postsSchema = new mongoose.Schema(
     content: String,
     images: [String],
 
-    likes: [{ type: mongoose.Types.ObjectId, ref: "User" }],
-
-    commentsCount: { type: Number, default: 0 },
+    likes: { type: Number, default: 0 },
+    comments: { type: Number, default: 0 },
 
     visibility: {
       type: String,
@@ -17,7 +16,9 @@ const postsSchema = new mongoose.Schema(
       default: "PUBLIC",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
+
+postsSchema.pre("deleteOne", cascadeDeletePost);
 
 module.exports = mongoose.model("Posts", postsSchema);

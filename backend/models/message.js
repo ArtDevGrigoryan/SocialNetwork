@@ -23,25 +23,25 @@ const messageSchema = new mongoose.Schema(
 
     text: {
       type: String,
-      required: function () {
-        return this.type === "TEXT";
+      validate: {
+        validator: function (v) {
+          return this.type !== "TEXT" || (v && v.trim().length > 0);
+        },
       },
     },
 
     voiceUrl: {
       type: String,
-      required: function () {
-        return this.type === "VOICE";
+      validate: {
+        validator: function (v) {
+          return this.type !== "VOICE" || !!v;
+        },
       },
     },
-
-    edited: { type: Boolean, default: false },
-
-    deletedFor: [{ type: mongoose.Types.ObjectId, ref: "User" }],
+    deletedAt: { type: Date, default: null },
+    editedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
 
 messageSchema.index({ chat: 1, createdAt: -1 });
-
-module.exports = mongoose.model("Message", messageSchema);

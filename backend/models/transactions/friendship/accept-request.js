@@ -1,6 +1,7 @@
 const { SocketBadRequestException } = require("@helpers/socket-errors");
 const FriendRequest = require("@models/friend-request");
 const Notification = require("@models/notification");
+const Settings = require("@models/setting");
 const mongoose = require("mongoose");
 const { addFollow } = require("@transaction/helpers/follow");
 
@@ -9,17 +10,19 @@ module.exports = async function acceptRequest(sender, receiver) {
   let result = { notification: null };
   try {
     await session.withTransaction(async () => {
-      const request = await FriendRequest.findOne({ sender, receiver }, null, {
-        session,
-      });
-      if (!request || request?.status != "PENDING") {
+      const [request, settings] = await Promise.all([
+        FriendRequest.findOneAndUpdate(
+          { sender, receiver, status: "PENDING" },
+          { $set: { status: "ACCEPTED" } },
+        ).session(session),
+        Settings.findOne({ user: receiver }).session(session),
+      ]);
+      if (!request) {
         throw new SocketBadRequestException("Something went wrong");
       }
-      await FriendRequest.findByIdAndUpdate(
-        request._id,
-        { status: "ACCEPTED" },
-        { session },
-      );
+
+      const isSended = !settings.notifications.accept_request;
+
       const existingNotification = await Notification.findOne(
         {
           user: sender,
@@ -31,10 +34,10 @@ module.exports = async function acceptRequest(sender, receiver) {
       );
       if (existingNotification) {
         existingNotification.isRead = false;
-        existingNotification.isSended = false;
+        existingNotification.isSended = isSended;
         await existingNotification.save({ session });
       }
-      const notification = !existingNotification
+      const [notification] = !existingNotification
         ? await Notification.create(
             [
               {
@@ -42,18 +45,19 @@ module.exports = async function acceptRequest(sender, receiver) {
                 entity: receiver,
                 entityModel: "User",
                 type: "FOLLOW_ACCEPTED",
+                isSended,
               },
             ],
             { session },
           )
         : [existingNotification];
       await addFollow(sender, receiver, session);
-      result.notification = notification[0]._id;
+
+      result.notification = isSended ? null : notification._id;
       return result;
     });
     return result;
   } catch (err) {
-    console.log(err);
     throw err;
   } finally {
     await session.endSession();

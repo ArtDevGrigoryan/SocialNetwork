@@ -9,6 +9,8 @@ const {
   messageSchema,
   createChatSchema,
   searchSchema,
+  myNotifsSchema,
+  createGroupSchema,
 } = require("@schemas/socket.schema");
 const validate = require("../middlewares/validate");
 
@@ -66,13 +68,32 @@ module.exports = {
     validate(markReadSchema),
     socketEvent.deleteNotification,
   ),
+  notifications_my: event(
+    isAuth,
+    validate(myNotifsSchema),
+    socketEvent.getNotifications,
+  ),
   notifications_all_delete: event(isAuth, socketEvent.deleteAllNotifications),
-  chat_start_DM: event(isAuth, validate(startDMSchema), socketEvent.startDM),
-  chat_create: event(
+  chat_dm_create: event(
     isAuth,
     validate(createChatSchema),
-    socketEvent.createChat,
+    socketEvent.createChatDM,
   ),
-
-  message_DM: event(isAuth, validate(messageSchema), socketEvent.directMessage),
+  chat_dm_delete: event(
+    isAuth,
+    validate(joinRoomSchema),
+    socketEvent.deleteChatDM,
+  ),
+  chat_group_create: event(
+    isAuth,
+    validate(createGroupSchema),
+    socketEvent.createChatGroup,
+  ),
+  chat_group_add_user: event(isAuth, validate(), socketEvent),
+  chat_gruop_update: event(isAuth, validate(), socketEvent),
+  chat_message_send: event(
+    isAuth,
+    validate(messageSchema),
+    socketEvent.directMessage,
+  ),
 };

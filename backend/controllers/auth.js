@@ -5,11 +5,11 @@ class AuthController {
     this.service = require("@services/auth.service");
   }
   async login(req, res) {
-    const data = await this.service.login(req.validated.body);
+    const data = await this.service.login(req.validated.body, req.userAgent);
     return sendSuccess(res, data);
   }
   async register(req, res) {
-    const data = await this.service.register(req.validated.body);
+    const data = await this.service.register(req.validated.body, req.userAgent);
     return sendSuccess(res, data, 201);
   }
   async logout(req, res) {

@@ -29,3 +29,13 @@ module.exports.createChatSchema = z.object({
 module.exports.searchSchema = z.object({
   text: z.string().nonempty(),
 });
+
+module.exports.myNotifsSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(20).default(20),
+});
+
+module.exports.createGroupSchema = z.object({
+  userIds: z.array(idSchema),
+  groupName: z.string().nonempty().default("Friend group"),
+});

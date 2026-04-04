@@ -1,30 +1,5 @@
 const mongoose = require("mongoose");
-
-const participantSchema = new mongoose.Schema(
-  {
-    user: {
-      type: mongoose.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-
-    lastReadMessage: {
-      type: mongoose.Types.ObjectId,
-      ref: "Message",
-      default: null,
-    },
-
-    unreadCount: {
-      type: Number,
-      default: 0,
-    },
-
-    isMuted: { type: Boolean, default: false },
-    isArchived: { type: Boolean, default: false },
-    isPinned: { type: Boolean, default: false },
-  },
-  { _id: false },
-);
+const cascadeDeleteChat = require("./middlewares/cascade-delete-chat");
 
 const chatSchema = new mongoose.Schema(
   {
@@ -32,11 +7,6 @@ const chatSchema = new mongoose.Schema(
       type: String,
       enum: ["dm", "group"],
       default: "dm",
-    },
-
-    participants: {
-      type: [participantSchema],
-      validate: [(v) => v.length >= 2, "Chat must have at least 2 users"],
     },
 
     groupName: String,
@@ -53,16 +23,23 @@ const chatSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    dmKey: String,
+    chatKey: String,
     messagePermission: {
       type: String,
       enum: ["everyone", "followers", "nobody"],
       default: "everyone",
     },
+    pinned: [{ type: mongoose.Types.ObjectId, ref: "Message" }],
   },
   { timestamps: true },
 );
 
+chatSchema.pre(
+  "deleteOne",
+  { document: true, query: false },
+  cascadeDeleteChat,
+);
 chatSchema.index({ lastActivityAt: -1 });
+chatSchema.index({ chatKey: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model("Chat", chatSchema);
