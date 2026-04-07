@@ -12,8 +12,6 @@ const chatSchema = new mongoose.Schema(
     groupName: String,
     groupAvatar: String,
 
-    admins: [{ type: mongoose.Types.ObjectId, ref: "User" }],
-
     lastMessage: {
       type: mongoose.Types.ObjectId,
       ref: "Message",

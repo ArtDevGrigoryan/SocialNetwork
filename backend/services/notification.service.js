@@ -1,3 +1,4 @@
+const { BadRequestException } = require("@helpers/errors");
 const {
   SocketBadRequestException,
   SocketConflictException,
@@ -6,6 +7,7 @@ const {
 const { settingToEvent } = require("@helpers/utilities/settings-to-event");
 const Notification = require("@models/notification");
 const Settings = require("@models/setting");
+const eventBus = require("@services/event-bus");
 
 class NotificationService {
   async notificationsToMe(id) {
@@ -31,8 +33,8 @@ class NotificationService {
       { _id: { $in: notifications.map((n) => n._id) } },
       { $set: { isSended: true } },
     );
-
     return notifications;
+    
   }
   findById(_id) {
     if (!_id) {
@@ -92,6 +94,19 @@ class NotificationService {
       .sort({ updatedAt: -1 })
       .skip(skip)
       .limit(limit);
+  }
+  async create(notifData, settingProp) {
+    const setting = await Settings.findOne({ user: notifData.user });
+    if (!setting) {
+      throw new BadRequestException("Something went wrong");
+    }
+    if (!setting.notifications[settingProp]) {
+      return null;
+    }
+    return await Notification.create(notifData);
+  }
+  async markSended(_id) {
+    await Notification.updateOne({ _id }, { isSended: true });
   }
 }
 

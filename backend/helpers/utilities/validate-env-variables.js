@@ -16,12 +16,16 @@ module.exports = function validateEnvVariables(env) {
     "GITHUB_CLIENT_SECRET",
     "GOOGLE_OAUTH_REDIRECT_URL",
     "GITHUB_OAUTH_REDIRECT_URL",
+    "STROJ_ACCESS_KEY",
+    "STROJ_SECRET_KEY",
     "REDIS_URI",
     "FRONTENTD_URL",
     "EMAIL_FROM",
     "FAILED_LIMIT",
     "NODE_ENV",
     "PINN_LIMIT",
+    "STROJ_ENDPOINT",
+    "STROJ_BUCKET_NAME",
   ];
   const missingVariables = requiredVariables.filter(
     (variable) => !env[variable],
@@ -45,6 +49,8 @@ module.exports = function validateEnvVariables(env) {
     GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
     GOOGLE_OAUTH_REDIRECT_URL: env.GOOGLE_OAUTH_REDIRECT_URL,
+    STROJ_ACCESS_KEY: env.STROJ_ACCESS_KEY,
+    STROJ_SECRET_KEY: env.STROJ_SECRET_KEY,
     MONGO_URI: env.MONGO_URI,
     APP_NAME: env.APP_NAME,
     GITHUB_CLIENT_ID: env.GITHUB_CLIENT_ID,
@@ -55,5 +61,7 @@ module.exports = function validateEnvVariables(env) {
     FAILED_LIMIT: Number(env.FAILED_LIMIT),
     NODE_ENV: env.NODE_ENV,
     PINN_LIMIT: env.PINN_LIMIT,
+    STROJ_ENDPOINT: env.STROJ_ENDPOINT,
+    STROJ_BUCKET_NAME: env.STROJ_BUCKET_NAME,
   };
 };

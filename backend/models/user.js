@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema(
     followingCount: { type: Number, default: 0 },
     status: { type: String, enum: ["ONLINE", "OFFLINE"], default: "OFFLINE" },
     token: { type: String },
+    role: { type: String, enum: ["admin", "user"], default: "user" },
     deactived: { type: Boolean, default: false },
   },
   { timestamps: true },
@@ -32,6 +33,5 @@ userSchema.set("toObject", {
     return ret;
   },
 });
-
 
 module.exports = mongoose.model("User", userSchema);

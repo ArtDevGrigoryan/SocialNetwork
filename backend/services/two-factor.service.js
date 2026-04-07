@@ -10,7 +10,7 @@ class TwoFactorService {
       name: `${env.APP_NAME} (${email})`,
     });
   }
-
+  
   async generateQRCode(otpauthUrl) {
     return QRCode.toDataURL(otpauthUrl);
   }

@@ -1,31 +1,47 @@
-const { createClient } = require("redis");
+const Redis = require("ioredis");
 const env = require("../env");
 
-const client = createClient({
-  url: env.REDIS_URI,
-});
+const client = new Redis(env.REDIS_URI);
 
 class Cache {
   del(cacheKey) {
     return client.del(cacheKey);
   }
+
   async get(cacheKey) {
     const cachedData = await client.get(cacheKey);
-    return JSON.parse(cachedData);
+    if (!cachedData) return null;
+    try {
+      return JSON.parse(cachedData);
+    } catch (err) {
+      return cachedData;
+    }
   }
-  async set(cacheKey, data, options = undefined) {
-    await client.set(cacheKey, JSON.stringify(data), options);
+
+  async set(cacheKey, data, options = {}) {
+    const value = JSON.stringify(data);
+    if (options.EX) {
+      await client.set(cacheKey, value, "EX", options.EX);
+    } else if (options.PX) {
+      await client.set(cacheKey, value, "PX", options.PX);
+    } else {
+      await client.set(cacheKey, value);
+    }
   }
-  removeRoom(cachekey, userId) {
-    return client.sRem(cachekey, userId.toString());
+
+  async removeRoom(cacheKey, userId) {
+    return client.sRem(cacheKey, userId.toString());
   }
-  joinRoom(cacheKey, userId) {
+
+  async joinRoom(cacheKey, userId) {
     return client.sAdd(cacheKey, userId.toString());
   }
-  checkInRoom(cacheKey, userId) {
-    return client.sIsMember(cacheKey, userId);
+
+  async checkInRoom(cacheKey, userId) {
+    return client.sIsMember(cacheKey, userId.toString());
   }
-  getAllMembers(cacheKey) {
+
+  async getAllMembers(cacheKey) {
     return client.sMembers(cacheKey);
   }
 }

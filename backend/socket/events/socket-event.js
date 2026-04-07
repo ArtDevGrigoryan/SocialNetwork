@@ -32,7 +32,20 @@ class SocketEvent {
     await userService.updateStatus(id);
     console.log("դիզքոնեկտադո");
   }
-
+  
+  async joinRoom(socket, data) {
+    const { chatId } = data;
+    const chat = await chatService.find(chatId, socket.user._id);
+    const cacheKey = `chat:${chat._id}`;
+    await cache.joinRoom(cacheKey, socket.user._id);
+    socket.emit("joined", chat);
+  }
+  async disjoinRoom(socket, data) {
+    const { chatId } = data;
+    const cacheKey = `chat:${chatId}`;
+    await cache.removeRoom(cacheKey, socket.user._id);
+    socket.emit("ok", "helar brat jan");
+  }
   async directMessage(socket, data) {
     const { message, chatId } = data;
     const { notifications, message: msg } = await chatService.addMessage(
@@ -47,19 +60,6 @@ class SocketEvent {
       await this.notifyAll(notifications.filter((n) => !inChats.has(n.user)));
     }
     socket.emit("ok", msg);
-  }
-  async joinRoom(socket, data) {
-    const { chatId } = data;
-    const chat = await chatService.find(chatId, socket.user._id);
-    const cacheKey = `chat:${chat._id}`;
-    await cache.joinRoom(cacheKey, socket.user._id);
-    socket.emit("joined", chat);
-  }
-  async disjoinRoom(socket, data) {
-    const { chatId } = data;
-    const cacheKey = `chat:${chatId}`;
-    await cache.removeRoom(cacheKey, socket.user._id);
-    socket.emit("ok", "helar brat jan");
   }
   async createChatDM(socket, data) {
     const { userId } = data;
@@ -98,7 +98,6 @@ class SocketEvent {
     }
     socket.emit("ok", res.message || "success");
   }
-
   async unfollow(socket, data) {
     const { userId } = data;
     const res = await friendService.unfollow(socket.user._id, userId);
@@ -108,7 +107,6 @@ class SocketEvent {
     }
     socket.emit("ok", res.message || "success");
   }
-
   async cancelRequest(socket, data) {
     const { userId } = data;
     const res = await friendService.cancel(socket.user._id, userId);
@@ -118,7 +116,6 @@ class SocketEvent {
     }
     socket.emit("ok", res.message || "success");
   }
-
   async acceptRequest(socket, data) {
     const { userId } = data;
     const res = await friendService.accept(socket.user._id, userId);
@@ -128,7 +125,6 @@ class SocketEvent {
     }
     socket.emit("ok", res.message || "success");
   }
-
   async declineRequest(socket, data) {
     const { userId } = data;
     const res = await friendService.decline(socket.user._id, userId);
@@ -138,7 +134,6 @@ class SocketEvent {
     }
     socket.emit("ok", res.message || "success");
   }
-
   async getNotifications(socket, data) {
     console.log(data);
     const { page, limit } = data;
@@ -149,14 +144,12 @@ class SocketEvent {
     );
     socket.emit("ok", notifs);
   }
-
   async notify(notificationId) {
     const io = await this.getIO();
     const notification = await notificationService.findById(notificationId);
     const roomKey = `socket:${notification.user._id}`;
     io.to(roomKey).emit("notification", notification);
   }
-
   async notifyAll(notifications) {
     const [io, onlines] = await Promise.all([
       this.getIO(),
@@ -174,7 +167,6 @@ class SocketEvent {
       io.to(roomKey).emit("notification", n);
     });
   }
-
   async markRead(socket, data) {
     const { notificationId } = data;
     await notificationService.markRead(socket.user._id, notificationId);

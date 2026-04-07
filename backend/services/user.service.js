@@ -3,6 +3,7 @@ const User = require("@models/user");
 const Block = require("@models/blocked-user");
 const FriendRequest = require("@models/friend-request");
 const friendService = require("./friend.service");
+const blockTx = require("@transaction/friendship/block");
 
 class UserService {
   async checkExists(...ids) {
@@ -56,7 +57,7 @@ class UserService {
       return "unblocked";
     }
     await Block.create({ blocker: myId, blocked: targetId });
-    await friendService.handleBlock(myId, targetId);
+    await blockTx(myId, targetId);
     return "blocked";
   }
   findBlockeds(blocker, page = 1, limit = 20) {

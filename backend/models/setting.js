@@ -19,7 +19,7 @@ const settingsSchema = new mongoose.Schema(
       group_removed: { type: Boolean, default: true },
       group_member_removed_notice: { type: Boolean, default: true },
       message: { type: Boolean, default: true },
-
+      like: { type: Boolean, default: true },
       newGroup: { type: Boolean, default: true },
     },
 
@@ -33,13 +33,6 @@ const settingsSchema = new mongoose.Schema(
       showLastSeen: { type: Boolean, default: true },
       showTyping: { type: Boolean, default: true },
     },
-
-    mutedChats: [
-      {
-        chat: { type: mongoose.Types.ObjectId, ref: "Chat" },
-        mutedUntil: Date,
-      },
-    ],
   },
   { timestamps: true },
 );

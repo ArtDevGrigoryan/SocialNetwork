@@ -7,63 +7,99 @@ const declineRequestTx = require("@models/transactions/friendship/decline-reques
 const Follow = require("@models/follow");
 const { SocketConflictException } = require("@helpers/socket-errors");
 const FriendRequest = require("@models/friend-request");
+const {
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+} = require("@helpers/errors");
+const PolicyService = require("@services/policy.service");
+const eventBus = require("./event-bus");
 
 class FriendService {
   async follow(sender, receiver) {
     if (sender.toString() === receiver.toString()) {
-      throw new SocketConflictException(null, "Cannot follow yourself");
+      throw new ConflictException("Cannot follow yourself");
     }
-    return followTx(sender, receiver);
-  }
+    const { profileVisibility, notificationSettings } =
+      await PolicyService.canInitiateFollow(sender, receiver);
 
-  async accept(sender, receiver) {
-    return acceptRequestTx(sender, receiver);
+    const { message } = await followTx(sender, receiver, profileVisibility);
+    if (notificationSettings.follow) {
+      eventBus.emitEvent("notify.follow", { entity: sender });
+    }
+    return message;
   }
-
-  async decline(sender, receiver) {
-    return declineRequestTx(sender, receiver);
+  async accept(receiver, requestId) {
+    const { notificationSettings, sender } =
+      await PolicyService.canRequestReaction(receiver, requestId);
+    await acceptRequestTx(requestId);
+    if (notificationSettings.accept_request) {
+      eventBus.emitEvent("follow.accepted", {
+        user: sender,
+        entity: receiver,
+        entityModel: "User",
+      });
+    }
+    return true;
   }
+  async decline(receiver, requestId) {
+    const { sender, notificationSettings } =
+      await PolicyService.canRequestReaction(receiver, requestId);
 
-  async cancel(sender, receiver) {
-    return cancelRequestTx(sender, receiver);
+    await declineRequestTx(requestId);
+    if (notificationSettings.decline_request) {
+      eventBus.emitEvent("follow.declined", {
+        user: sender,
+        entity: receiver,
+        entityModel: "User",
+      });
+    }
+    return true;
   }
+  async cancel(receiver, requestId) {
+    const { notificationSettings, sender } =
+      await PolicyService.canRequestReaction(receiver, requestId);
 
+    await cancelRequestTx(requestId);
+    if (notificationSettings.cancel_request) {
+      eventBus.emitEvent("follow.canceled", {
+        user: sender,
+        entity: receiver,
+        entityModel: "User",
+      });
+    }
+    return true;
+  }
   async unfollow(myId, targetId) {
-    return unfollowTx(myId, targetId);
+    const { notificationSettings } = await PolicyService.canInitiateUnfollow(
+      myId,
+      targetId,
+    );
+    await unfollowTx(myId, targetId);
+    if (notificationSettings.unfollow) {
+      eventBus.emitEvent("unfollow", {
+        user: targetId,
+        entity: myId,
+        entityModel: "User",
+      });
+    }
+    return true;
   }
-
-  followerList(userId, limit = 20, page = 1) {
+  async followerList(userId, limit = 20, page = 1) {
     const skip = (page - 1) * limit;
-    return Follow.find({ following: userId })
+    return await Follow.find({ following: userId })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .populate("follower", "_id username avatar");
   }
-  followingList(userId, limit = 20, page = 1) {
+  async followingList(userId, limit = 20, page = 1) {
     const skip = (page - 1) * limit;
-    return Follow.find({ follower: userId })
+    return await Follow.find({ follower: userId })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .populate("following", "_id username avatar");
-  }
-  handleBlock(userId, targetId) {
-    return Promise.all([
-      Follow.deleteMany({
-        $or: [
-          { follower: userId, following: targetId },
-          { follower: targetId, following: userId },
-        ],
-      }),
-
-      FriendRequest.deleteMany({
-        $or: [
-          { sender: userId, receiver: targetId },
-          { sender: targetId, receiver: userId },
-        ],
-      }),
-    ]);
   }
 }
 

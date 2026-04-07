@@ -15,6 +15,10 @@ const messageService = require("./message.service");
 const Participants = require("@models/participants");
 const participantService = require("@services/participants.service");
 const env = require("@helpers/env");
+const PolicyService = require("./policy.service");
+const evnetBus = require("@services/event-bus");
+const { BadRequestException, ConflictException } = require("@helpers/errors");
+const eventBus = require("@services/event-bus");
 
 class ChatService {
   searchChat(userId, text) {
@@ -100,11 +104,41 @@ class ChatService {
     await chat.save();
     return chat;
   }
-  addMessage(userId, chatId, text) {
-    return sendMessageTx(userId, chatId, { type: "TEXT", text });
+  async addMessage(userId, chatId, text) {
+    const { chat, participant, notificationTargets } =
+      await PolicyService.canSendMessage(userId, chatId);
+
+    const { message } = await sendMessageTx(userId, chatId, {
+      type: "TEXT",
+      text,
+    });
+
+    notificationTargets.forEach((n) => {
+      evnetBus.emitEvent("message", {
+        user: n.user,
+        entity: message._id,
+        entityModel: "Message",
+      });
+    });
+    return message;
   }
-  addVoice(userId, chatId, voiceUrl) {
-    return sendMessageTx(userId, chatId, { type: "VOICE", voiceUrl });
+  async addVoice(userId, chatId, voiceUrl) {
+    const { chat, participant, notificationTargets } =
+      await PolicyService.canSendMessage(userId, chatId);
+
+    const { message } = await sendMessageTx(userId, chatId, {
+      type: "VOICE",
+      voiceUrl,
+    });
+
+    notificationTargets.forEach((n) => {
+      evnetBus.emitEvent("message", {
+        user: n.user,
+        entity: message._id,
+        entityModel: "Message",
+      });
+    });
+    return message;
   }
   async editMessage(userId, messageId, newText) {
     const message = await Message.findById(messageId);
@@ -133,7 +167,7 @@ class ChatService {
     return true;
   }
   async read(userId, chatId) {
-    return readMessagesTx(userId, chatId);
+    return await readMessagesTx(userId, chatId);
   }
   async createDM(myId, targetId) {
     const chatKey = [myId, targetId].sort().join(":");
@@ -188,14 +222,49 @@ class ChatService {
       limit,
     });
   }
-  deleteGroup(userId, chatId) {
-    return deleteGroupTx(userId, chatId);
+  async deleteGroup(userId, chatId) {
+    const usersNotifs = await PolicyService.canRemoveGroup(userId, chatId);
+    await deleteGroupTx(chatId);
+    return true;
   }
-  removeUserFromGruop(userId, chatId, participantId) {
-    return removeUserTx(userId, chatId, participantId);
+  async removeUserFromGruop(removerParticipantId, chatId, participantId) {
+    if (removerParticipantId.toString() == participantId.toString()) {
+      throw new ConflictException("cannot remove yourself");
+    }
+    const { removedNotif, notifs, removedUser } =
+      await PolicyService.canRemoveMember(
+        removerParticipantId,
+        chatId,
+        participantId,
+      );
+
+    await removeUserTx(participantId);
+
+    if (removedNotif) {
+      eventBus.emitEvent("member.removed", {
+        user: removedNotif,
+        entity: userId,
+        entityModel: "User",
+      });
+    }
+    notifs.forEach((n) => {
+      eventBus("member.removed.notice", {
+        user: n,
+        entity: removedUser,
+        entityModel: "User",
+      });
+    });
   }
-  disjoinChat(userId, chatId) {
-    return disjoinChatTx(userId, chatId);
+  async disjoinChat(participantId, chatId) {
+    const { participantsWithSettings, user } =
+      await PolicyService.canDisjoinChat(participantId, chatId);
+
+    await disjoinChatTx(participantId, chatId);
+
+    participantsWithSettings.forEach((p) => {
+      eventBus.emitEvent("disjoin.chat", { user: p.user, entity: user });
+    });
+    return true;
   }
   async changeGroup(userId, chatId, data) {
     const participant = await Participants.findOne({ user: userId, chatId });
