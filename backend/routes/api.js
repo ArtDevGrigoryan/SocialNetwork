@@ -8,6 +8,7 @@ const saveRouter = require("@routes/save");
 const commentRouter = require("@routes/comment");
 const postRouter = require("@routes/post");
 const repostRouter = require("@routes/repost");
+const likeRouter = require("@routes/like");
 
 router.use("/auth", authRouter);
 router.use("/friends", isAuth, friendRouter);
@@ -16,5 +17,6 @@ router.use("/saves", isAuth, saveRouter);
 router.use("/comments", isAuth, commentRouter);
 router.use("/posts", isAuth, postRouter);
 router.use("/reposts", isAuth, repostRouter);
+router.use("/likes", isAuth, likeRouter);
 
 module.exports = router;

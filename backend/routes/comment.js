@@ -1,11 +1,28 @@
-const isAuth = require("@middlewares/is-auth");
-
+const commentController = require("@controllers/comment");
 const router = require("express").Router();
+const validate = require("@middlewares/validate");
+const schemas = require("@schemas/comment.schema");
 
-// router.get("/", isAuth) // im grac comm
-// router.get("/:id", isAuth) // com by Id
-// router.patch("/:id", isAuth) // update
-// router.post("/", isAuth) // add comm
-// router.delete("/:id", isAuth) // delete com
+router.get(
+  "/my",
+  validate(schemas.myCommentsSchema),
+  commentController.myComments,
+);
+router.get(
+  "/:postId",
+  validate(schemas.getCommentsSchema),
+  commentController.comments,
+);
+router.patch(
+  "/:id",
+  validate(schemas.updateCommentSchema),
+  commentController.update,
+);
+router.post("/", validate(schemas.addCommentSchema), commentController.add);
+router.delete(
+  "/:id",
+  validate(schemas.deleteCommentSchema),
+  commentController.delete,
+);
 
 module.exports = router;

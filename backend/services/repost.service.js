@@ -1,0 +1,44 @@
+const Repost = require("@models/repost");
+const PolicyService = require("./policy.service");
+
+class RepostService {
+  async toggle(userId, postId) {
+    const post = await PolicyService.canAccessRepost(userId, postId);
+
+    const existing = await Repost.findOne({
+      post: postId,
+      user: userId,
+    });
+
+    if (existing) {
+      await existing.deleteOne();
+      return { action: "deleted", repost: null };
+    }
+    const repost = await Repost.create({
+      post: postId,
+      user: userId,
+      author: post.author,
+    }).populate("post");
+    return { action: "created", repost };
+  }
+  myReposts(userId, pagination) {
+    const { limit = 20, page = 1 } = pagination;
+    const skip = (page - 1) * limit;
+    return Repost.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("post");
+  }
+  repostsMyPost(userId, pagination) {
+    const { page = 1, limit = 20 } = pagination;
+    const skip = (page - 1) * limit;
+    return Repost.find({ author: userId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("user", "_id avatar username bio");
+  }
+}
+
+module.exports = new RepostService();

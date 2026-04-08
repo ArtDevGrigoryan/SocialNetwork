@@ -106,6 +106,13 @@ class PolicyService {
       },
     };
   }
+  static async canAccessRepost(reposterId, postId, session = null) {
+    const post = await this.canAccessPost(reposterId, postId, session);
+    if (!post.accessRepost) {
+      throw new ForBiddenException("Cannot access repost");
+    }
+    return post;
+  }
   static async canModifyPost(userId, postId, session = null) {
     const post = await this.withSession(Post.findById(postId), session);
     if (!post) throw new NotFoundException("Post not found");

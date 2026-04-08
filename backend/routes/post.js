@@ -31,6 +31,11 @@ router.patch(
   validate(schemas.getSpecificSchema),
   postController.toggleArchive,
 );
+router.patch(
+  "/:id/repost-access",
+  validate(schemas.getSpecificSchema),
+  postController.toggleAccessRepost,
+);
 router.delete(
   "/:id",
   validate(schemas.getSpecificSchema),

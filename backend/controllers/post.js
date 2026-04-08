@@ -59,6 +59,11 @@ class PostController {
     const updated = await postService.toggleLike(req.user._id, id);
     return sendSuccess(res, updated);
   }
+  async toggleAccessRepost(req, res) {
+    const { id } = req.params;
+    const updated = await postService.toggleAccessRepost(req.user._id, id);
+    return sendSuccess(res, updated);
+  }
 }
 
 module.exports = new PostController();

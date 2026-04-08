@@ -16,6 +16,7 @@ const postsSchema = new mongoose.Schema(
     likes: { type: Number, default: 0 },
     comments: { type: Number, default: 0 },
     isArchived: { type: Boolean, default: false },
+    accessRepost: { type: Boolean, default: true },
   },
   {
     timestamps: true,

@@ -23,6 +23,7 @@ const createSchema = z.object({
   content: z.string().nonempty(),
 });
 
+
 module.exports = {
   getPostsSchema: [
     { body: getPostsSchema, query: paginationSchema },

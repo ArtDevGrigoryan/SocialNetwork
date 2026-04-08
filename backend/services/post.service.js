@@ -129,6 +129,19 @@ class PostService {
       });
     return { liked };
   }
+  async toggleAccessRepost(userId, postId) {
+    const post = await Post.findOneAndUpdate(
+      { _id: postId, author: userId },
+      { $bit: { accessRepost: { xor: 1 } } },
+      { returnDocument: "after" },
+    );
+
+    if (!post) {
+      throw new NotFoundException("Post not found or no permission");
+    }
+
+    return post;
+  }
 }
 
 module.exports = new PostService();
