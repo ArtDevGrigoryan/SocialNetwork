@@ -15,6 +15,7 @@ class PostController {
       content: req.body.content,
     };
     const post = await postService.update(req.user._id, id, data);
+    return sendSuccess(res, post);
   }
   async toggleArchive(req, res) {
     const post = await postService.toggleArchivePost(
@@ -24,13 +25,13 @@ class PostController {
     return sendSuccess(res, post);
   }
   async getPosts(req, res) {
-    const { limit, page } = req.validate.query;
+    const { limit, page } = req.validated.query;
     const { author } = req.body;
     const posts = await postService.getPosts(req.user._id, author, page, limit);
     return sendSuccess(res, posts);
   }
   async getArchived(req, res) {
-    const { limit, page } = req.validate.body;
+    const { limit, page } = req.validated.query;
     const archivedPosts = await postService.getArchivedPosts(
       req.user._id,
       page,
@@ -49,8 +50,8 @@ class PostController {
   }
   async removeImage(req, res) {
     const { id } = req.params;
-    const { key } = req.body;
-    const updated = await postService.removeImage(req.user._id, id, key);
+    const { url } = req.body;
+    const updated = await postService.removeImage(req.user._id, id, url);
     return sendSuccess(res, updated);
   }
   async toggleLike(req, res) {

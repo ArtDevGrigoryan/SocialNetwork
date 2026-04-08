@@ -5,7 +5,7 @@ const Reposts = require("@models/repost");
 const Saves = require("@models/saves");
 const Post = require("@models/post");
 
-module.exports = async function cascadeDelete(next) {
+module.exports = async function cascadeDelete() {
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -30,10 +30,7 @@ module.exports = async function cascadeDelete(next) {
         ]);
       }
     });
-
-    next();
   } finally {
     await session.endSession();
   }
-}
-
+};

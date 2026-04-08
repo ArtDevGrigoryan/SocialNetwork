@@ -9,12 +9,14 @@ const getSpecificSchema = z.object({
   id: idSchema,
 });
 
-const updateSchema = z.object({
-  content: z.string().nonempty().optional(),
-});
+const updateSchema = z
+  .object({
+    content: z.string().nonempty().optional(),
+  })
+  .optional();
 
 const removeImageSchema = z.object({
-  key: z.string().nonempty(),
+  url: z.string().nonempty(),
 });
 
 const createSchema = z.object({

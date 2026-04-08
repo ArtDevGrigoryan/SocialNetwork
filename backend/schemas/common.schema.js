@@ -24,5 +24,5 @@ module.exports.idSchema = z
 
 module.exports.paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limt: z.coerce.number().int().min(1).default(20),
+  limit: z.coerce.number().int().min(1).default(20),
 });

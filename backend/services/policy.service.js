@@ -44,7 +44,8 @@ class PolicyService {
     return !!exist;
   }
   static async canViewProfile(viewerId, targetId, session = null) {
-    if (viewerId.toString() === targetId.toString()) return true;
+    if (viewerId.toString() === targetId.toString())
+      return { isFollowing: true, profileVisibility: "" };
 
     if (await this.isBlocked(viewerId, targetId, session)) {
       throw new NotFoundException("User not found");
@@ -61,19 +62,18 @@ class PolicyService {
         session,
       );
       if (!follow) throw new NotFoundException("User not found");
+      return { isFollowing: true, profileVisibility: "PRIVATE" };
     }
-
-    return true;
+    return { profileVisibility: "PUBLIC", isFollowing: null };
   }
 
   static async canAccessPost(viewerId, postId, session = null) {
     const post = await this.withSession(
-      Post.findById(postId).populate("author", "_id username avatar"),
+      Post.findById(postId).populate("author", "_id username avatar bio"),
       session,
-    ).lean();
+    );
 
     if (!post) throw new NotFoundException("Post not found");
-
     const authorId = post.author._id.toString();
 
     if (viewerId != authorId) {
@@ -99,7 +99,7 @@ class PolicyService {
     ]);
 
     return {
-      ...post,
+      ...post.toObject(),
       viewer: {
         isLiked: !!isLiked,
         isFollowing: !!isFollowing,
@@ -398,50 +398,6 @@ class PolicyService {
       sender: request.sender,
     };
   }
-
-  // Post
-
-  static async canAccessPost(userId, postId, session = null) {
-    const post = await this.withSession(Post.findById(postId), session);
-    if (!post) {
-      throw new NotFoundException("Post not found");
-    }
-    if (post.author.toString() != userId) {
-      const [isBlocked, setting, follow] = await Promise.all([
-        this.isBlocked(userId, post.author, session),
-        this.withSession(
-          Setting.findOne({
-            user: post.author,
-            "privacy.profileVisibility": "PUBLIC",
-          }),
-          session,
-        ),
-        this.withSession(
-          Follow.findOne({
-            follower: userId,
-            following: post.author,
-          }),
-          session,
-        ),
-      ]);
-      const itsOk =
-        isBlocked || setting.privacy.profileVisibility == "PRIVATE" || !follow;
-
-      if (!itsOk) {
-        throw new NotFoundException("Post not found");
-      }
-    }
-    return post;
-  }
-
-  //  Notifications
-  // static async shouldSendNotification(userId, propName, session = null) {
-  //   const setting = await this.withSession(
-  //     Setting.findOne({ user: userId }).select(`notifications.${propName}`),
-  //     session,
-  //   );
-  //   return Boolean(setting?.notifications?.[propName]);
-  // }
 }
 
 module.exports = PolicyService;

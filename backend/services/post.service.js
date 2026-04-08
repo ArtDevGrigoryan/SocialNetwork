@@ -1,3 +1,4 @@
+const { ObjectId } = require("mongoose").Types;
 const {
   NotFoundException,
   ConflictException,
@@ -5,12 +6,13 @@ const {
 } = require("@helpers/errors");
 const Post = require("@models/post");
 const Block = require("@models/blocked-user");
-const mediaService = require("@services/stroj-media.service");
+const mediaService = require("@services/media.service");
 const toggleLikeTx = require("@transaction/like-post");
 const notificationService = require("./notification.service");
 const socketService = require("./socket.service");
 const PolicyService = require("./policy.service");
 const eventBus = require("./event-bus");
+const AggreagtionHelperPost = require("@models/aggregations/post");
 
 class PostService {
   async create(user, files, content) {
@@ -38,37 +40,31 @@ class PostService {
     }
     return await Post.findOneAndUpdate({ _id: postId, author: user }, update, {
       new: true,
-    }).lean();
+    }).populate("author", "_id username bio avatar");
   }
   async getPosts(viewer, author, page = 1, limit = 20) {
     await PolicyService.canViewProfile(viewer, author);
-    const skip = (page - 1) * limit;
-    const posts = await Post.find({ author, isArchived: false })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    if (user.toString() != author) {
-      const block = await Block.findOne({ blocker: author, blocked: user });
-      if (block) {
-        throw new ConflictException("Cannot access in posts");
-      }
-    }
-    return posts;
+    return AggreagtionHelperPost.findPostsWithViewerLikes(
+      viewer,
+      author,
+      page,
+      limit,
+    );
   }
   async getArchivedPosts(author, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
     return await Post.find({ author, isArchived: true })
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .populate("author", "_id avatar username bio");
   }
   getSpecific(user, postId) {
     return PolicyService.canAccessPost(user, postId);
   }
   async deletePost(user, postId) {
     const userId = user._id.toString();
-    const post = await Post.findById(postId);
+    const post = await Post.findById(postId).lean();
     if (!post) {
       throw new NotFoundException("Post not found");
     }
@@ -89,27 +85,35 @@ class PostService {
           },
         },
       ],
-      { new: true },
-    ).lean();
+      { new: true, updatePipeline: true },
+    ).populate("author", "_id avatar bio username");
 
     if (!post) {
       throw new BadRequestException("Something went wrong");
     }
 
-    return post.isArchived ? null : post;
+    return post.isArchived ? null : post.toObject();
   }
-  async removeImage(user, postId, key) {
-    const post = await Post.findById(postId);
+  async removeImage(user, postId, url) {
+    const post = await Post.findOne({
+      _id: postId,
+      author: user,
+      "images.url": { $in: url },
+    }).lean();
     if (!post) {
       throw new NotFoundException("Post not found");
     }
     if (user.toString() != post.author) {
       throw new ConflictException("Cannot access to delete this image");
     }
+    const splitted = url.split("/");
+    const [fname, ext] = splitted.at(-1).split(".");
+    const key = splitted.at(-2) + "/" + fname;
+
     await mediaService.delete([key]);
     return await Post.findOneAndUpdate(
       { _id: postId, author: user },
-      { $pull: { images: { key: key } } },
+      { $pull: { images: { key } } },
       { new: true },
     );
   }
