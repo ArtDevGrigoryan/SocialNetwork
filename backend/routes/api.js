@@ -9,6 +9,8 @@ const commentRouter = require("@routes/comment");
 const postRouter = require("@routes/post");
 const repostRouter = require("@routes/repost");
 const likeRouter = require("@routes/like");
+const chatRouter = require("@routes/chat");
+const messageRouter = require("@routes/message");
 
 router.use("/auth", authRouter);
 router.use("/friends", isAuth, friendRouter);
@@ -18,5 +20,6 @@ router.use("/comments", isAuth, commentRouter);
 router.use("/posts", isAuth, postRouter);
 router.use("/reposts", isAuth, repostRouter);
 router.use("/likes", isAuth, likeRouter);
+router.use("/chats", isAuth, chatRouter);
 
 module.exports = router;

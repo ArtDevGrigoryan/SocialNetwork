@@ -32,7 +32,7 @@ class SocketEvent {
     await userService.updateStatus(id);
     console.log("դիզքոնեկտադո");
   }
-  
+
   async joinRoom(socket, data) {
     const { chatId } = data;
     const chat = await chatService.find(chatId, socket.user._id);

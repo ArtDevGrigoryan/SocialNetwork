@@ -6,23 +6,27 @@ const readMessagesTx = require("@transaction/chat/read-messages");
 const disjoinChatTx = require("@transaction/chat/disjoin-chat");
 const removeUserTx = require("@transaction/chat/remove-user-from-group");
 const deleteGroupTx = require("@transaction/chat/delete-group");
-const {
-  SocketNotFoundException,
-  SocketConflictException,
-  SocketBadRequestException,
-} = require("@helpers/socket-errors");
+const createGroupTx = require("@transaction/chat/create-group");
 const messageService = require("./message.service");
 const Participants = require("@models/participants");
 const participantService = require("@services/participants.service");
 const env = require("@helpers/env");
 const PolicyService = require("./policy.service");
 const evnetBus = require("@services/event-bus");
-const { BadRequestException, ConflictException } = require("@helpers/errors");
+const {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  ForBiddenException,
+} = require("@helpers/errors");
 const eventBus = require("@services/event-bus");
 
 class ChatService {
-  searchChat(userId, text) {
-    const regexp = new RegExp(text, "i");
+  async searchChat(userId, text) {
+    const searchStr = text;
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const regexp = new RegExp(searchStr, "i");
+
     return Chat.aggregate([
       {
         $lookup: {
@@ -31,6 +35,9 @@ class ChatService {
           foreignField: "chatId",
           as: "participants",
         },
+      },
+      {
+        $match: { "participants.user": userObjectId },
       },
       {
         $lookup: {
@@ -43,8 +50,8 @@ class ChatService {
       {
         $match: {
           $or: [
-            { groupName: { $regex: searchStr, $options: "i" } },
-            { "users.username": { $regex: searchStr, $options: "i" } },
+            { groupName: { $regex: regexp } },
+            { "users.username": { $regex: regexp } },
           ],
         },
       },
@@ -58,170 +65,174 @@ class ChatService {
           lastActivityAt: 1,
         },
       },
+      {
+        $sort: { lastActivityAt: -1 },
+      },
     ]);
   }
-  async getChats(userId, page = 1, limit = 20) {
-    const skip = (page - 1) * limit;
-    const chatIds = await Participants.find({ user: userId }).select("chatId");
-    return await Chat.find({ _id: { $in: cahtIds } })
-      .sort({ lastActivityAt: -1 })
-      .skip(skip)
-      .limit(limit);
-  }
-  async find(chatId, userId) {
-    const [chat, participant] = await Promise.all([
-      Chat.findById(chatId),
-      participantService.findOne(userId, chatId),
+  async getChats(userId, { limit = 20, cursor }) {
+    const match = { user: new mongoose.Types.ObjectId(userId) };
+
+    if (cursor) {
+      const [lastActivityAt, lastId] = cursor.split("_");
+      match["chat.lastActivityAt"] = { $lt: new Date(lastActivityAt) };
+      match["chat._id"] = { $lt: new mongoose.Types.ObjectId(lastId) };
+    }
+
+    const results = await Participants.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
+
+      {
+        $lookup: {
+          from: "chats",
+          localField: "chatId",
+          foreignField: "_id",
+          as: "chat",
+        },
+      },
+      { $unwind: "$chat" },
+
+      {
+        $lookup: {
+          from: "messages",
+          localField: "chat.lastMessage",
+          foreignField: "_id",
+          as: "chat.lastMessage",
+        },
+      },
+      {
+        $unwind: {
+          path: "$chat.lastMessage",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      { $sort: { "chat.lastActivityAt": -1, "chat._id": -1 } },
+      { $limit: limit },
+
+      { $replaceRoot: { newRoot: "$chat" } },
     ]);
-    if (!chat) throw new SocketNotFoundException(null, "Chat not found");
-    if (!participant) {
-      throw new SocketConflictException(null, "Cannot access in this chat");
-    }
-    return chat;
-  }
-  async togglePinMsg(user, chatId, msg) {
-    const [chat, participant, message] = await Promise.all([
-      Chat.findById(chatId),
-      participantService.findOne(user, chatId),
-      Message.findById(msg),
-    ]);
-    if (!chat || !participant || message) {
-      throw new SocketNotFoundException(null, "Error");
-    }
-    const alreadyPinned = chat.pinned.find((id) => id.toString() == msg);
-    if (alreadyPinned) {
-      chat.pinned.filter((id) => id.toString() != msg);
-      await chat.save();
-      return chat;
-    }
-    if (chat.pinned.length + 1 >= env.PINN_LIMIT) {
-      throw new SocketBadRequestException(
-        null,
-        `Pinned message limit is ${env.PINN_LIMIT}`,
-      );
-    }
-    chat.pinned.push(msg);
-    await chat.save();
-    return chat;
-  }
-  async addMessage(userId, chatId, text) {
-    const { chat, participant, notificationTargets } =
-      await PolicyService.canSendMessage(userId, chatId);
 
-    const { message } = await sendMessageTx(userId, chatId, {
-      type: "TEXT",
-      text,
-    });
+    const nextCursor =
+      results.length > 0
+        ? `${results[results.length - 1].lastActivityAt.getTime()}_${
+            results[results.length - 1]._id
+          }`
+        : null;
 
-    notificationTargets.forEach((n) => {
-      evnetBus.emitEvent("message", {
-        user: n.user,
-        entity: message._id,
-        entityModel: "Message",
-      });
-    });
-    return message;
+    return { chats: results, nextCursor };
   }
-  async addVoice(userId, chatId, voiceUrl) {
-    const { chat, participant, notificationTargets } =
-      await PolicyService.canSendMessage(userId, chatId);
+  async find(userId, chatId) {
+    await PolicyService.canAccessChat(userId, chatId);
+    return Chat.findById(chatId).populate({
+      path: "pinned",
+      populate: {
+        path: "sender",
+        select: "_id username avatar bio",
+      },
+    });
+  }
+  async getAdmins(userId, chatId) {
+    await PolicyService.canAccessChat(userId, chatId);
+    return Participants.find({ chatId, role: "admin" }).populate(
+      "user",
+      "_id username avatar bio",
+    );
+  }
+  async togglePinMsg(participantId, chatId, msg) {
+    const isMember = await PolicyService.isMember(participantId, chatId);
+    if (!isMember) {
+      throw new ForBiddenException("User is not a member of this chat");
+    }
+    const message = await PolicyService.isChatMessage(msg, chatId);
+    if (!message) {
+      throw new NotFoundException("Message not found");
+    }
+    return await Chat.findByIdAndUpdate(
+      chatId,
+      [
+        {
+          $set: {
+            pinned: {
+              $cond: [
+                { $in: [msg, "$pinned"] },
+                {
+                  $filter: {
+                    input: "$pinned",
+                    cond: { $ne: ["$$this", msg] },
+                  },
+                },
+                { $concatArrays: ["$pinned", [msg]] },
+              ],
+            },
+          },
+        },
+      ],
+      { new: true },
+    ).populate({
+      path: "pinned",
+      populate: {
+        path: "sender",
+        select: "_id username avatar bio",
+      },
+    });
+  }
 
-    const { message } = await sendMessageTx(userId, chatId, {
-      type: "VOICE",
-      voiceUrl,
-    });
+  read(userId, chatId) {
+    return readMessagesTx(userId, chatId);
+  }
 
-    notificationTargets.forEach((n) => {
-      evnetBus.emitEvent("message", {
-        user: n.user,
-        entity: message._id,
-        entityModel: "Message",
-      });
-    });
-    return message;
-  }
-  async editMessage(userId, messageId, newText) {
-    const message = await Message.findById(messageId);
-    if (!message) throw new SocketNotFoundException("Message not found");
-    if (message.sender.toString() !== userId.toString()) {
-      throw new SocketConflictException("Cannot edit someone else's message");
-    }
-    if (message.type != "TEXT") {
-      throw new SocketBadRequestException(
-        null,
-        "Cannot edit this message but is it not edditable",
-      );
-    }
-    message.text = newText;
-    message.editedAt = new Date();
-    await message.save();
-    return message;
-  }
-  async deleteMessage(userId, messageId) {
-    const message = await Message.findById(messageId);
-    if (!message) throw new SocketNotFoundException("Message not found");
-    if (message.sender.toString() !== userId.toString()) {
-      throw new SocketConflictException("Cannot delete someone else's message");
-    }
-    await message.deleteOne();
-    return true;
-  }
-  async read(userId, chatId) {
-    return await readMessagesTx(userId, chatId);
-  }
   async createDM(myId, targetId) {
+    const isBlocked = await PolicyService.isBlocked(myId, targetId);
+    if (isBlocked) throw new NotFoundException("User not found");
+
     const chatKey = [myId, targetId].sort().join(":");
-    let chat = await Chat.findOne({
-      type: "dm",
-      chatKey,
-    });
-    if (!chat) {
-      chat = await Chat.create({
+    try {
+      const chat = await Chat.create({
         type: "dm",
-        participants: [{ user: myId }, { user: targetId }],
         chatKey,
       });
+
+      await Participants.insertMany([
+        { chatId: chat._id, user: myId },
+        { chatId: chat._id, user: targetId },
+      ]);
+
+      return chat;
+    } catch (err) {
+      if (err.code === 11000) {
+        return await Chat.findOne({ type: "dm", chatKey });
+      }
+      throw err;
     }
-    return chat;
   }
-  async createGroup(myId, userIds, groupName) {
-    if (!Array.isArray(userIds) || userIds.length === 0) {
-      throw new SocketBadRequestException(null, "Users required");
-    }
+  async createGroup(myId, data) {
+    const { userIds } = data;
+    const existings = await PolicyService.existUsers(userIds);
 
-    const uniqueIds = [...new Set([myId.toString(), ...userIds.map(String)])];
-
+    const uniqueIds = [
+      ...new Set([
+        myId.toString(),
+        ...existings.map((user) => user._id.toString()),
+      ]),
+    ];
     if (uniqueIds.length < 2) {
-      throw new SocketBadRequestException(null, "At least 2 users required");
+      throw new BadRequestException("At least 2 users required");
     }
+    const update = { groupName: data.groupName || "New Group" };
 
-    const participants = uniqueIds.map((id) => ({
-      user: id,
-    }));
-
-    const chat = await Chat.create({
-      type: "group",
-      participants,
-      admins: [myId],
-      groupName: groupName || "New Group",
-    });
-    return chat;
-  }
-  async getMessages(chatId, userId, cursor, limit) {
-    const participant = await participantService.findOne(userId, chatId);
-
-    if (!participant) {
-      throw new SocketConflictException(null, "User is not a participant");
+    if (data.groupAvatar) {
+      update.groupAvatar = data.groupAvatar;
     }
-
-    const date = participant.deletedAt;
-    return await messageService.getMessages({
-      participant,
-      userId,
-      cursor,
-      limit,
+    const participants = uniqueIds.map((id) => {
+      if (id == myId) {
+        return { user: id, role: "admin" };
+      }
+      return { user: id };
     });
+    const { chat } = await createGroupTx(participants, update);
   }
+
   async deleteGroup(userId, chatId) {
     const usersNotifs = await PolicyService.canRemoveGroup(userId, chatId);
     await deleteGroupTx(chatId);
@@ -266,27 +277,23 @@ class ChatService {
     });
     return true;
   }
-  async changeGroup(userId, chatId, data) {
-    const participant = await Participants.findOne({ user: userId, chatId });
-    if (!participant) {
-      throw new SocketConflictException(
-        null,
-        "User is not a member in this chat",
-      );
+  async updateGroup(userId, chatId, data) {
+    await PolicyService.canAccessChat(userId, chatId);
+    const update = {};
+    if (data.groupAvatar) {
+      update.groupAvatar = data.groupAvatar;
     }
-    const chat = await Chat.findById(chatId);
-    if (!chat) {
-      throw new SocketNotFoundException(null, "Chat not found");
+    if (data.groupName) {
+      update.groupName = data.groupName;
     }
-    const { groupName, groupAvatar } = data;
-    if (groupName) {
-      chat.groupName = groupName;
-    }
-    if (groupAvatar) {
-      chat.groupAvatar = groupAvatar;
-    }
-    await chat.save();
-    return chat;
+
+    return Chat.findByIdAndUpdate(chatId, update).populate({
+      path: "pinned",
+      populate: {
+        path: "sender",
+        select: "_id username avatar bio",
+      },
+    });
   }
 }
 

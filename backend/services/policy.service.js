@@ -8,40 +8,27 @@ const Like = require("@models/like");
 const Participant = require("@models/participants");
 const Follow = require("@models/follow");
 const FriendRequest = require("@models/friend-request");
-
+const Message = require("@models/message");
+const User = require("@models/user");
 const {
   SocketNotFoundException,
   SocketConflictException,
   SocketBadRequestException,
 } = require("@helpers/socket-errors");
-const { NotFoundException, ForBiddenException } = require("@helpers/errors");
+const {
+  NotFoundException,
+  ForBiddenException,
+  ConflictException,
+} = require("@helpers/errors");
 
 class PolicyService {
   static withSession(query, session) {
     return session ? query.session(session) : query;
   }
-
-  static async isBlocked(userId, targetId, session = null) {
-    if (!userId || !targetId || userId.toString() === targetId.toString())
-      return false;
-
-    const block = await this.withSession(
-      Block.findOne({
-        $or: [
-          { blocker: userId, blocked: targetId },
-          { blocker: targetId, blocked: userId },
-        ],
-      }),
-      session,
-    );
-    return !!block;
-  }
-  static async isPostAuthor(userId, postId, session = null) {
-    const exist = await this.withSession(
-      Post.exists({ author: userId, _id: postId }),
-      session,
-    );
-    return !!exist;
+  static existUsers(userIds) {
+    return this.withSession(
+      User.find({ _id: { $in: userIds } }).select("_id"),
+    ).lean();
   }
   static async canViewProfile(viewerId, targetId, session = null) {
     if (viewerId.toString() === targetId.toString())
@@ -66,7 +53,14 @@ class PolicyService {
     }
     return { profileVisibility: "PUBLIC", isFollowing: null };
   }
-
+  // Post
+  static async isPostAuthor(userId, postId, session = null) {
+    const exist = await this.withSession(
+      Post.exists({ author: userId, _id: postId }),
+      session,
+    );
+    return !!exist;
+  }
   static async canAccessPost(viewerId, postId, session = null) {
     const post = await this.withSession(
       Post.findById(postId).populate("author", "_id username avatar bio"),
@@ -150,6 +144,50 @@ class PolicyService {
       },
     ]).session(session);
   }
+  // Chat
+  static async canAccessChat(userId, chatId, session = null) {
+    const [result] = await Participant.aggregate([
+      {
+        $match: { chatId: new mongoose.Types.ObjectId(chatId) },
+      },
+      {
+        $facet: {
+          me: [{ $match: { user: new mongoose.Types.ObjectId(userId) } }],
+          others: [
+            { $match: { user: { $ne: new mongoose.Types.ObjectId(userId) } } },
+          ],
+        },
+      },
+    ]).session(session);
+
+    const me = result.me[0] || null;
+    const others = result.others;
+
+    if (!me) {
+      throw new ForBiddenException("Cannot access chat");
+    }
+    if (others.length == 1) {
+      const isBlocked = await this.isBlocked(userId, others[0].user);
+      if (isBlocked) {
+        throw new NotFoundException("Chat not found");
+      }
+    }
+    return me;
+  }
+  static async isMember(participantId, chatId, session = null) {
+    const exist = await Participant.exists({
+      _id: participantId,
+      chatId,
+    }).lean();
+    return !!exist;
+  }
+  static async isChatMessage(msgId, chatId, session = null) {
+    const msg = await this.withSession(
+      Message.findOne({ _id: msgId, chat: chatId }),
+      session,
+    ).lean();
+    return msg;
+  }
   static async canRemoveGroup(userId, chatId, session = null) {
     const [admin, chat] = await Promise.all([
       Participant.findOne({ user: userId, chatId, role: "admin" }).session(
@@ -217,7 +255,7 @@ class PolicyService {
   static async canDisjoinChat(participantId, chatId, session = null) {
     const [participant, chat] = await Promise.all([
       this.withSession(Participant.findById(participantId), session),
-      this.withSession(Chat.findOne({ _id: chatId, type: "dm" }), session),
+      this.withSession(Chat.findOne({ _id: chatId, type: "group" }), session),
     ]);
     if (!participant) {
       throw new NotFoundException("Participan not found");
@@ -237,18 +275,17 @@ class PolicyService {
       user: participant.user,
     };
   }
-  static async canSendMessage(userId, chatId, session = null) {
+  static async canSendMessage(participantId, chatId, session = null) {
     const [chat, participant] = await Promise.all([
-      this.withSession(Chat.findById(chatId), session),
+      this.withSession(Chat.findById(chatId), session).lean(),
       this.withSession(
-        Participant.findOne({ chatId, user: userId, deletedAt: null }),
+        Participant.findOne({ chatId, _id: participantId, deletedAt: null }),
         session,
-      ),
+      ).lean(),
     ]);
 
-    if (!chat) throw new SocketNotFoundException(null, "Chat not found");
-    if (!participant)
-      throw new SocketConflictException(null, "Not a member of this chat");
+    if (!chat) throw new NotFoundException("Chat not found");
+    if (!participant) throw new ConflictException("Not a member of this chat");
 
     const participantsWihtSettings = await this.participantsSettings(
       userId,
@@ -277,7 +314,6 @@ class PolicyService {
     }
     return { chat, participant, notificationTargets };
   }
-
   static async canReadMessages(userId, chatId, session = null) {
     const participant = await this.withSession(
       Participant.findOne({ user: userId, chatId, deletedAt: null }),
@@ -290,7 +326,6 @@ class PolicyService {
       );
     return participant;
   }
-
   static async canManageGroup(userId, chatId, session = null) {
     const [chat, admin] = await Promise.all([
       this.withSession(Chat.findById(chatId), session),
@@ -311,7 +346,6 @@ class PolicyService {
 
     return { chat, admin };
   }
-
   static async canRemoveParticipant(
     adminId,
     chatId,
@@ -330,7 +364,52 @@ class PolicyService {
       );
     return { chat, target };
   }
+
+  // Message
+
+  static async canAccessMessage(userId, msgId, session = null) {
+    const message = await this.withSession(
+      Message.findOne({
+        _id: msgId,
+        deletedAt: null,
+      }),
+      session,
+    ).lean();
+    if (!message) {
+      throw new NotFoundException("Message not found");
+    }
+    if (message.sender.toString() != userId) {
+      const admin = await this.withSession(
+        Participant.findOne({
+          user: userId,
+          chatId: message.chat,
+          role: "admin",
+        }),
+        session,
+      );
+      if (!admin) {
+        throw new ForBiddenException("Cannot access this message");
+      }
+    }
+    return message;
+  }
+
   // FriendShip
+  static async isBlocked(userId, targetId, session = null) {
+    if (!userId || !targetId || userId.toString() === targetId.toString())
+      return false;
+
+    const block = await this.withSession(
+      Block.findOne({
+        $or: [
+          { blocker: userId, blocked: targetId },
+          { blocker: targetId, blocked: userId },
+        ],
+      }),
+      session,
+    );
+    return !!block;
+  }
   static async canInitiateFollow(senderId, receiverId, session = null) {
     if (senderId.toString() === receiverId.toString()) {
       throw new SocketConflictException(null, "Cannot follow yourself");

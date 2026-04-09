@@ -1,15 +1,30 @@
 const Message = require("@models/message");
-const {
-  SocketNotFoundException,
-  SocketConflictException,
-} = require("@helpers/socket-errors/");
 const Participants = require("@models/participants");
 const Reactions = require("@models/reactions");
+const PolicyService = require("./policy.service");
+const eventBus = require("@services/event-bus");
+const deleteMsgTx = require("@transaction/chat/delete-msg");
+const sendMessageTx = require("@transaction/chat/message");
+const {
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  ForBiddenException,
+} = require("@helpers/errors");
+const participantsService = require("./participants.service");
+const mediaService = require("./media.service");
 
 class MessageService {
-  async getMessages({ participant, userId, cursor, limit = 20 }) {
+  async getMessages({ userId, chatId, cursor, limit = 20 }) {
+    const participant = await participantsService.findOne(userId, chatId);
+
+    if (!participant) {
+      throw new ForBiddenException("User is not a participant");
+    }
+
+    const date = participant.deletedAt;
     const query = {
-      chat: chat._id,
+      chat: chatId,
       deletedAt: null,
     };
 
@@ -18,51 +33,31 @@ class MessageService {
     }
 
     if (cursor) {
-      query.createdAt = {
-        ...query.createdAt,
-        $lt: new Date(cursor),
-      };
+      const [date, id] = cursor.split("_");
+
+      query.$or = [
+        { createdAt: { $lt: new Date(date) } },
+        {
+          createdAt: new Date(date),
+          _id: { $lt: new mongoose.Types.ObjectId(id) },
+        },
+      ];
     }
 
     return Message.find(query).sort({ createdAt: -1 }).limit(limit);
   }
-  async deleteForEveryone(messageId, userId) {
-    const msg = await Message.findOne({
-      _id: messageId,
-      sender: userId,
+  async addReaction({ participantId, msgId, reaction }) {
+    const msg = await Message.findById(msgId);
+    if (!msg) {
+      throw new NotFoundException("Message not found");
+    }
+    const participant = await Participants.findOne({
+      _id: participantId,
+      chatId: msg.chat,
     });
 
-    if (!msg) throw new SocketNotFoundException(null, "Message not found");
-
-    msg.text = "Message deleted";
-    msg.voiceUrl = null;
-    msg.type = "TEXT";
-    msg.deletedAt = new Date();
-
-    await msg.save();
-
-    const lastMessage = await Message.findOne({
-      chat: msg.chat,
-      deletedAt: null,
-    }).sort({ createdAt: -1 });
-
-    await Chat.updateOne(
-      { _id: msg.chat },
-      { lastMessage: lastMessage?._id || null },
-    );
-
-    return msg;
-  }
-  async addReaction({ participantId, msgId, reaction }) {
-    const [participant, msg] = await Promise.all([
-      Participants.findById(participantId),
-      Message.findById(msgId),
-    ]);
     if (!participant) {
-      throw new SocketConflictException(null, "User is not a member");
-    }
-    if (!msg) {
-      throw new SocketNotFoundException(null, "Message not found");
+      throw new ConflictException("User is not a member");
     }
     const alreadyReacted = await Reactions.findOne({
       participant: participantId,
@@ -85,12 +80,72 @@ class MessageService {
       participant: participantId,
     });
     if (!reaction) {
-      throw new SocketNotFoundException(
-        null,
+      throw new NotFoundException(
         "Reaction not found or not owned by this user",
       );
     }
     return true;
+  }
+  async editMessage(userId, messageId, newText) {
+    const message = await Message.findById(messageId);
+    if (!message) throw new NotFoundException("Message not found");
+    if (message.sender.toString() !== userId.toString()) {
+      throw new ConflictException("Cannot edit someone else's message");
+    }
+    if (message.type != "TEXT") {
+      throw new BadRequestException(
+        "Cannot edit this message but is it not edditable",
+      );
+    }
+    message.text = newText;
+    message.editedAt = new Date();
+    await message.save();
+    return message;
+  }
+  async addMessage(participantId, chatId, text) {
+    const { chat, participant, notificationTargets } =
+      await PolicyService.canSendMessage(participantId, chatId);
+
+    const { message } = await sendMessageTx(participant.user, chatId, {
+      type: "TEXT",
+      text,
+    });
+
+    notificationTargets.forEach((n) => {
+      evnetBus.emitEvent("message", {
+        user: n.user,
+        entity: message._id,
+        entityModel: "Message",
+      });
+    });
+    return await message.populate("sender", "_id username avatar bio");
+  }
+  async addVoice(participantId, chatId, voiceFile) {
+    const { chat, participant, notificationTargets } =
+      await PolicyService.canSendMessage(participantId, chatId);
+
+    const result = await mediaService.upload(voiceFile, "audio");
+    const { url, key } = result[0];
+    const { message } = await sendMessageTx(participant.user, chatId, {
+      type: "VOICE",
+      voice: {
+        url,
+        key,
+      },
+    });
+
+    notificationTargets.forEach((n) => {
+      evnetBus.emitEvent("message", {
+        user: n.user,
+        entity: message._id,
+        entityModel: "Message",
+      });
+    });
+    return await message.populate("sender", "_id username avatar bio");
+  }
+  async deleteMessage(userId, messageId) {
+    const { key } = await deleteMsgTx(userId, messageId);
+    await mediaService.delete([key]);
   }
 }
 

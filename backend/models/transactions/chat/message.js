@@ -26,7 +26,7 @@ module.exports = async function sendMessage(userId, chatId, data) {
       );
       await Promise.all([
         Participants.updateMany(
-          { user: { $ne: userId }, chatId },
+          { user: { $ne: userId }, chatId, isMuted: false },
           { $inc: { unreadCount: 1 } },
         ).session(session),
         Chat.updateOne(

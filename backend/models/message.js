@@ -23,18 +23,23 @@ const messageSchema = new mongoose.Schema(
 
     text: {
       type: String,
-      validate: {
-        validator: function (v) {
-          return this.type !== "TEXT" || (v && v.trim().length > 0);
-        },
+      required: function () {
+        return this.type === "TEXT";
       },
+      trim: true,
     },
 
-    voiceUrl: {
-      type: String,
-      validate: {
-        validator: function (v) {
-          return this.type !== "VOICE" || !!v;
+    voice: {
+      url: {
+        type: String,
+        required: function () {
+          return this.type === "VOICE";
+        },
+      },
+      key: {
+        type: String,
+        required: function () {
+          return this.type === "VOICE";
         },
       },
     },
@@ -45,3 +50,5 @@ const messageSchema = new mongoose.Schema(
 );
 
 messageSchema.index({ chat: 1, createdAt: -1 });
+
+module.exports = mongoose.model("Message", messageSchema);
