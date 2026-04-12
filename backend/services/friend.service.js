@@ -52,8 +52,7 @@ class FriendService {
     return true;
   }
   async cancel(sender, receiver, requestId) {
-    const sender = await PolicyService.canRequestReaction(receiver, requestId);
-
+    await PolicyService.canRequestReaction(receiver, requestId);
     await cancelRequestTx(requestId);
     await notificationService.cancelRequestNotification({
       fromUser: receiver,

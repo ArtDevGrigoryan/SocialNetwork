@@ -11,6 +11,13 @@ const repostRouter = require("@routes/repost");
 const likeRouter = require("@routes/like");
 const chatRouter = require("@routes/chat");
 const messageRouter = require("@routes/message");
+const storyRouter = require("@routes/story");
+const archiveRouter = require("@routes/archive");
+
+const swaggerUi = require("swagger-ui-express");
+const YAML = require("yamljs");
+
+const swaggerDocument = YAML.load("./docs/swagger.yaml");
 
 router.use("/auth", authRouter);
 router.use("/friends", isAuth, friendRouter);
@@ -21,5 +28,10 @@ router.use("/posts", isAuth, postRouter);
 router.use("/reposts", isAuth, repostRouter);
 router.use("/likes", isAuth, likeRouter);
 router.use("/chats", isAuth, chatRouter);
+router.use("/stories", isAuth, storyRouter);
+router.use("/archives", isAuth, archiveRouter);
+router.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+console.log("API DOCS SWAGGER-UI \nhttp://localhost:8888/api/docs");
 
 module.exports = router;

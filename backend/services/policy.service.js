@@ -9,6 +9,7 @@ const Follow = require("@models/follow");
 const FriendRequest = require("@models/friend-request");
 const Message = require("@models/message");
 const User = require("@models/user");
+const Story = require("@models/story");
 const {
   NotFoundException,
   ForBiddenException,
@@ -46,6 +47,13 @@ class PolicyService {
       return { isFollowing: true, profileVisibility: "PRIVATE" };
     }
     return { profileVisibility: "PUBLIC", isFollowing: null };
+  }
+  static async canViewStory(viewerId, storyId) {
+    const story = await Story.findById(storyId).select("user").lean();
+    if (!story) {
+      throw new NotFoundException("Story not found or expired");
+    }
+    await this.canViewProfile(viewerId, story.user);
   }
   // Post
   static async isPostAuthor(userId, postId, session = null) {

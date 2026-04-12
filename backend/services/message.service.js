@@ -2,7 +2,6 @@ const Message = require("@models/message");
 const Participants = require("@models/participants");
 const Reactions = require("@models/reactions");
 const PolicyService = require("@services/policy.service");
-const eventBus = require("@services/event-bus");
 const deleteMsgTx = require("@transaction/chat/delete-msg");
 const sendMessageTx = require("@transaction/chat/message");
 const {

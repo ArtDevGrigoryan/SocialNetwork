@@ -15,7 +15,7 @@ const {
 } = require("@helpers/errors/index");
 const { hash, compare } = require("@utilities/password");
 const emailService = require("@lib/email.service");
-const oauthService = require("@services/oauth.service");
+const oauthService = require("@lib/oauth.service");
 const twoFactorService = require("@services/two-factor.service");
 const env = require("@helpers/env");
 const TwoFactor = require("@models/two-factor");
