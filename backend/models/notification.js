@@ -2,26 +2,37 @@ const mongoose = require("mongoose");
 
 const notificationSchema = new mongoose.Schema(
   {
-    user: { type: mongoose.Types.ObjectId, ref: "User", index: true },
+    toUser: {
+      type: mongoose.Types.ObjectId,
+      ref: "User",
+      index: true,
+      required: true,
+    },
+
+    fromUser: {
+      type: mongoose.Types.ObjectId,
+      ref: "User",
+    },
 
     type: {
       type: String,
       enum: [
         "LIKE",
         "FOLLOW",
-        "UNFOLLOW",
-        "FOLLOW_REQUEST",
-        "FOLLOW_ACCEPTED",
-        "FOLLOW_DECLINED",
-        "FOLLOW_CANCELED",
-        "MESSAGE",
+        "REQUEST",
+        "DECLINED",
+        "ACCEPTED",
         "COMMENT",
-        "START_DM",
-        "JOINED_CHAT",
-        "CHAT_DELETED",
-        "USER_REMOVED",
-        "USER_REMOVED_NOTICE",
+        "MESSAGE",
+        "NEW_GROUP",
+        "GROUP_REMOVED",
+        "PARTICIPANT_REMOVED",
+        "PARTICIPANT_REMOVED_NOTICE",
+        "NEW_POST",
+        "NEW_STORY",
+        "SYSTEM",
       ],
+      required: true,
     },
 
     entity: {
@@ -31,20 +42,26 @@ const notificationSchema = new mongoose.Schema(
 
     entityModel: {
       type: String,
-      enum: ["User", "Post", "Comment", "Message"],
+      enum: ["User", "Post", "Comment", "Message", "Chat"],
     },
 
-    isSended: { type: Boolean, default: false },
-    isRead: { type: Boolean, default: false },
+    meta: {
+      count: { type: Number, default: 1 },
+      users: [
+        {
+          type: mongoose.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+    },
+
+    isRead: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   { timestamps: true },
 );
-
-notificationSchema.pre("find", function () {
-  this.populate("entity");
-});
-notificationSchema.pre("findOne", function () {
-  this.populate("entity");
-});
 
 module.exports = mongoose.model("Notifications", notificationSchema);

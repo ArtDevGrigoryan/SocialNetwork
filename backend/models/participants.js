@@ -26,7 +26,6 @@ const participantSchema = new mongoose.Schema(
 
     deletedAt: { type: Date, default: null },
     isMuted: { type: Boolean, default: false },
-    isPinned: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

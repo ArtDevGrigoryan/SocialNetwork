@@ -1,5 +1,5 @@
 const Repost = require("@models/repost");
-const PolicyService = require("./policy.service");
+const PolicyService = require("@services/policy.service");
 
 class RepostService {
   async toggle(userId, postId) {

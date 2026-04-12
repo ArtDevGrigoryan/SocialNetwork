@@ -40,4 +40,3 @@ const server = appServer.listen(env.PORT, () => {
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
-processEventHandler(server, io);

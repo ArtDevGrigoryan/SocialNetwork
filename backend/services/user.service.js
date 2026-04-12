@@ -2,7 +2,7 @@ const { SocketConflictException } = require("@helpers/socket-errors");
 const User = require("@models/user");
 const Block = require("@models/blocked-user");
 const FriendRequest = require("@models/friend-request");
-const friendService = require("./friend.service");
+const friendService = require("@services/friend.service");
 const blockTx = require("@transaction/friendship/block");
 
 class UserService {

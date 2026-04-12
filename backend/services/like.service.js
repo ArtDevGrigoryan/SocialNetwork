@@ -1,4 +1,4 @@
-const PolicyService = require("./policy.service");
+const PolicyService = require("@services/policy.service");
 const Like = require("@models/like");
 
 class LikeService {

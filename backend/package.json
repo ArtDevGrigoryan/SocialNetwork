@@ -5,15 +5,18 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js",
-    "back": "nodemon index.js"
+    "back": "nodemon index.js",
+    "notif": "node ./worker/notification/index.js",
+    "test:notif": "node ./tests/bullMq.test.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Bardiner-Social",
   "license": "ISC",
   "description": "",
   "dependencies": {
     "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
+    "bullmq": "^5.73.3",
     "cloudinary": "^2.9.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -56,6 +59,8 @@
     "@models": "models",
     "@routes": "routes",
     "@mongoose-middleware": "models/middlewares",
-    "@transaction": "models/transactions"
+    "@transaction": "models/transactions",
+    "@lib": "lib",
+    "@worker": "worker"
   }
 }

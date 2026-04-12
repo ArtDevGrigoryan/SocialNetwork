@@ -13,6 +13,7 @@ const settingsSchema = new mongoose.Schema(
       accept_request: { type: Boolean, default: true },
       decline_request: { type: Boolean, default: true },
       cancel_request: { type: Boolean, default: true },
+      follow_request: { type: Boolean, default: true },
       follow: { type: Boolean, default: true },
       unfollow: { type: Boolean, default: true },
       group_member_removed: { type: Boolean, default: true },
@@ -20,7 +21,9 @@ const settingsSchema = new mongoose.Schema(
       group_member_removed_notice: { type: Boolean, default: true },
       message: { type: Boolean, default: true },
       like: { type: Boolean, default: true },
-      newGroup: { type: Boolean, default: true },
+      new_group: { type: Boolean, default: true },
+      new_post: { type: Boolean, default: true },
+      new_story: { type: Boolean, default: false },
     },
 
     privacy: {

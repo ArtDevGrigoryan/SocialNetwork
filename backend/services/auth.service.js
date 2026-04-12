@@ -14,7 +14,7 @@ const {
   BadRequestException,
 } = require("@helpers/errors/index");
 const { hash, compare } = require("@utilities/password");
-const emailService = require("@services/email.service");
+const emailService = require("@lib/email.service");
 const oauthService = require("@services/oauth.service");
 const twoFactorService = require("@services/two-factor.service");
 const env = require("@helpers/env");

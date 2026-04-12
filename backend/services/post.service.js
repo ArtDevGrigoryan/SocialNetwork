@@ -6,12 +6,11 @@ const {
 } = require("@helpers/errors");
 const Post = require("@models/post");
 const Block = require("@models/blocked-user");
-const mediaService = require("@services/media.service");
+const mediaService = require("@lib/media.service");
 const toggleLikeTx = require("@transaction/like-post");
 const notificationService = require("./notification.service");
-const socketService = require("./socket.service");
-const PolicyService = require("./policy.service");
-const eventBus = require("./event-bus");
+const socketService = require("@services/socket.service");
+const PolicyService = require("@services/policy.service");
 const AggreagtionHelperPost = require("@models/aggregations/post");
 
 class PostService {

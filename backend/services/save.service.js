@@ -1,5 +1,5 @@
 const { BadRequestException, NotFoundException } = require("@helpers/errors");
-const PolicyService = require("./policy.service");
+const PolicyService = require("@services/policy.service");
 const Saves = require("@models/saves");
 
 class SaveService {

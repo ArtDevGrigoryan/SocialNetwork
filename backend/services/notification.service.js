@@ -1,112 +1,234 @@
-const { BadRequestException } = require("@helpers/errors");
-const {
-  SocketBadRequestException,
-  SocketConflictException,
-  SocketNotFoundException,
-} = require("@helpers/socket-errors");
-const { settingToEvent } = require("@helpers/utilities/settings-to-event");
-const Notification = require("@models/notification");
-const Settings = require("@models/setting");
-const eventBus = require("@services/event-bus");
+const redis = require("@db/redis");
+const notificationQueue = require("@worker/notification/queue");
+const { keys } = require("@utilities/create-cache-key");
+const JOBS = require("@constants/notification-job-names");
 
 class NotificationService {
-  async notificationsToMe(id) {
-    const settings = await Settings.findOne({ user: id });
-    if (!settings) {
-      throw new SocketNotFoundException(null, "Something went wrong");
-    }
-    const types = [];
-    for (const [key, value] of Object.entries(settings.notifications)) {
-      if (value) {
-        const type = settingToEvent(key);
-        type ? types.push(type) : null;
-      }
-    }
-    const notifications = await Notification.find({
-      user: id,
-      isRead: false,
-      isSended: false,
-      type: { $in: types },
+  static LOCK_TTL = 5;
+
+  static async #enqueueOnce({ scheduledKey, jobName, payload, delayMs = 0 }) {
+    const locked = await redis.set(
+      scheduledKey,
+      "1",
+      "NX",
+      "EX",
+      NotificationService.LOCK_TTL,
+    );
+
+    if (!locked) return;
+
+    await notificationQueue.add(jobName, payload, {
+      removeOnComplete: true,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 2000 },
+      delay: delayMs,
     });
-
-    await Notification.updateMany(
-      { _id: { $in: notifications.map((n) => n._id) } },
-      { $set: { isSended: true } },
-    );
-    return notifications;
-    
   }
-  findById(_id) {
-    if (!_id) {
-      throw new SocketBadRequestException("Missing notification id");
-    }
-    return Notification.findOneAndUpdate(
-      { _id },
-      { isSended: true },
-      { new: true },
-    );
-  }
-  async markRead(userId, id) {
-    const notification = await Notification.findById(id);
-    if (!notification) {
-      throw new SocketNotFoundException(null, "Notification not found");
-    }
-    if (notification.user != userId.toString()) {
-      throw new SocketConflictException(
-        null,
-        "Cannot access this notification",
-      );
-    }
-    if (notification.isRead) {
-      throw new SocketBadRequestException(null, "Already read");
-    }
-    notification.isRead = true;
-    await notification.save();
-  }
-  delete(userId, id) {
-    return Notification.deleteOne({ _id: id, user: userId });
-  }
-  deleteAll(userId) {
-    return Notification.deleteMany({ user: userId });
-  }
-  async find(notifs) {
-    const userIds = [...new Set(notifs.map((n) => n.user.toString()))];
 
-    const settingsDocs = await Settings.find({ user: { $in: userIds } });
-
-    const settingsMap = new Map(
-      settingsDocs.map((s) => [s.user.toString(), s]),
-    );
-
-    const filteredNotifs = notifs.filter((notif) => {
-      const userSettings = settingsMap.get(notif.user.toString());
-      if (!userSettings) return false;
-
-      const key = eventToSetting(notif.type);
-      return key && userSettings.notifications[key];
+  async likeNotification({ postId, fromUser, toUser }) {
+    if (fromUser === toUser) return;
+    const { scheduledKey, usersKey, countKey } = keys({
+      type: "like",
+      entityId: postId,
+      toUser,
     });
+    await Promise.all([redis.sadd(usersKey, fromUser), redis.incr(countKey)]);
+    await NotificationService.#enqueueOnce({
+      scheduledKey,
+      jobName: JOBS.LIKE,
+      payload: { postId, toUser },
+    });
+  }
 
-    return filteredNotifs;
+  async commentNotification({ postId, fromUser, toUser }) {
+    if (fromUser === toUser) return;
+    const { scheduledKey, usersKey, countKey } = keys({
+      type: "comment",
+      entityId: postId,
+      toUser,
+    });
+    await Promise.all([redis.sadd(usersKey, fromUser), redis.incr(countKey)]);
+    await NotificationService.#enqueueOnce({
+      scheduledKey,
+      jobName: JOBS.COMMENT,
+      payload: { postId, toUser },
+    });
   }
-  findMyNotifications(user, page = 1, limit = 20) {
-    const skip = (page - 1) * limit;
-    return Notification.find({ user, isRead: false })
-      .sort({ updatedAt: -1 })
-      .skip(skip)
-      .limit(limit);
+
+  async followNotification({ fromUser, toUser }) {
+    if (fromUser === toUser) return;
+    const { scheduledKey, usersKey, countKey } = keys({
+      type: "follow",
+      entityId: toUser,
+      toUser,
+    });
+    await Promise.all([redis.sadd(usersKey, fromUser), redis.incr(countKey)]);
+    await NotificationService.#enqueueOnce({
+      scheduledKey,
+      jobName: JOBS.FOLLOW,
+      payload: { toUser },
+    });
   }
-  async create(notifData, settingProp) {
-    const setting = await Settings.findOne({ user: notifData.user });
-    if (!setting) {
-      throw new BadRequestException("Something went wrong");
-    }
-    if (!setting.notifications[settingProp]) {
-      return null;
-    }
-    return await Notification.create(notifData);
+
+  async followRequestNotification({ fromUser, toUser }) {
+    if (fromUser === toUser) return;
+    const { scheduledKey, usersKey, countKey } = keys({
+      type: "request",
+      entityId: toUser,
+      toUser,
+    });
+    await Promise.all([redis.sadd(usersKey, fromUser), redis.incr(countKey)]);
+    await NotificationService.#enqueueOnce({
+      scheduledKey,
+      jobName: JOBS.FOLLOW_REQUEST,
+      payload: { toUser },
+    });
   }
-  async markSended(_id) {
-    await Notification.updateOne({ _id }, { isSended: true });
+
+  async acceptRequestNotification({ fromUser, toUser }) {
+    if (fromUser === toUser) return;
+    await notificationQueue.add(
+      JOBS.ACCEPT_REQUEST,
+      { fromUser, toUser },
+      {
+        removeOnComplete: true,
+        attempts: 3,
+      },
+    );
+  }
+
+  async declineRequestNotification({ fromUser, toUser }) {
+    if (fromUser === toUser) return;
+    await notificationQueue.add(
+      JOBS.DECLINE_REQUEST,
+      { fromUser, toUser },
+      {
+        removeOnComplete: true,
+        attempts: 3,
+      },
+    );
+  }
+
+  async cancelRequestNotification({ fromUser, toUser }) {
+    if (fromUser === toUser) return;
+    await notificationQueue.add(
+      JOBS.CANCEL_REQUEST,
+      { fromUser, toUser },
+      {
+        removeOnComplete: true,
+        attempts: 3,
+      },
+    );
+  }
+
+  async unfollowNotification({ fromUser, toUser }) {
+    if (fromUser === toUser) return;
+    await notificationQueue.add(
+      JOBS.UNFOLLOW,
+      { fromUser, toUser },
+      {
+        removeOnComplete: true,
+        attempts: 3,
+      },
+    );
+  }
+
+  async messageNotification({ fromUser, toUser, messageId }) {
+    if (fromUser === toUser) return;
+    await notificationQueue.add(
+      JOBS.MESSAGE,
+      { fromUser, toUser, messageId },
+      {
+        removeOnComplete: true,
+        attempts: 3,
+      },
+    );
+  }
+
+  async systemNotification({ toUser, message }) {
+    await notificationQueue.add(
+      JOBS.SYSTEM,
+      { toUser, message },
+      {
+        removeOnComplete: true,
+      },
+    );
+  }
+
+  async groupMessageNotification({ chatId, fromUser, messageId }) {
+    await notificationQueue.add(
+      JOBS.GROUP_MESSAGE,
+      { chatId, fromUser, messageId },
+      {
+        removeOnComplete: true,
+        attempts: 3,
+      },
+    );
+  }
+
+  async groupRemovedNotification({ chatId, fromUser }) {
+    await notificationQueue.add(
+      JOBS.GROUP_REMOVED,
+      { chatId, fromUser },
+      {
+        removeOnComplete: true,
+        attempts: 3,
+      },
+    );
+  }
+
+  async memberRemovedNoticeNotification({ chatId, fromUser, removedUserId }) {
+    await notificationQueue.add(
+      JOBS.MEMBER_REMOVED_NOTICE,
+      { chatId, fromUser, removedUserId },
+      {
+        removeOnComplete: true,
+        attempts: 3,
+      },
+    );
+  }
+
+  async newGroupNotification({ fromUser, chatId }) {
+    await notificationQueue.add(
+      JOBS.NEW_GROUP,
+      { fromUser, chatId },
+      {
+        removeOnComplete: true,
+        attempts: 3,
+      },
+    );
+  }
+
+  async newStoryNotification({ fromUser, storyId }) {
+    await notificationQueue.add(
+      JOBS.NEW_STORY,
+      { fromUser, storyId },
+      {
+        removeOnComplete: true,
+        attempts: 3,
+      },
+    );
+  }
+
+  async newPostNotification({ fromUser, postId }) {
+    await notificationQueue.add(
+      JOBS.NEW_POST,
+      { fromUser, postId },
+      {
+        removeOnComplete: true,
+        attempts: 3,
+      },
+    );
+  }
+  async disjoinGroupNotification({ chatId, removedUserId }) {
+    await notificationQueue.add(
+      JOBS.DISJOIN_GROUP,
+      { chatId, fromUser: removedUserId },
+      {
+        removeOnComplete: true,
+        attempts: 3,
+      },
+    );
   }
 }
 

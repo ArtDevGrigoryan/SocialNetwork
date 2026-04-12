@@ -19,7 +19,9 @@
       "@routes/*": ["routes/*"],
       "@controllers/*": ["controllers/*"],
       "@mongoose-middleware/*": ["models/middlewares/*"],
-      "@transaction/*": ["models/transactions/*"]
+      "@transaction/*": ["models/transactions/*"],
+      "@lib/*": ["lib/*"],
+      "@worker/*": ["worker/*"]
     }
   },
   "include": ["**/*.js"],

@@ -13,76 +13,61 @@ const {
   BadRequestException,
 } = require("@helpers/errors");
 const PolicyService = require("@services/policy.service");
-const eventBus = require("./event-bus");
+const notificationService = require("./notification.service");
 
 class FriendService {
   async follow(sender, receiver) {
     if (sender.toString() === receiver.toString()) {
       throw new ConflictException("Cannot follow yourself");
     }
-    const { profileVisibility, notificationSettings } =
-      await PolicyService.canInitiateFollow(sender, receiver);
+    const { profileVisibility } = await PolicyService.canInitiateFollow(
+      sender,
+      receiver,
+    );
 
     const { message } = await followTx(sender, receiver, profileVisibility);
-    if (notificationSettings.follow) {
-      eventBus.emitEvent("notify.follow", { entity: sender });
-    }
+    await notificationService.followNotification({
+      fromUser: sender,
+      toUser: receiver,
+    });
     return message;
   }
   async accept(receiver, requestId) {
-    const { notificationSettings, sender } =
-      await PolicyService.canRequestReaction(receiver, requestId);
+    const sender = await PolicyService.canRequestReaction(receiver, requestId);
     await acceptRequestTx(requestId);
-    if (notificationSettings.accept_request) {
-      eventBus.emitEvent("follow.accepted", {
-        user: sender,
-        entity: receiver,
-        entityModel: "User",
-      });
-    }
+    await notificationService.acceptRequestNotification({
+      fromUser: receiver,
+      toUser: sender,
+    });
     return true;
   }
   async decline(receiver, requestId) {
-    const { sender, notificationSettings } =
-      await PolicyService.canRequestReaction(receiver, requestId);
+    const sender = await PolicyService.canRequestReaction(receiver, requestId);
 
     await declineRequestTx(requestId);
-    if (notificationSettings.decline_request) {
-      eventBus.emitEvent("follow.declined", {
-        user: sender,
-        entity: receiver,
-        entityModel: "User",
-      });
-    }
+    await notificationService.declineRequestNotification({
+      fromUser: receiver,
+      toUser: sender,
+    });
     return true;
   }
-  async cancel(receiver, requestId) {
-    const { notificationSettings, sender } =
-      await PolicyService.canRequestReaction(receiver, requestId);
+  async cancel(sender, receiver, requestId) {
+    const sender = await PolicyService.canRequestReaction(receiver, requestId);
 
     await cancelRequestTx(requestId);
-    if (notificationSettings.cancel_request) {
-      eventBus.emitEvent("follow.canceled", {
-        user: sender,
-        entity: receiver,
-        entityModel: "User",
-      });
-    }
+    await notificationService.cancelRequestNotification({
+      fromUser: receiver,
+      toUser: sender,
+    });
     return true;
   }
   async unfollow(myId, targetId) {
-    const { notificationSettings } = await PolicyService.canInitiateUnfollow(
-      myId,
-      targetId,
-    );
+    await PolicyService.canInitiateUnfollow(myId, targetId);
     await unfollowTx(myId, targetId);
-    if (notificationSettings.unfollow) {
-      eventBus.emitEvent("unfollow", {
-        user: targetId,
-        entity: myId,
-        entityModel: "User",
-      });
-    }
+    await notificationService.unfollowNotification({
+      fromUser: myId,
+      toUser: targetId,
+    });
     return true;
   }
   async followerList(userId, limit = 20, page = 1) {

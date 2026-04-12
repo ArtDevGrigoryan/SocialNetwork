@@ -7,19 +7,18 @@ const disjoinChatTx = require("@transaction/chat/disjoin-chat");
 const removeUserTx = require("@transaction/chat/remove-user-from-group");
 const deleteGroupTx = require("@transaction/chat/delete-group");
 const createGroupTx = require("@transaction/chat/create-group");
-const messageService = require("./message.service");
+const messageService = require("@services/message.service");
 const Participants = require("@models/participants");
 const participantService = require("@services/participants.service");
 const env = require("@helpers/env");
-const PolicyService = require("./policy.service");
-const evnetBus = require("@services/event-bus");
+const PolicyService = require("@services/policy.service");
 const {
   BadRequestException,
   ConflictException,
   NotFoundException,
   ForBiddenException,
 } = require("@helpers/errors");
-const eventBus = require("@services/event-bus");
+const notificationService = require("@services/notification.service");
 
 class ChatService {
   async searchChat(userId, text) {
@@ -232,50 +231,38 @@ class ChatService {
     });
     const { chat } = await createGroupTx(participants, update);
   }
-
   async deleteGroup(userId, chatId) {
-    const usersNotifs = await PolicyService.canRemoveGroup(userId, chatId);
+    await PolicyService.canRemoveGroup(userId, chatId);
     await deleteGroupTx(chatId);
-    return true;
+    await notificationService.groupRemovedNotification({
+      chatId,
+      fromUser: userId,
+    });
   }
   async removeUserFromGruop(removerParticipantId, chatId, participantId) {
     if (removerParticipantId.toString() == participantId.toString()) {
       throw new ConflictException("cannot remove yourself");
     }
-    const { removedNotif, notifs, removedUser } =
-      await PolicyService.canRemoveMember(
-        removerParticipantId,
-        chatId,
-        participantId,
-      );
+    const { admin, removed } = await PolicyService.canRemoveMember(
+      removerParticipantId,
+      chatId,
+      participantId,
+    );
 
     await removeUserTx(participantId);
-
-    if (removedNotif) {
-      eventBus.emitEvent("member.removed", {
-        user: removedNotif,
-        entity: userId,
-        entityModel: "User",
-      });
-    }
-    notifs.forEach((n) => {
-      eventBus("member.removed.notice", {
-        user: n,
-        entity: removedUser,
-        entityModel: "User",
-      });
+    await notificationService.memberRemovedNoticeNotification({
+      chatId,
+      fromUser: admin.user,
+      removedUserId: removed.user,
     });
   }
   async disjoinChat(participantId, chatId) {
-    const { participantsWithSettings, user } =
-      await PolicyService.canDisjoinChat(participantId, chatId);
-
+    const user = await PolicyService.canDisjoinChat(participantId, chatId);
     await disjoinChatTx(participantId, chatId);
-
-    participantsWithSettings.forEach((p) => {
-      eventBus.emitEvent("disjoin.chat", { user: p.user, entity: user });
+    await notificationService.disjoinGroupNotification({
+      chatId,
+      removedUserId: user,
     });
-    return true;
   }
   async updateGroup(userId, chatId, data) {
     await PolicyService.canAccessChat(userId, chatId);

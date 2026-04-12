@@ -1,5 +1,5 @@
 const Comment = require("@models/comment");
-const PolicyService = require("./policy.service");
+const PolicyService = require("@services/policy.service");
 const { NotFoundException, ForBiddenException } = require("@helpers/errors");
 
 class CommentService {

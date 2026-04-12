@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const env = require("../env");
-const { client } = require("./redis");
+const client = require("./redis");
 
 module.exports.connect = async function connect() {
   try {

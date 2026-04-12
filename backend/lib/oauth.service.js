@@ -1,5 +1,5 @@
-const githubService = require("./github.service");
-const googleService = require("./google.service");
+const githubService = require("@lib/github.service");
+const googleService = require("@lib/google.service");
 
 class OAuthService {
   constructor() {

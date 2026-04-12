@@ -1,14 +1,11 @@
-const {
-  SocketNotFoundException,
-  SocketConflictException,
-} = require("@helpers/socket-errors");
 const Participants = require("@models/participants");
+const { NotFoundException, ConflictException } = require("@helpers/errors/");
 
 class ParticipantService {
   async renameParticipant(userId, participantId, name) {
     const participant = await Participants.findById(participantId);
     if (!participant) {
-      throw new SocketNotFoundException(null, "Participant not found");
+      throw new NotFoundException("Participant not found");
     }
     if (userId.toString() == participantId) {
       participant.name = name;
@@ -20,7 +17,7 @@ class ParticipantService {
       chatId: participant.chatId,
     });
     if (!renamerParticipant) {
-      throw new SocketConflictException(null, "Is not a member in this chat");
+      throw new ConflictException("Is not a member in this chat");
     }
     participant.name = name;
     await participant.save();
@@ -33,10 +30,7 @@ class ParticipantService {
       { new: true },
     );
     if (!participant) {
-      throw new SocketNotFoundException(
-        null,
-        "User is not a member in this chat",
-      );
+      throw new NotFoundException("User is not a member in this chat");
     }
     return participant;
   }
@@ -47,10 +41,7 @@ class ParticipantService {
       { new: true },
     );
     if (!participant) {
-      throw new SocketNotFoundException(
-        null,
-        "User is not a member in this chat",
-      );
+      throw new NotFoundException("User is not a member in this chat");
     }
     return participant;
   }

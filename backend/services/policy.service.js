@@ -1,4 +1,3 @@
-// ./services/policy.service.js
 const mongoose = require("mongoose");
 const Block = require("@models/blocked-user");
 const Setting = require("@models/setting");
@@ -10,11 +9,6 @@ const Follow = require("@models/follow");
 const FriendRequest = require("@models/friend-request");
 const Message = require("@models/message");
 const User = require("@models/user");
-const {
-  SocketNotFoundException,
-  SocketConflictException,
-  SocketBadRequestException,
-} = require("@helpers/socket-errors");
 const {
   NotFoundException,
   ForBiddenException,
@@ -111,38 +105,9 @@ class PolicyService {
     const post = await this.withSession(Post.findById(postId), session);
     if (!post) throw new NotFoundException("Post not found");
     if (userId.toString() !== post.author.toString()) {
-      throw new SocketConflictException(null, "Cannot modify this post");
+      throw new ConflictException("Cannot modify this post");
     }
     return post;
-  }
-  static async participantsSettings(userId, chatId, session = null) {
-    return await Participant.aggregate([
-      { $match: { chatId, user: { $ne: userId } } },
-      {
-        $lookup: {
-          from: "settings",
-          localField: "user",
-          foreignField: "user",
-          as: "setting",
-        },
-      },
-      {
-        $addFields: {
-          settings: { $arrayElemAt: ["$setting", 0] },
-        },
-      },
-      {
-        $project: {
-          user: 1,
-          role: 1,
-          isMuted: 1,
-          participantName: 1,
-          lastReadMessage: 1,
-          unreadCount: 1,
-          notificationSettings: "$settings.notifications",
-        },
-      },
-    ]).session(session);
   }
   // Chat
   static async canAccessChat(userId, chatId, session = null) {
@@ -198,14 +163,6 @@ class PolicyService {
     if (!admin || chat.type == "dm") {
       throw new ForBiddenException("Cannot access delete this group");
     }
-    const participantsWithSettings = await this.participantsSettings(
-      userId,
-      chatId,
-      session,
-    );
-    return participantsWithSettings
-      .filter((p) => !p.isMuted && p.notificationSettings.group_removed)
-      .map((p) => p.user);
   }
   static async canRemoveMember(
     removerParticipantId,
@@ -225,32 +182,7 @@ class PolicyService {
     if (!admin || !participant || chat.type == "dm") {
       throw new ForBiddenException("Cannot access or delete this participant");
     }
-    const participantsWithSettings = await this.participantsSettings(
-      userId,
-      chatId,
-      session,
-    );
-    let removed = null;
-    const filtered = participantsWithSettings.filter((p, i) => {
-      let res = p._id.toString() != participantId;
-      if (res) {
-        removed = p;
-      }
-      return res;
-    });
-    const notifyRemoved = removed
-      ? !removed.isMuted && removed.notificationSettings.group_member_removed
-      : false;
-    return {
-      removedNotif: notifyRemoved ? removed.user : null,
-      removedUser: removed.user,
-      notifs: filtered
-        .filter(
-          (p) =>
-            !p.isMuted && p.notificationSettings.group_member_removed_notice,
-        )
-        .map((p) => p.user),
-    };
+    return { admin, removed: participant };
   }
   static async canDisjoinChat(participantId, chatId, session = null) {
     const [participant, chat] = await Promise.all([
@@ -263,17 +195,8 @@ class PolicyService {
     if (!chat) {
       throw new ForBiddenException("Cannot disjoin this chat");
     }
-    const participantsWithSettings = await this.participantsSettings(
-      participant.user,
-      chatId,
-      session,
-    );
-    return {
-      participantsWithSettings: participantsWithSettings.filter(
-        (p) => !p.isMuted && p.notificationSettings.group_member_removed_notice,
-      ),
-      user: participant.user,
-    };
+
+    return participant.user;
   }
   static async canSendMessage(participantId, chatId, session = null) {
     const [chat, participant] = await Promise.all([
@@ -287,32 +210,7 @@ class PolicyService {
     if (!chat) throw new NotFoundException("Chat not found");
     if (!participant) throw new ConflictException("Not a member of this chat");
 
-    const participantsWihtSettings = await this.participantsSettings(
-      userId,
-      chatId,
-      session,
-    );
-    const notificationTargets = [];
-
-    if (chat.type === "dm") {
-      const other = participantsWihtSettings[0];
-      if (!other)
-        throw new SocketConflictException(null, "No other participant found");
-
-      const block = await this.isBlocked(userId, other.user);
-      if (block) {
-        throw new SocketNotFoundException(null, "Not found");
-      }
-      if (other.notificationSettings?.message && !other.isMuted)
-        notificationTargets.push(other.user);
-    } else {
-      notificationTargets.push(
-        ...participantsWihtSettings
-          .filter((p) => !p.isMuted && p.notificationSettings.message)
-          .map((p) => p.user),
-      );
-    }
-    return { chat, participant, notificationTargets };
+    return { chat, participant };
   }
   static async canReadMessages(userId, chatId, session = null) {
     const participant = await this.withSession(
@@ -320,10 +218,7 @@ class PolicyService {
       session,
     );
     if (!participant)
-      throw new SocketConflictException(
-        null,
-        "User is not a member of this chat",
-      );
+      throw new ConflictException("User is not a member of this chat");
     return participant;
   }
   static async canManageGroup(userId, chatId, session = null) {
@@ -335,14 +230,11 @@ class PolicyService {
       ),
     ]);
 
-    if (!chat) throw new SocketNotFoundException(null, "Chat not found");
+    if (!chat) throw new NotFoundException("Chat not found");
     if (chat.type !== "group")
-      throw new SocketBadRequestException(null, "Cannot manage DM");
+      throw new BadRequestException("Cannot manage DM");
     if (!admin)
-      throw new SocketConflictException(
-        null,
-        "Only admins can manage this group",
-      );
+      throw new ConflictException("Only admins can manage this group");
 
     return { chat, admin };
   }
@@ -358,10 +250,7 @@ class PolicyService {
       session,
     );
     if (!target)
-      throw new SocketConflictException(
-        null,
-        "Participant not found in this chat",
-      );
+      throw new ConflictException("Participant not found in this chat");
     return { chat, target };
   }
 
@@ -412,10 +301,10 @@ class PolicyService {
   }
   static async canInitiateFollow(senderId, receiverId, session = null) {
     if (senderId.toString() === receiverId.toString()) {
-      throw new SocketConflictException(null, "Cannot follow yourself");
+      throw new ConflictException("Cannot follow yourself");
     }
     if (await this.isBlocked(senderId, receiverId, session)) {
-      throw new SocketConflictException(null, "Blocked");
+      throw new ConflictException("Blocked");
     }
 
     const existing = await this.withSession(
@@ -427,10 +316,7 @@ class PolicyService {
     );
 
     if (existing && existing.status != "DECLINED") {
-      throw new SocketConflictException(
-        null,
-        "Already followed or request exists",
-      );
+      throw new ConflictException("Already followed or request exists");
     }
     const setting = await this.withSession(
       Setting.findOne({ user: receiverId }),
@@ -453,11 +339,6 @@ class PolicyService {
     if (!request) {
       throw new NotFoundException("Follow not found");
     }
-    const setting = await this.withSession(
-      Setting.findOne({ user: receiverId }),
-      session,
-    ).lean();
-    return { notificationSettings: setting.notifications };
   }
   static async canRequestReaction(receiver, requestId, session = null) {
     const request = await this.withSession(
@@ -475,14 +356,8 @@ class PolicyService {
     if (block) {
       throw new NotFoundException("Request not found");
     }
-    const setting = await this.withSession(
-      Setting.findOne({ user: request.sender }),
-      session,
-    ).lean();
-    return {
-      notificationSettings: setting.notifications,
-      sender: request.sender,
-    };
+
+    return request.sender;
   }
 }
 

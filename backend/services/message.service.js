@@ -1,7 +1,7 @@
 const Message = require("@models/message");
 const Participants = require("@models/participants");
 const Reactions = require("@models/reactions");
-const PolicyService = require("./policy.service");
+const PolicyService = require("@services/policy.service");
 const eventBus = require("@services/event-bus");
 const deleteMsgTx = require("@transaction/chat/delete-msg");
 const sendMessageTx = require("@transaction/chat/message");
@@ -12,7 +12,7 @@ const {
   ForBiddenException,
 } = require("@helpers/errors");
 const participantsService = require("./participants.service");
-const mediaService = require("./media.service");
+const mediaService = require("../lib/media.service");
 
 class MessageService {
   async getMessages({ userId, chatId, cursor, limit = 20 }) {
