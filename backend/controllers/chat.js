@@ -3,7 +3,7 @@ const chatService = require("@services/chat.service");
 
 class ChatController {
   async specificChat(req, res) {
-    const chat = await chatService.find(req.user._id, req.params._id);
+    const chat = await chatService.find(req.user._id, req.params.id);
     return sendSuccess(res, chat);
   }
   async chats(req, res) {

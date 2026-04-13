@@ -1,7 +1,9 @@
 const redis = require("@db/redis");
 const notificationQueue = require("@worker/notification/queue");
+const Notification = require("@models/notification");
 const { keys } = require("@utilities/create-cache-key");
 const JOBS = require("@constants/notification-job-names");
+const { NotFoundException } = require("@helpers/errors");
 
 class NotificationService {
   static LOCK_TTL = 5;
@@ -228,6 +230,29 @@ class NotificationService {
         removeOnComplete: true,
         attempts: 3,
       },
+    );
+  }
+
+  async markRead(userId, notifId) {
+    const notification = await Notification.findOneAndUpdate(
+      {
+        _id: notifId,
+        toUser: userId,
+      },
+      { isRead: true },
+    );
+    if (!notification) {
+      throw new NotFoundException("Notification not found");
+    }
+    return true;
+  }
+  async markSended(notifId) {
+    await Notification.findOneAndUpdate({ _id: notifId }, { isSended: true });
+  }
+  async markSendedMany(notifIds) {
+    await Notification.updateMany(
+      { _id: { $in: notifIds } },
+      { isSended: true },
     );
   }
 }

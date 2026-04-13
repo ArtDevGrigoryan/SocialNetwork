@@ -28,6 +28,7 @@ router.use("/posts", isAuth, postRouter);
 router.use("/reposts", isAuth, repostRouter);
 router.use("/likes", isAuth, likeRouter);
 router.use("/chats", isAuth, chatRouter);
+router.use("/messages", isAuth, messageRouter)
 router.use("/stories", isAuth, storyRouter);
 router.use("/archives", isAuth, archiveRouter);
 router.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));

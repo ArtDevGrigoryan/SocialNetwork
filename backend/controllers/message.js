@@ -43,7 +43,7 @@ class MessageController {
     const { participantId, text } = req.body;
     const message = await messageService.addMessage(
       participantId,
-      req.params.id,
+      req.params.chatId,
       text,
     );
     return sendSuccess(res, message);

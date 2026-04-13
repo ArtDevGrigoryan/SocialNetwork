@@ -37,6 +37,16 @@ chatSchema.pre(
   { document: true, query: false },
   cascadeDeleteChat,
 );
+
+chatSchema.virtual("participants", {
+  ref: "Participant",
+  localField: "_id",
+  foreignField: "chatId",
+});
+
+chatSchema.set("toJSON", { virtuals: true });
+chatSchema.set("toObject", { virtuals: true });
+
 chatSchema.index({ lastActivityAt: -1 });
 chatSchema.index({ chatKey: 1 }, { unique: true, sparse: true });
 

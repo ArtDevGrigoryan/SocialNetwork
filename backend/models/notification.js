@@ -60,6 +60,10 @@ const notificationSchema = new mongoose.Schema(
       default: false,
       index: true,
     },
+    isSended: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );

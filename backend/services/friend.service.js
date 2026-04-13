@@ -29,7 +29,7 @@ class FriendService {
     await notificationService.followNotification({
       fromUser: sender,
       toUser: receiver,
-    });
+    });console.log(message)
     return message;
   }
   async accept(receiver, requestId) {

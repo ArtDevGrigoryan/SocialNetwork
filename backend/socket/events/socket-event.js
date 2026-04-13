@@ -1,6 +1,7 @@
 const redis = require("@helpers/db/redis");
 const { createSocketCacheKey } = require("@helpers/utilities/create-cache-key");
 const PolicyService = require("@services/policy.service");
+const userService = require("@services/user.service");
 
 class SocketEvent {
   static async getIO() {
@@ -21,14 +22,14 @@ class SocketEvent {
     const cacheKey = createSocketCacheKey(id);
     await redis.del(cacheKey);
     await userService.updateStatus(id);
-    console.log("դիզքոնեկտադո");
   }
   async join_chat(socket, data) {
     const { chatId } = data;
-    const io = await SocketEvent.getIO();
-    socket.join(chatId);
+    const { user } = socket;
+    await PolicyService.canAccessChat(user._id, chatId);
+    socket.join(`chat:${chatId}`);
   }
-  async typeing(socket, data) {
+  async typing(socket, data) {
     const { chatId } = data;
     const { user } = socket;
     await PolicyService.canAccessChat(user._id, chatId);
@@ -39,7 +40,7 @@ class SocketEvent {
       _id: user._id,
     };
     const io = await SocketEvent.getIO();
-    io.to(chatId).emit("typeing", result);
+    io.to(`chat:${chatId}`).emit("typing", result);
   }
   async voice(socket, data) {
     const { chatId } = data;
@@ -52,7 +53,7 @@ class SocketEvent {
       _id: user._id,
     };
     const io = await SocketEvent.getIO();
-    io.to(chatId).emit("voice", result);
+    io.to(`chat:${chatId}`).emit("voice", result);
   }
 }
 

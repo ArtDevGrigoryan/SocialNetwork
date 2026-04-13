@@ -1,15 +1,11 @@
 const { z } = require("zod");
 const { idSchema } = require("./common.schema");
 
-const getChatSchema = z.enum([
-  z.object({
-    text: z.string().nonempty(),
-  }),
-  z.object({
-    limit: z.coerce.number().int().min(1).max(50).default(20),
-    cursor: z.string().optional(),
-  }),
-]);
+const getChatSchema = z.object({
+  text: z.string().nonempty().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  cursor: z.string().optional(),
+});
 
 const paramsWithId = z.object({
   id: idSchema,

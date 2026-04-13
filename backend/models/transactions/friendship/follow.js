@@ -18,7 +18,8 @@ module.exports = async function followTransaction(
 ) {
   const session = await mongoose.startSession();
   try {
-    return await session.withTransaction(async () => {
+    const result = { message: null };
+    await session.withTransaction(async () => {
       const status = profileVisibility == "PRIVATE" ? "PENDING" : "ACCEPTED";
       const existing = await FriendReqeust.findOneAndUpdate(
         {
@@ -35,8 +36,9 @@ module.exports = async function followTransaction(
         await addFollow(sender, receiver, session);
         msg = "FOLLOW";
       }
-      return { message: msg };
+      result.message = msg;
     });
+    return result;
   } finally {
     await session.endSession();
   }

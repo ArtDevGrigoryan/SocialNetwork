@@ -118,33 +118,23 @@ class PolicyService {
     return post;
   }
   // Chat
-  static async canAccessChat(userId, chatId, session = null) {
-    const [result] = await Participant.aggregate([
-      {
-        $match: { chatId: new mongoose.Types.ObjectId(chatId) },
-      },
-      {
-        $facet: {
-          me: [{ $match: { user: new mongoose.Types.ObjectId(userId) } }],
-          others: [
-            { $match: { user: { $ne: new mongoose.Types.ObjectId(userId) } } },
-          ],
-        },
-      },
-    ]).session(session);
-
-    const me = result.me[0] || null;
-    const others = result.others;
-
+  static async canAccessChat(userId, chatId) {
+    const participants = await Participant.find({ chatId });
+    console.log(participants);
+    const me = participants.find((p) => p.user.equals(userId));
     if (!me) {
       throw new ForBiddenException("Cannot access chat");
     }
-    if (others.length == 1) {
-      const isBlocked = await this.isBlocked(userId, others[0].user);
+
+    if (participants.length === 2) {
+      const other = participants.find((p) => !p.user.equals(userId));
+
+      const isBlocked = await this.isBlocked(userId, other.user);
       if (isBlocked) {
         throw new NotFoundException("Chat not found");
       }
     }
+
     return me;
   }
   static async isMember(participantId, chatId, session = null) {

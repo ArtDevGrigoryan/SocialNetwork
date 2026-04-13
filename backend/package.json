@@ -47,7 +47,9 @@
     "@types/node": "^25.5.0",
     "@types/redis": "^4.0.10",
     "@types/socket.io": "^3.0.1",
-    "@types/speakeasy": "^2.0.10"
+    "@types/speakeasy": "^2.0.10",
+    "jest": "^30.3.0",
+    "supertest": "^7.2.2"
   },
   "_moduleAliases": {
     "@helpers": "helpers",

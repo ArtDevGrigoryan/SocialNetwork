@@ -4,10 +4,8 @@ const userService = require("@services/user.service");
 
 class FriendController {
   async follow(req, res) {
-    const data = await friendService.follow(req.user._id, req.params.id);
-    if (data.notification) {
-    }
-    return sendSuccess(res, data.message);
+    const message = await friendService.follow(req.user._id, req.params.id);
+    return sendSuccess(res, message);
   }
   async unfollow(req, res) {
     const data = await friendService.unfollow(req.user._id, req.params.id);

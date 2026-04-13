@@ -6,7 +6,6 @@ const archiveStorySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Story",
       required: true,
-      index: true,
     },
 
     user: {

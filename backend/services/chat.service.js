@@ -7,11 +7,7 @@ const disjoinChatTx = require("@transaction/chat/disjoin-chat");
 const removeUserTx = require("@transaction/chat/remove-user-from-group");
 const deleteGroupTx = require("@transaction/chat/delete-group");
 const createGroupTx = require("@transaction/chat/create-group");
-const messageService = require("@services/message.service");
 const Participants = require("@models/participants");
-const participantService = require("@services/participants.service");
-const env = require("@helpers/env");
-const PolicyService = require("@services/policy.service");
 const {
   BadRequestException,
   ConflictException,
@@ -19,12 +15,12 @@ const {
   ForBiddenException,
 } = require("@helpers/errors");
 const notificationService = require("@services/notification.service");
+const PolicyService = require("@services/policy.service");
 
 class ChatService {
   async searchChat(userId, text) {
-    const searchStr = text;
     const userObjectId = new mongoose.Types.ObjectId(userId);
-    const regexp = new RegExp(searchStr, "i");
+    const regexp = new RegExp(text, "i");
 
     return Chat.aggregate([
       {
@@ -55,11 +51,54 @@ class ChatService {
         },
       },
       {
+        $lookup: {
+          from: "participants",
+          localField: "_id",
+          foreignField: "chatId",
+          as: "participants",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "participants.user",
+          foreignField: "_id",
+          as: "participantsUsers",
+        },
+      },
+      {
+        $addFields: {
+          participants: {
+            $map: {
+              input: "$participants",
+              as: "p",
+              in: {
+                _id: "$$p._id",
+                role: "$$p.role",
+                unreadCount: "$$p.unreadCount",
+                isMuted: "$$p.isMuted",
+                participantName: "$$p.participantName",
+                user: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: "$participantsUsers",
+                        cond: { $eq: ["$$this._id", "$$p.user"] },
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+      {
         $project: {
           groupName: 1,
           type: 1,
           participants: 1,
-          users: { username: 1 },
           lastMessage: 1,
           lastActivityAt: 1,
         },
@@ -69,17 +108,12 @@ class ChatService {
       },
     ]);
   }
+
   async getChats(userId, { limit = 20, cursor }) {
-    const match = { user: new mongoose.Types.ObjectId(userId) };
+    const userObjectId = new mongoose.Types.ObjectId(userId);
 
-    if (cursor) {
-      const [lastActivityAt, lastId] = cursor.split("_");
-      match["chat.lastActivityAt"] = { $lt: new Date(lastActivityAt) };
-      match["chat._id"] = { $lt: new mongoose.Types.ObjectId(lastId) };
-    }
-
-    const results = await Participants.aggregate([
-      { $match: { user: new mongoose.Types.ObjectId(userId) } },
+    const pipeline = [
+      { $match: { user: userObjectId } },
 
       {
         $lookup: {
@@ -90,6 +124,52 @@ class ChatService {
         },
       },
       { $unwind: "$chat" },
+
+      {
+        $lookup: {
+          from: "participants",
+          localField: "chat._id",
+          foreignField: "chatId",
+          as: "chat.participants",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "chat.participants.user",
+          foreignField: "_id",
+          as: "allUsers",
+        },
+      },
+      {
+        $addFields: {
+          "chat.participants": {
+            $map: {
+              input: "$chat.participants",
+              as: "p",
+              in: {
+                _id: "$$p._id",
+                role: "$$p.role",
+                unreadCount: "$$p.unreadCount",
+                isMuted: "$$p.isMuted",
+                lastReadMessage: "$$p.lastReadMessage",
+                participantName: "$$p.participantName",
+                user: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: "$allUsers",
+                        cond: { $eq: ["$$this._id", "$$p.user"] },
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
 
       {
         $lookup: {
@@ -109,28 +189,56 @@ class ChatService {
       { $sort: { "chat.lastActivityAt": -1, "chat._id": -1 } },
       { $limit: limit },
 
+      {
+        $project: {
+          "chat.allUsers": 0,
+        },
+      },
+
       { $replaceRoot: { newRoot: "$chat" } },
-    ]);
+    ];
+
+    if (cursor) {
+      const [lastActivityAt, lastId] = cursor.split("_");
+      pipeline.unshift({
+        $match: {
+          user: userObjectId,
+          "chat.lastActivityAt": { $lt: new Date(lastActivityAt) },
+          "chat._id": { $lt: new mongoose.Types.ObjectId(lastId) },
+        },
+      });
+    }
+
+    const results = await Participants.aggregate(pipeline);
 
     const nextCursor =
       results.length > 0
-        ? `${results[results.length - 1].lastActivityAt.getTime()}_${
-            results[results.length - 1]._id
-          }`
+        ? `${results[results.length - 1].lastActivityAt.getTime()}_${results[results.length - 1]._id}`
         : null;
 
     return { chats: results, nextCursor };
   }
+
   async find(userId, chatId) {
     await PolicyService.canAccessChat(userId, chatId);
-    return Chat.findById(chatId).populate({
-      path: "pinned",
-      populate: {
-        path: "sender",
-        select: "_id username avatar bio",
-      },
-    });
+
+    return Chat.findById(chatId)
+      .populate({
+        path: "pinned",
+        populate: {
+          path: "sender",
+          select: "_id username avatar bio",
+        },
+      })
+      .populate({
+        path: "participants",
+        populate: {
+          path: "user",
+          select: "_id username avatar bio",
+        },
+      });
   }
+
   async getAdmins(userId, chatId) {
     await PolicyService.canAccessChat(userId, chatId);
     return Participants.find({ chatId, role: "admin" }).populate(
@@ -138,16 +246,19 @@ class ChatService {
       "_id username avatar bio",
     );
   }
+
   async togglePinMsg(participantId, chatId, msg) {
     const isMember = await PolicyService.isMember(participantId, chatId);
     if (!isMember) {
       throw new ForBiddenException("User is not a member of this chat");
     }
+
     const message = await PolicyService.isChatMessage(msg, chatId);
     if (!message) {
       throw new NotFoundException("Message not found");
     }
-    return await Chat.findByIdAndUpdate(
+
+    return Chat.findByIdAndUpdate(
       chatId,
       [
         {
@@ -156,10 +267,7 @@ class ChatService {
               $cond: [
                 { $in: [msg, "$pinned"] },
                 {
-                  $filter: {
-                    input: "$pinned",
-                    cond: { $ne: ["$$this", msg] },
-                  },
+                  $filter: { input: "$pinned", cond: { $ne: ["$$this", msg] } },
                 },
                 { $concatArrays: ["$pinned", [msg]] },
               ],
@@ -168,13 +276,15 @@ class ChatService {
         },
       ],
       { new: true },
-    ).populate({
-      path: "pinned",
-      populate: {
-        path: "sender",
-        select: "_id username avatar bio",
-      },
-    });
+    )
+      .populate({
+        path: "pinned",
+        populate: { path: "sender", select: "_id username avatar bio" },
+      })
+      .populate({
+        path: "participants",
+        populate: { path: "user", select: "_id username avatar bio" },
+      });
   }
 
   read(userId, chatId) {
@@ -186,11 +296,9 @@ class ChatService {
     if (isBlocked) throw new NotFoundException("User not found");
 
     const chatKey = [myId, targetId].sort().join(":");
+
     try {
-      const chat = await Chat.create({
-        type: "dm",
-        chatKey,
-      });
+      const chat = await Chat.create({ type: "dm", chatKey });
 
       await Participants.insertMany([
         { chatId: chat._id, user: myId },
@@ -205,6 +313,7 @@ class ChatService {
       throw err;
     }
   }
+
   async createGroup(myId, data) {
     const { userIds } = data;
     const existings = await PolicyService.existUsers(userIds);
@@ -215,22 +324,23 @@ class ChatService {
         ...existings.map((user) => user._id.toString()),
       ]),
     ];
+
     if (uniqueIds.length < 2) {
       throw new BadRequestException("At least 2 users required");
     }
-    const update = { groupName: data.groupName || "New Group" };
 
-    if (data.groupAvatar) {
-      update.groupAvatar = data.groupAvatar;
-    }
-    const participants = uniqueIds.map((id) => {
-      if (id == myId) {
-        return { user: id, role: "admin" };
-      }
-      return { user: id };
-    });
+    const update = { groupName: data.groupName || "New Group" };
+    if (data.groupAvatar) update.groupAvatar = data.groupAvatar;
+
+    const participants = uniqueIds.map((id) => ({
+      user: id,
+      role: id == myId ? "admin" : "member",
+    }));
+
     const { chat } = await createGroupTx(participants, update);
+    return chat;
   }
+
   async deleteGroup(userId, chatId) {
     await PolicyService.canRemoveGroup(userId, chatId);
     await deleteGroupTx(chatId);
@@ -239,10 +349,12 @@ class ChatService {
       fromUser: userId,
     });
   }
+
   async removeUserFromGruop(removerParticipantId, chatId, participantId) {
-    if (removerParticipantId.toString() == participantId.toString()) {
+    if (removerParticipantId.toString() === participantId.toString()) {
       throw new ConflictException("cannot remove yourself");
     }
+
     const { admin, removed } = await PolicyService.canRemoveMember(
       removerParticipantId,
       chatId,
@@ -256,6 +368,7 @@ class ChatService {
       removedUserId: removed.user,
     });
   }
+
   async disjoinChat(participantId, chatId) {
     const user = await PolicyService.canDisjoinChat(participantId, chatId);
     await disjoinChatTx(participantId, chatId);
@@ -264,23 +377,23 @@ class ChatService {
       removedUserId: user,
     });
   }
+
   async updateGroup(userId, chatId, data) {
     await PolicyService.canAccessChat(userId, chatId);
-    const update = {};
-    if (data.groupAvatar) {
-      update.groupAvatar = data.groupAvatar;
-    }
-    if (data.groupName) {
-      update.groupName = data.groupName;
-    }
 
-    return Chat.findByIdAndUpdate(chatId, update).populate({
-      path: "pinned",
-      populate: {
-        path: "sender",
-        select: "_id username avatar bio",
-      },
-    });
+    const update = {};
+    if (data.groupAvatar) update.groupAvatar = data.groupAvatar;
+    if (data.groupName) update.groupName = data.groupName;
+
+    return Chat.findByIdAndUpdate(chatId, update, { new: true })
+      .populate({
+        path: "pinned",
+        populate: { path: "sender", select: "_id username avatar bio" },
+      })
+      .populate({
+        path: "participants",
+        populate: { path: "user", select: "_id username avatar bio" },
+      });
   }
 }
 

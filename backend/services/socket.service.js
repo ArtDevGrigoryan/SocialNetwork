@@ -1,4 +1,4 @@
-const { cache } = require("@helpers/db/redis");
+const redis = require("@helpers/db/redis");
 const notificationService = require("@services/notification.service");
 
 class SocketService {
@@ -9,14 +9,26 @@ class SocketService {
     const key = `socket:${notif.toUser}`;
     const [io, isOnline] = await Promise.all([
       SocketService.getIO(),
-      cache.get(key),
+      redis.get(key),
     ]);
     if (isOnline) {
       io.to(key).emit("notification", notif);
-      await notificationService.markSended(notif._id);
+      await notificationService.markSended(notif);
     }
   }
-  async notifyMany(notifs) {}
+  async notifyMany(notifs) {
+    const io = await SocketService.getIO();
+    const sended = [];
+    for (const notif of notifs) {
+      const key = `socket:${notif.toUser}`;
+      const isOnline = !!(await redis.get("key"));
+      if (isOnline) {
+        io.to(key).emit("notification", notif);
+        sended.push(notif._id);
+      }
+    }
+    await notificationService.markSendedMany(sended);
+  }
 }
 
 module.exports = new SocketService();

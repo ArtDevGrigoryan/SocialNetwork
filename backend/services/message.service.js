@@ -43,7 +43,10 @@ class MessageService {
       ];
     }
 
-    return Message.find(query).sort({ createdAt: -1 }).limit(limit);
+    return Message.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate("sender", "_id username bio avatar");
   }
   async addReaction({ participantId, msgId, reaction }) {
     const msg = await Message.findById(msgId);
@@ -102,21 +105,16 @@ class MessageService {
     return message;
   }
   async addMessage(participantId, chatId, text) {
-    const { chat, participant, notificationTargets } =
-      await PolicyService.canSendMessage(participantId, chatId);
+    const { chat, participant } = await PolicyService.canSendMessage(
+      participantId,
+      chatId,
+    );
 
     const { message } = await sendMessageTx(participant.user, chatId, {
       type: "TEXT",
       text,
     });
 
-    notificationTargets.forEach((n) => {
-      evnetBus.emitEvent("message", {
-        user: n.user,
-        entity: message._id,
-        entityModel: "Message",
-      });
-    });
     return await message.populate("sender", "_id username avatar bio");
   }
   async addVoice(participantId, chatId, voiceFile) {

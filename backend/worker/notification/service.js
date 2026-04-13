@@ -4,6 +4,7 @@ const NotificationAggregator = require("@worker/notification/aggregator");
 const socketService = require("@services/socket.service");
 const Notification = require("@models/notification");
 const { keys } = require("@helpers/utilities/create-cache-key");
+const userService = require("@services/user.service");
 
 const followKey = (toUser) =>
   keys({ type: "follow", entityId: toUser, toUser });
@@ -41,7 +42,7 @@ class NotificationJobService {
         },
       ],
       { upsert: true, new: true },
-    );
+    ).populate("meta.users", "_id username bio avatar");
 
     await NotificationAggregator.clear(redis, [
       k.countKey,
@@ -84,7 +85,7 @@ class NotificationJobService {
         },
       ],
       { upsert: true, new: true },
-    );
+    ).populate("meta.users", "_id username avatar bio");
 
     await NotificationAggregator.clear(redis, [
       k.countKey,
@@ -114,13 +115,16 @@ class NotificationJobService {
       type: "FOLLOW",
       meta: NotificationAggregator.buildMeta(count, users),
     });
-
+    const notif = await notification.populate(
+      "meta.users",
+      "_id username avatar bio",
+    );
     await NotificationAggregator.clear(redis, [
       k.countKey,
       k.usersKey,
       k.scheduledKey,
     ]);
-    await socketService.notify(notification);
+    await socketService.notify(notif);
   }
 
   static async "follow-request"(data) {
@@ -156,7 +160,7 @@ class NotificationJobService {
         },
       ],
       { upsert: true, new: true },
-    );
+    ).populate("meta.users", "_id avatar bio username");
 
     await NotificationAggregator.clear(redis, [
       k.countKey,
@@ -181,7 +185,8 @@ class NotificationJobService {
       entity: messageId,
       entityModel: "Message",
       meta: { count: 1, users: [fromUser] },
-    });
+    }).populate("meta.users", "_id avatar bio username");
+
     await socketService.notify(notification);
   }
 
@@ -198,7 +203,7 @@ class NotificationJobService {
       fromUser,
       type: "ACCEPTED",
       meta: { count: 1, users: [fromUser] },
-    });
+    }).populate("meta.users", "_id avatar bio username");
     await socketService.notify(notification);
   }
 
@@ -223,8 +228,12 @@ class NotificationJobService {
       type: "DECLINED",
       meta: { count, users: users.slice(0, 3) },
     });
+    const notif = await notification.populate(
+      "meta.users",
+      "_id avatar bio username",
+    );
     await NotificationAggregator.clear(redis, [k.countKey, k.usersKey]);
-    await socketService.notify(notification);
+    await socketService.notify(notif);
   }
 
   static async "cancel-request"(data) {
@@ -248,6 +257,10 @@ class NotificationJobService {
       type: "REQUEST",
       meta: { count, users: users.slice(0, 3) },
     });
+    const notif = await notification.populate(
+      "meta.users",
+      "_id username avatar bio",
+    );
     await NotificationAggregator.clear(redis, [k.countKey, k.usersKey]);
     await socketService.notify(notification);
   }
@@ -282,15 +295,28 @@ class NotificationJobService {
       .filter((p) => !p.isMuted && p.notificationSettings.message)
       .map((p) => p.user);
 
+    const user = await userService
+      .findById(fromUser)
+      .select("_id avatar bio username");
+
     const notifications = await Notification.insertMany(
       filtered.map((toUser) => ({
         toUser,
         fromUser,
         entity: messageId,
         entityModel: "Message",
+        meta: {
+          count: 1,
+          users: [fromUser],
+        },
       })),
     );
-    await socketService.notifyMany(notifications);
+    const populated = notifications.map((notif) => ({
+      ...notif.toObject(),
+      meta: { ...notif.meta, users: user },
+    }));
+
+    await socketService.notifyMany(populated);
   }
 
   static async "group-removed"(data) {
@@ -303,6 +329,10 @@ class NotificationJobService {
       .filter((p) => !p.isMuted && p.notificationSettings.group_removed)
       .map((p) => p.user);
 
+    const user = await userService
+      .findById(fromUser)
+      .select("_id avatar bio username");
+
     const notifications = await Notification.insertMany(
       filtered.map((toUser) => ({
         toUser,
@@ -312,7 +342,11 @@ class NotificationJobService {
         entityModel: "Chat",
       })),
     );
-    await socketService.notifyMany(notifications);
+    const populated = notifications.map((notif) => ({
+      ...notif.toObject(),
+      meta: { ...notif.meta, users: user },
+    }));
+    await socketService.notifyMany(populated);
   }
 
   static async "member-removed-notice"(data) {
@@ -327,6 +361,10 @@ class NotificationJobService {
       .filter((p) => !p.isMuted && p.notificationSettings[settingKey])
       .map((p) => p.user);
 
+    const user = await userService
+      .findById(fromUser)
+      .select("_id avatar bio username");
+
     const notifications = await Notification.insertMany(
       filtered.map((toUser) => ({
         toUser,
@@ -337,7 +375,11 @@ class NotificationJobService {
         meta: { count: 1, users: [fromUser] },
       })),
     );
-    await socketService.notifyMany(notifications);
+    const populated = notifications.map((notif) => ({
+      ...notif.toObject(),
+      meta: { ...notif.meta, users: user },
+    }));
+    await socketService.notifyMany(populated);
 
     // Private member removed notice for the removed user
     await NotificationJobService.#memberRemoved({
@@ -369,7 +411,12 @@ class NotificationJobService {
       },
     });
 
-    await socketService.notify(notification);
+    const populated = await notification.populate(
+      "meta.users",
+      "_id avatar username bio",
+    );
+
+    await socketService.notify(populated);
   }
   static async #memberRemoved(data) {
     const { toUser, chatId, fromUser } = data;
@@ -387,7 +434,12 @@ class NotificationJobService {
       entityModel: "Chat",
       meta: { count: 1, users: [fromUser] },
     });
-    await socketService.notify(notification);
+
+    const populated = await notification.populate(
+      "meta.users",
+      "_id username bio avatar",
+    );
+    await socketService.notify(populated);
   }
 
   static async "new-group"(data) {
@@ -400,6 +452,10 @@ class NotificationJobService {
       .filter((p) => !p.isMuted && p.notificationSettings.new_group)
       .map((p) => p.user);
 
+    const user = await userService
+      .findById(fromUser)
+      .select("_id avatar bio username");
+
     const notifications = await Notification.insertMany(
       filtered.map((toUser) => ({
         toUser,
@@ -407,9 +463,17 @@ class NotificationJobService {
         entity: chatId,
         entityModel: "Chat",
         type: "NEW_GROUP",
+        meta: {
+          count: 1,
+          users: [fromUser],
+        },
       })),
     );
-    await socketService.notifyMany(notifications);
+    const populated = notifications.map((notif) => ({
+      ...notif.toObject(),
+      meta: { ...notif.meta, users: user },
+    }));
+    await socketService.notifyMany(populated);
   }
 
   static async "new-story"(data) {
@@ -418,6 +482,11 @@ class NotificationJobService {
       fromUser,
       "story",
     );
+
+    const user = await userService
+      .findById(fromUser)
+      .select("_id username avatar bio");
+
     const notifications = await Notification.insertMany(
       notificationUsers.map((toUser) => ({
         toUser,
@@ -425,15 +494,30 @@ class NotificationJobService {
         entity: storyId,
         entityModel: "Story",
         type: "NEW_STORY",
+        meta: {
+          count: 1,
+          users: [fromUser],
+        },
       })),
     );
-    await socketService.notifyMany(notifications);
+
+    const populated = notifications.map((noitf) => ({
+      ...notif.toObject(),
+      meta: { ...notif.meta, users: user },
+    }));
+
+    await socketService.notifyMany(populated);
   }
 
   static async "new-post"(data) {
     const { fromUser, postId } = data;
     const notificationUsers =
       await PrivacyPolicy.checkNotificationFollowers(fromUser);
+
+    const user = await userService
+      .findById(fromUser)
+      .select("_id username avatar bio");
+
     const notifications = await Notification.insertMany(
       notificationUsers.map((toUser) => ({
         toUser,
@@ -441,9 +525,17 @@ class NotificationJobService {
         entity: postId,
         entityModel: "Post",
         type: "NEW_POST",
+        meta: {
+          count: 1,
+          users: [fromUser],
+        },
       })),
     );
-    await socketService.notifyMany(notifications);
+    const populated = notifications.map((noitf) => ({
+      ...notif.toObject(),
+      meta: { ...notif.meta, users: user },
+    }));
+    await socketService.notifyMany(populated);
   }
 }
 
