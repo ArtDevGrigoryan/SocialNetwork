@@ -29,7 +29,8 @@ class FriendService {
     await notificationService.followNotification({
       fromUser: sender,
       toUser: receiver,
-    });console.log(message)
+    });
+    console.log(message);
     return message;
   }
   async accept(receiver, requestId) {
@@ -69,7 +70,8 @@ class FriendService {
     });
     return true;
   }
-  async followerList(userId, limit = 20, page = 1) {
+  async followerList(viewer, userId, limit = 20, page = 1) {
+    await PolicyService.canViewProfile(viewer, userId);
     const skip = (page - 1) * limit;
     return await Follow.find({ following: userId })
       .sort({ createdAt: -1 })
@@ -77,7 +79,8 @@ class FriendService {
       .limit(limit)
       .populate("follower", "_id username avatar");
   }
-  async followingList(userId, limit = 20, page = 1) {
+  async followingList(viewer, userId, limit = 20, page = 1) {
+    await PolicyService.canViewProfile(viewer, userId);
     const skip = (page - 1) * limit;
     return await Follow.find({ follower: userId })
       .sort({ createdAt: -1 })

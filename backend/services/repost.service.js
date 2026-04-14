@@ -39,6 +39,17 @@ class RepostService {
       .limit(limit)
       .populate("user", "_id avatar username bio");
   }
+  async findReposts(userId, authorId, pagination = {}) {
+    await PolicyService.canViewProfile(userId, authorId);
+    const { page = 1, limit = 20 } = pagination;
+    const skip = (page - 1) * limit;
+    return Repost.find({ author: userId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("post")
+      .populate("user", "_id avatar username bio");
+  }
 }
 
 module.exports = new RepostService();

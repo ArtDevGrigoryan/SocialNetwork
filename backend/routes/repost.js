@@ -7,6 +7,7 @@ const {
 } = require("@schemas/post.schema");
 
 router.post("/:id", validate(getSpecificSchema), repostController.toggleRepost);
+router.get("/:id", validate(getSpecificSchema), repostController.findReposts)
 router.get("/my", validate(getArchivedSchema), repostController.myReposts);
 router.get("/", validate(getArchivedSchema), repostController.myPostsReposts);
 

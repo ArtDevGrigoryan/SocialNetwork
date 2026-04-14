@@ -3,7 +3,7 @@ const { verifyAccessToken } = require("@helpers/utilities/jwt");
 const User = require("@models/user");
 
 module.exports = async function isAuth(socket, data, next) {
-  const token = socket.handshake.headers.accesstoken;
+  const token = socket.handshake.auth.token;
   if (!token) {
     throw new SocketUnauthorizedException(null, "Unauthorized");
   }

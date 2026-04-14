@@ -24,13 +24,23 @@ class FriendController {
     return sendSuccess(res, data);
   }
   async getFollowers(req, res) {
+    const { id } = req.params;
     if ("page" in req.validated.query) {
       const { page, limit } = req.validated.query;
-      const data = await friendService.followerList(req.user._id, limit, page);
+      const data = await friendService.followerList(
+        req.user._id,
+        id,
+        limit,
+        page,
+      );
       return sendSuccess(res, data);
     }
     const { search } = req.query;
-    const founds = await userService.searchInFollowers(req.user.id, search);
+    const founds = await userService.searchInFollowers(
+      req.user._id,
+      id,
+      search,
+    );
     return sendSuccess(res, founds);
   }
   async getFollowings(req, res) {

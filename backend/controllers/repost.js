@@ -20,6 +20,14 @@ class RepostController {
     );
     return sendSuccess(res, data);
   }
+  async findReposts(req, res) {
+    const data = await repostService.findReposts(
+      req.user._id,
+      req.params.id,
+      req.validated.query,
+    );
+    return sendSuccess(res, data);
+  }
 }
 
 module.exports = new RepostController();

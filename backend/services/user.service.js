@@ -4,6 +4,7 @@ const Block = require("@models/blocked-user");
 const FriendRequest = require("@models/friend-request");
 const friendService = require("@services/friend.service");
 const blockTx = require("@transaction/friendship/block");
+const PolicyService = require("./policy.service");
 
 class UserService {
   async checkExists(...ids) {
@@ -25,7 +26,8 @@ class UserService {
   search(str) {
     return User.find({ username: { $regex: str, $options: "i" } });
   }
-  async searchInFollowers(myId, str) {
+  async searchInFollowers(viewer, myId, str) {
+    await PolicyService.canViewProfile(viewer, myId);
     const regex = new RegExp(str, "i");
 
     const followers = await Follow.find({ following: myId }).populate({

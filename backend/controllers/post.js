@@ -25,8 +25,7 @@ class PostController {
     return sendSuccess(res, post);
   }
   async getPosts(req, res) {
-    const { limit, page } = req.validated.query;
-    const { author } = req.body;
+    const { limit, page, author } = req.validated.query;
     const posts = await postService.getPosts(req.user._id, author, page, limit);
     return sendSuccess(res, posts);
   }

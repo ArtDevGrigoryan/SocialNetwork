@@ -3,6 +3,8 @@ const { idSchema, paginationSchema } = require("./common.schema");
 
 const getPostsSchema = z.object({
   author: idSchema,
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).default(20),
 });
 
 const getSpecificSchema = z.object({
@@ -23,12 +25,8 @@ const createSchema = z.object({
   content: z.string().nonempty(),
 });
 
-
 module.exports = {
-  getPostsSchema: [
-    { body: getPostsSchema, query: paginationSchema },
-    { defaults: true },
-  ],
+  getPostsSchema: [{ query: getPostsSchema }, { defaults: true }],
   getArchivedSchema: [{ query: paginationSchema }, { defaults: true }],
   getSpecificSchema: [{ params: getSpecificSchema }],
   updateSchema: [{ params: getSpecificSchema, body: updateSchema }],
