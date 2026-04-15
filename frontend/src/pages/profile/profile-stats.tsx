@@ -2,17 +2,21 @@ interface ProfileStatsProps {
   postsCount: number;
   followersCount: number;
   followingCount: number;
+  onFollowersClick?: () => void;
+  onFollowingClick?: () => void;
 }
 
 export const ProfileStats = ({
   postsCount,
   followersCount,
   followingCount,
+  onFollowersClick,
+  onFollowingClick,
 }: ProfileStatsProps) => {
   const stats = [
-    { label: "posts", value: postsCount },
-    { label: "followers", value: followersCount },
-    { label: "following", value: followingCount },
+    { label: "posts", value: postsCount, onClick: undefined },
+    { label: "followers", value: followersCount, onClick: onFollowersClick },
+    { label: "following", value: followingCount, onClick: onFollowingClick },
   ];
 
   return (
@@ -20,7 +24,10 @@ export const ProfileStats = ({
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="flex flex-col md:flex-row md:gap-1 items-center cursor-pointer"
+          onClick={stat.onClick}
+          className={`flex flex-col md:flex-row md:gap-1 items-center ${
+            stat.onClick ? "cursor-pointer hover:opacity-80" : "cursor-default"
+          }`}
         >
           <span className="font-semibold text-white">{stat.value || 0}</span>
           <span className="text-neutral-400">{stat.label}</span>
@@ -29,3 +36,5 @@ export const ProfileStats = ({
     </div>
   );
 };
+
+export default ProfileStats;

@@ -1,23 +1,17 @@
-import { Bell, Search } from "lucide-react";
-import { useState } from "react";
+import { Bell, MessageCircle } from "lucide-react";
 
 export default function Header() {
   return (
-    <div className="sticky top-0 z-20 backdrop-blur-xl bg-neutral-950/70 border-b border-neutral-800/60">
-      <div className="flex items-center justify-between px-4 md:px-8 py-3">
-        {/* TITLE */}
-        <h2 className="font-semibold text-lg tracking-tight">Feed</h2>
-
-        {/* RIGHT ACTIONS */}
-        <div className="flex items-center gap-3">
-          {/* NOTIFICATION BUTTON */}
-          <button className="relative bg-neutral-800 hover:bg-neutral-700 px-3 py-2 rounded-xl transition">
-            <Bell size={18} />
-
-            {/* badge */}
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
-          </button>
+    <div className="md:hidden sticky top-0 z-40 bg-black/80 backdrop-blur-md border-b border-neutral-900 px-4 py-2 flex items-center justify-between">
+      <h2 className="text-2xl font-bold italic font-serif tracking-tighter">
+        B-Social
+      </h2>
+      <div className="flex items-center gap-4">
+        <div className="relative cursor-pointer">
+          <Bell size={24} />
+          <span className="absolute -top-1 -right-1 bg-red-500 w-2 h-2 rounded-full border-2 border-black" />
         </div>
+        <MessageCircle size={24} />
       </div>
     </div>
   );

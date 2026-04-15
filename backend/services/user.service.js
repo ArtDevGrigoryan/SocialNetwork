@@ -20,6 +20,18 @@ class UserService {
   async updateStatus(id, status = "OFFLINE") {
     await User.findByIdAndUpdate(id, { status });
   }
+  async getUser(viewerId, targetId) {
+    const { isFollowing, profileVisibility } =
+      await PolicyService.canGuestProfile(viewerId, targetId);
+
+    const user = await User.findById(targetId)
+      .select("_id username avatar bio")
+      .lean();
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+    return { ...user, isFollowing };
+  }
   findById(id) {
     return User.findById(id);
   }

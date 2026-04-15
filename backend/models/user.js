@@ -5,7 +5,11 @@ const userSchema = new mongoose.Schema(
     username: { type: String, required: true, unique: true, index: true },
     email: { type: String, required: true, unique: true, index: true },
     password: { type: String, required: true },
-    avatar: String,
+    avatar: {
+      type: String,
+      defautl:
+        "https://res.cloudinary.com/dwno9onqc/image/upload/v1776183884/avatar_pqmbg7.jpg",
+    },
     bio: String,
     website: String,
     followersCount: { type: Number, default: 0 },

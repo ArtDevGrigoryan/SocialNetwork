@@ -18,6 +18,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
     const socket = io(import.meta.env.VITE_WS_URL, {
       auth: { token },
+      transports: ["websocket"],
     });
 
     socket.on("connect", () => {

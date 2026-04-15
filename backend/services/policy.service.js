@@ -55,6 +55,29 @@ class PolicyService {
     }
     await this.canViewProfile(viewerId, story.user);
   }
+  static async canGuestProfile(viewerId, targetId, session = null) {
+    if (viewerId.toString() === targetId.toString())
+      return { isFollowing: true, profileVisibility: "" };
+
+    const isBlocked = await this.isBlocked(viewerId, targetId, session);
+    if (isBlocked) {
+      throw new NotFoundException("User not found");
+    }
+
+    const setting = await this.withSession(
+      Setting.findOne({ user: targetId }).select("privacy.profileVisibility"),
+      session,
+    );
+
+    const follow = await this.withSession(
+      Follow.findOne({ follower: viewerId, following: targetId }),
+      session,
+    );
+    if (setting?.privacy?.profileVisibility === "PRIVATE" && !follow) {
+      return { isFollowing: false, profileVisibility: "PRIVATE" };
+    }
+    return { profileVisibility: "PUBLIC", isFollowing: !!follow };
+  }
   // Post
   static async isPostAuthor(userId, postId, session = null) {
     const exist = await this.withSession(

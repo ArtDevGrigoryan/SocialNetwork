@@ -28,7 +28,7 @@ class CommentController {
     const { postId } = req.params;
     const comments = await commentService.comments(
       req.user._id,
-      comments,
+      postId,
       req.validated.query,
     );
     return sendSuccess(res, comments);

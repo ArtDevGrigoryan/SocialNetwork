@@ -2,13 +2,47 @@ export interface IUser {
   _id: string;
   username: string;
   email: string;
-  avatar: string;
+  avatar?: string;
   bio?: string;
-  role: "user" | "admin";
-  status: "ONLINE" | "OFFLINE";
+  website?: string;
   followersCount: number;
   followingCount: number;
+  status: "ONLINE" | "OFFLINE";
+  role: "admin" | "user";
   deactived: boolean;
   createdAt: string;
   updatedAt: string;
+}
+export interface IFriend {
+  _id: string;
+  follower?: IUser;
+  following?: IUser;
+}
+export interface IPost {
+  _id: string;
+  author: IUser | string;
+  content: string;
+  images: string[];
+  likes: number;
+  comments: number;
+  isArchived: boolean;
+  accessRepost: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IStory {
+  _id: string;
+  user: IUser | string;
+  media: {
+    url: string;
+    key: string;
+    backgroundMusic?: string;
+    type: "image" | "video";
+    duration?: number;
+    thumbnail?: string;
+  };
+  viewsCount: number;
+  expiresAt: string;
+  createdAt: string;
 }

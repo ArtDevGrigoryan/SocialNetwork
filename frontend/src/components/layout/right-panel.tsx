@@ -2,7 +2,8 @@ import { UserPlus } from "lucide-react";
 
 export default function RightPanel() {
   return (
-    <div className="w-full flex flex-col gap-6">
+    // Ավելացվել է hidden lg:flex և լայնության սահմանափակում
+    <div className="hidden lg:flex w-80 flex-col gap-6 sticky top-0 h-screen pt-4 pr-4">
       {/* SUGGESTIONS CARD */}
       <div className="bg-neutral-900/60 border border-neutral-800 rounded-2xl p-4 backdrop-blur">
         {/* HEADER */}
@@ -10,7 +11,6 @@ export default function RightPanel() {
           <h3 className="text-sm font-semibold text-neutral-200">
             Suggestions
           </h3>
-
           <span className="text-xs text-neutral-500 hover:text-neutral-300 cursor-pointer transition">
             See all
           </span>
@@ -26,15 +26,14 @@ export default function RightPanel() {
               {/* USER INFO */}
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 shrink-0" />
-
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{user}</p>
-                  <p className="text-xs text-neutral-500">Suggested for you</p>
+                  <p className="text-xs text-neutral-500">Suggested</p>
                 </div>
               </div>
 
               {/* ACTION */}
-              <button className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition">
+              <button className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition shrink-0">
                 <UserPlus size={14} />
                 Follow
               </button>

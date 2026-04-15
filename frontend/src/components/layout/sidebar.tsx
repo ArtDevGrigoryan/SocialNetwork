@@ -1,56 +1,76 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/auth.store";
+import { Home, Compass, MessageCircle, User as UserIcon } from "lucide-react";
 
 export default function Sidebar() {
   const { pathname } = useLocation();
   const { user } = useAuthStore();
 
-  const linkStyle = (path: string) =>
-    `flex items-center gap-3 px-3 py-2 rounded-xl transition ${
-      pathname === path
-        ? "bg-neutral-800 text-white shadow"
-        : "text-neutral-400 hover:bg-neutral-800/60 hover:text-white"
-    }`;
+  const navItems = [
+    { name: "Home", path: "/", icon: Home },
+    { name: "Explore", path: "/explore", icon: Compass },
+    { name: "Messages", path: "/messages", icon: MessageCircle },
+    { name: "Profile", path: `/profile/${user?._id}`, icon: UserIcon },
+  ];
 
   return (
-    <div className="flex flex-col w-full gap-8">
-      {/* LOGO */}
-      <div className="px-2">
-        <h1
-          className="text-4xl mb-6 text-center"
-          style={{ fontFamily: "Grand Hotel, cursive" }}
-        >
-          B-Social
-        </h1>
-      </div>
-
-      {/* NAV */}
-      <nav className="flex flex-col gap-2">
-        <Link className={linkStyle("/")} to="/">
-          🏠 Home
-        </Link>
-        <Link className={linkStyle("/explore")} to="/explore">
-          🔍 Explore
-        </Link>
-        <Link className={linkStyle("/messages")} to="/messages">
-          💬 Messages
-        </Link>
-        <Link className={linkStyle("/profile")} to={`/profile/${user?._id}`}>
-          👤 Profile
-        </Link>
-      </nav>
-
-      {/* USER */}
-      <div className="mt-auto bg-neutral-900/60 p-3 rounded-2xl flex items-center gap-3 hover:bg-neutral-800 transition cursor-pointer">
-        <img
-          src={user?.avatar || ""}
-          className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500"
-        />
-        <div>
-          <p className="text-sm font-medium">{user?.username}</p>
-          <p className="text-xs text-neutral-400">View profile</p>
+    <>
+      <div className="hidden md:flex fixed left-0 top-0 h-screen border-r border-neutral-800 flex-col p-3 md:w-20 lg:w-64 bg-black z-50">
+        <div className="p-4 mb-8">
+          <h1 className="text-2xl font-bold hidden lg:block italic font-serif">
+            B-Social
+          </h1>
+          <div className="lg:hidden flex justify-center text-2xl font-bold">
+            B
+          </div>
         </div>
+
+        <nav className="flex flex-col gap-2 grow">
+          {navItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex items-center gap-4 p-3 rounded-lg hover:bg-neutral-900 transition-all duration-200 ${
+                pathname === item.path
+                  ? "font-bold scale-105"
+                  : "text-neutral-300"
+              }`}
+            >
+              <item.icon
+                size={28}
+                strokeWidth={pathname === item.path ? 2.5 : 2}
+              />
+              <span className="hidden lg:block text-lg">{item.name}</span>
+            </Link>
+          ))}
+        </nav>
       </div>
-    </div>
+
+      {/* MOBILE BOTTOM NAV */}
+      <div className="md:hidden fixed bottom-0 left-0 w-full h-14 bg-black border-t border-neutral-900 flex items-center justify-around z-50 px-4">
+        {navItems.map((item) => (
+          <Link key={item.path} to={item.path}>
+            <item.icon
+              size={26}
+              className={
+                pathname === item.path ? "text-white" : "text-neutral-400"
+              }
+              strokeWidth={pathname === item.path ? 2.5 : 2}
+            />
+          </Link>
+        ))}
+        {/* User Avatar Tiny */}
+        <Link to={`/profile/${user?._id}`}>
+          <div
+            className={`w-7 h-7 rounded-full border ${pathname.includes("profile") ? "border-white" : "border-transparent"}`}
+          >
+            <img
+              src={user?.avatar || "/default-avatar.png"}
+              className="w-full h-full rounded-full object-cover"
+            />
+          </div>
+        </Link>
+      </div>
+    </>
   );
 }

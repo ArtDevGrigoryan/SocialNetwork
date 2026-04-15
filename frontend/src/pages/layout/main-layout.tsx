@@ -49,22 +49,23 @@ export default function MainLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100">
-      <div className="flex max-w-[1400px] mx-auto">
-        <aside className="hidden md:flex w-[260px] px-3 py-6 border-r border-neutral-800/60">
-          <Sidebar />
-        </aside>
+    <div className="min-h-screen bg-black text-white flex flex-col md:flex-row">
+      <Sidebar />
 
-        <main className="flex-1 min-h-screen">
-          <Header />
-          <div className="px-4 md:px-8 py-6">
-            <Outlet />
-          </div>
-        </main>
+      <div className="flex-1 flex flex-col md:ml-20 lg:ml-64 transition-all duration-300">
+        <Header />
 
-        <aside className="hidden xl:flex w-[340px] px-4 py-6 border-l border-neutral-800/60">
-          <RightPanel />
-        </aside>
+        <div className="flex justify-center w-full grow">
+          <main className="w-full max-w-[630px] pb-20 md:pb-0">
+            <div className="py-2 md:py-8">
+              <Outlet />
+            </div>
+          </main>
+
+          <aside className="hidden xl:block w-[320px] pt-10 pl-10 pr-4">
+            <RightPanel />
+          </aside>
+        </div>
       </div>
     </div>
   );

@@ -1,60 +1,128 @@
-import { Settings } from "lucide-react";
-import { ProfileStats } from "./profile-stats";
-import { useAuthStore } from "../../store/auth.store";
+import { Settings, Check, ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api } from "../../lib/axios.config";
+import { AvatarModal } from "./avatar-modal";
 
-export const ProfileHeader = () => {
-  const { user } = useAuthStore();
-  const postsCount = 1500;
+export const ProfileHeader = ({
+  user,
+  isOwner,
+  postsCount,
+  onFollowersClick,
+  onFollowingClick,
+  refreshData,
+}: any) => {
+  const navigate = useNavigate();
+  const [isAvatarOpen, setIsAvatarOpen] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+
+  const handleFollowAction = async () => {
+    setIsFollowLoading(true);
+    try {
+      // Ենթադրվում է, որ endpoint-ը աշխատում է toggle սկզբունքով կամ ունի ստուգում
+      await api.post(`/friends/follow/${user._id}`);
+      refreshData(); // Թարմացնում ենք թվերը
+    } catch (error) {
+      console.error("Follow error:", error);
+    } finally {
+      setIsFollowLoading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col md:flex-row items-center md:items-start gap-8 px-4 pt-8">
-      {/* AVATAR SECTION */}
-      <div className="shrink-0">
-        <div className="w-28 h-28 md:w-36 md:h-36 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 p-1">
-          <div className="w-full h-full rounded-full bg-neutral-900 border-4 border-neutral-950 flex items-center justify-center overflow-hidden">
-            {user?.avatar ? (
-              <img
-                src={user.avatar}
-                alt={user.username}
-                className="w-full h-full object-cover"
-              />
+    <header className="px-4 py-6 md:py-10 flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-20">
+      {/* AVATAR */}
+      <div
+        onClick={() => user?.avatar && setIsAvatarOpen(true)}
+        className="relative shrink-0 w-20 h-20 md:w-36 md:h-36 rounded-full p-[3px] bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 cursor-pointer"
+      >
+        <div className="w-full h-full rounded-full bg-black p-[2px]">
+          <img
+            src={user?.avatar || "/default-avatar.png"}
+            className="w-full h-full rounded-full object-cover border border-neutral-900"
+          />
+        </div>
+      </div>
+
+      {/* INFO */}
+      <div className="flex-1 w-full space-y-4 md:space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center gap-4">
+          <h2 className="text-xl font-normal text-white">{user?.username}</h2>
+
+          <div className="flex items-center gap-2">
+            {isOwner ? (
+              <>
+                <button
+                  onClick={() => navigate("/settings/profile")}
+                  className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition"
+                >
+                  Edit Profile
+                </button>
+                <button
+                  onClick={() => navigate("/settings")}
+                  className="hidden md:block text-white"
+                >
+                  <Settings size={24} />
+                </button>
+              </>
             ) : (
-              <span className="text-4xl font-bold text-neutral-500 uppercase">
-                {user?.username?.[0] || "?"}
-              </span>
+              <>
+                <button
+                  onClick={handleFollowAction}
+                  disabled={isFollowLoading}
+                  className={`${user?.isFollowing ? "bg-neutral-800" : "bg-blue-500"} text-white px-6 py-1.5 rounded-lg text-sm font-semibold transition min-w-[100px]`}
+                >
+                  {isFollowLoading
+                    ? "..."
+                    : user?.isFollowing
+                      ? "Following"
+                      : "Follow"}
+                </button>
+                <button className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition">
+                  Message
+                </button>
+              </>
             )}
           </div>
         </div>
-      </div>
 
-      {/* INFO SECTION */}
-      <div className="flex-1 w-full flex flex-col items-center md:items-start">
-        <div className="flex flex-col md:flex-row items-center gap-4 mb-4 md:mb-6 w-full md:w-auto">
-          <h2 className="text-xl font-medium">
-            {user?.username || "loading..."}
-          </h2>
-          <div className="flex items-center gap-2">
-            <button className="bg-neutral-100 text-neutral-900 px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-neutral-200 transition">
-              Edit profile
-            </button>
-            <button className="bg-neutral-800 p-1.5 rounded-lg text-neutral-100 hover:bg-neutral-700 transition">
-              <Settings size={20} />
-            </button>
+        {/* Stats */}
+        <div className="flex justify-around md:justify-start md:gap-10 border-y md:border-none border-neutral-900 py-3 md:py-0">
+          <div className="flex flex-col md:flex-row items-center gap-1">
+            <span className="font-semibold">{postsCount}</span>{" "}
+            <span className="text-neutral-400 md:text-white">posts</span>
+          </div>
+          <div
+            onClick={onFollowersClick}
+            className="flex flex-col md:flex-row items-center gap-1 cursor-pointer"
+          >
+            <span className="font-semibold">{user?.followersCount || 0}</span>{" "}
+            <span className="text-neutral-400 md:text-white">followers</span>
+          </div>
+          <div
+            onClick={onFollowingClick}
+            className="flex flex-col md:flex-row items-center gap-1 cursor-pointer"
+          >
+            <span className="font-semibold">{user?.followingCount || 0}</span>{" "}
+            <span className="text-neutral-400 md:text-white">following</span>
           </div>
         </div>
 
-        {/* STATS COMPONENT */}
-        <ProfileStats
-          postsCount={postsCount}
-          followersCount={user?.followersCount || 0}
-          followingCount={user?.followingCount || 0}
-        />
-
-        {/* BIO SECTION */}
-        <div className="text-sm md:text-base text-center md:text-left">
-          <p className="font-semibold">{user?.username}</p>
-          <p className="text-neutral-300 mt-1">{user?.bio}</p>
+        <div className="text-sm text-center md:text-left">
+          <h1 className="font-semibold text-white">{user?.username}</h1>
+          <p className="text-neutral-300 mt-1 whitespace-pre-wrap">
+            {user?.bio || "No bio yet."}
+          </p>
         </div>
       </div>
-    </div>
+
+      <AvatarModal
+        isOpen={isAvatarOpen}
+        onClose={() => setIsAvatarOpen(false)}
+        avatarUrl={user?.avatar}
+      />
+    </header>
   );
 };
+
+export default ProfileHeader;
