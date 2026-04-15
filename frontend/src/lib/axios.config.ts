@@ -7,8 +7,13 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+interface IQueueItem {
+  resolve: (value?: unknown) => void;
+  reject: (reason?: any) => void;
+}
+
 let isRefreshing = false;
-let failedQueue: any[] = [];
+let failedQueue: IQueueItem[] = [];
 
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {

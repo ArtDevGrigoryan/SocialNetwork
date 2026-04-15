@@ -46,3 +46,25 @@ export interface IStory {
   expiresAt: string;
   createdAt: string;
 }
+
+export interface IComment {
+  _id: string;
+  post: string;
+  author: IUser;
+  content: string;
+  createdAt: string;
+}
+
+export interface IChat {
+  _id: string;
+  participants: IUser[];
+  lastMessage?: string;
+}
+
+export interface IMessage {
+  _id: string;
+  chatId: string;
+  senderId: string;
+  text: string;
+  createdAt: string;
+}

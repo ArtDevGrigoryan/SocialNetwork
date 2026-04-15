@@ -57,7 +57,6 @@ export const Profile = () => {
     fetchData();
   }, [fetchData]);
 
-  // FOLLOWERS / FOLLOWING FETCH LOGIC
   const handleFetchUsers = async (type: "followers" | "followings") => {
     setUsersModal((prev) => ({
       ...prev,

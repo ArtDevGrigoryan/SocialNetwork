@@ -5,6 +5,7 @@ import Login from "./pages/auth/login";
 import Signup from "./pages/auth/signup";
 import ForgotPassword from "./pages/auth/forgot-password";
 import Profile from "./pages/profile/home";
+import HomeFeed from "./pages/feed/home-feed";
 
 const router = createBrowserRouter([
   {
@@ -13,7 +14,7 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <App />,
+        element: <HomeFeed />,
       },
       { path: "profile/:id", element: <Profile /> },
     ],

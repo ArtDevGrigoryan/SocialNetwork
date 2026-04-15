@@ -25,7 +25,7 @@ class UserService {
       await PolicyService.canGuestProfile(viewerId, targetId);
 
     const user = await User.findById(targetId)
-      .select("_id username avatar bio")
+      .select("_id username avatar bio followersCount followingCount")
       .lean();
     if (!user) {
       throw new NotFoundException("User not found");
