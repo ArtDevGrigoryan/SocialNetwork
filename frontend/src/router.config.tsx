@@ -8,6 +8,7 @@ import HomeFeed from "./pages/feed/home-feed";
 import Settings from "./pages/settings";
 import Messages from "./pages/message";
 import SearchPage from "./pages/search";
+import NotificationsPage from "./pages/notifications";
 
 const router = createBrowserRouter([
   {
@@ -20,10 +21,10 @@ const router = createBrowserRouter([
       },
       { path: "profile/:id", element: <Profile /> },
       { path: "settings", element: <Settings /> },
-      { path: "search", element: <SearchPage /> },
-      { path: "explore", element: <SearchPage /> },
       { path: "messages", element: <Messages /> },
       { path: "messages/:chatId", element: <Messages /> },
+      { path: "search", element: <SearchPage /> },
+      { path: "notifications", element: <NotificationsPage /> },
     ],
   },
   {

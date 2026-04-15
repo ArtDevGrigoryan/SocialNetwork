@@ -24,7 +24,8 @@ export const PostModal = ({
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [commentText, setCommentText] = useState("");
   const [sending, setSending] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingPost, setDeletingPost] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const author = useMemo(
     () => (typeof post.author === "object" ? post.author : null),
     [post.author],
@@ -79,17 +80,31 @@ export const PostModal = ({
     }
   };
 
+  const handleDeletePost = async () => {
+    if (deletingPost) return;
+    setDeletingPost(true);
+    try {
+      await api.delete(`/posts/${post._id}`);
+      onClose();
+      window.dispatchEvent(new Event("post:created"));
+    } catch (error) {
+      console.error("Failed to delete post", error);
+    } finally {
+      setDeletingPost(false);
+    }
+  };
+
   const handleDeleteComment = async (commentId: string) => {
-    const previous = comments;
-    setDeletingId(commentId);
-    setComments((prev) => prev.filter((item) => item._id !== commentId));
+    setDeletingCommentId(commentId);
+    const prev = comments;
+    setComments((items) => items.filter((item) => item._id !== commentId));
     try {
       await api.delete(`/comments/${commentId}`);
     } catch (error) {
       console.error("Failed to delete comment", error);
-      setComments(previous);
+      setComments(prev);
     } finally {
-      setDeletingId(null);
+      setDeletingCommentId(null);
     }
   };
 
@@ -128,6 +143,15 @@ export const PostModal = ({
             <span className="font-bold text-sm hover:underline cursor-pointer">
               {author?.username}
             </span>
+            {user?._id === author?._id ? (
+              <button
+                onClick={handleDeletePost}
+                disabled={deletingPost}
+                className="ml-auto text-xs text-red-400 hover:text-red-300 disabled:opacity-60"
+              >
+                Delete post
+              </button>
+            ) : null}
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar min-h-0">
@@ -157,15 +181,14 @@ export const PostModal = ({
                     {comment.author?.username || "user"}
                   </span>
                   <span className="text-neutral-300">{comment.text}</span>
-                  {(comment.author?._id === user?._id ||
-                    author?._id === user?._id) && (
+                  {(user?._id === comment.author?._id ||
+                    user?._id === author?._id) && (
                     <button
-                      type="button"
-                      disabled={deletingId === comment._id}
                       onClick={() => handleDeleteComment(comment._id)}
-                      className="ml-2 text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                      disabled={deletingCommentId === comment._id}
+                      className="ml-2 text-xs text-red-400 hover:text-red-300 disabled:opacity-60"
                     >
-                      {deletingId === comment._id ? "..." : "Delete"}
+                      Delete
                     </button>
                   )}
                 </div>

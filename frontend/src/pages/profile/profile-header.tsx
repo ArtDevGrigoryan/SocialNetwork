@@ -1,5 +1,5 @@
 import { Settings, Check, UserPlus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/axios.config";
 import type { IUser } from "../../types/user.types";
@@ -21,42 +21,69 @@ export const ProfileHeader = ({
   onFollowingClick,
 }: ProfileHeaderProps) => {
   const navigate = useNavigate();
-  const [relationship, setRelationship] = useState<
-    "FOLLOWING" | "REQUESTED" | "NONE"
-  >(user?.isFollowing ? "FOLLOWING" : "NONE");
-  const [followersCount, setFollowersCount] = useState(user?.followersCount || 0);
+  const [followState, setFollowState] = useState<
+    "FOLLOWING" | "NOT_FOLLOWING" | "REQUESTED"
+  >(
+    user?.isFollowing
+      ? "FOLLOWING"
+      : user?.requestStatus === "PENDING"
+        ? "REQUESTED"
+        : "NOT_FOLLOWING",
+  );
   const [loading, setLoading] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
+
+  useEffect(() => {
+    setFollowState(
+      user?.isFollowing
+        ? "FOLLOWING"
+        : user?.requestStatus === "PENDING"
+          ? "REQUESTED"
+          : "NOT_FOLLOWING",
+    );
+  }, [user?.isFollowing, user?.requestStatus]);
 
   const toggleFollow = async () => {
     if (!user) return;
     setLoading(true);
-    const prevRelation = relationship;
-    const wasFollowing = prevRelation === "FOLLOWING";
-    if (prevRelation === "FOLLOWING") {
-      setRelationship("NONE");
-      setFollowersCount((count) => Math.max(0, count - 1));
+    const prev = followState;
+    if (prev === "FOLLOWING") {
+      setFollowState("NOT_FOLLOWING");
     } else {
-      setRelationship("FOLLOWING");
-      setFollowersCount((count) => count + 1);
+      setFollowState("REQUESTED");
     }
     try {
-      const { data } = await api.post(
-        `/friends/${wasFollowing ? "unfollow" : "follow"}/${user._id}`,
-      );
-      if (!wasFollowing && data?.payload === "FOLLOW_REQUEST") {
-        setRelationship("REQUESTED");
-      } else if (!wasFollowing) {
-        setRelationship("FOLLOWING");
+      if (prev === "FOLLOWING") {
+        await api.post(`/friends/unfollow/${user._id}`);
+      } else if (prev === "REQUESTED" && user.pendingRequestId) {
+        await api.patch("/friends/cancel", { receiver: user.pendingRequestId });
+        setFollowState("NOT_FOLLOWING");
+      } else {
+        const { data } = await api.post(`/friends/follow/${user._id}`);
+        const message = data?.payload;
+        setFollowState(message === "FOLLOW" ? "FOLLOWING" : "REQUESTED");
       }
     } catch {
-      setRelationship(prevRelation);
-      if (prevRelation === "FOLLOWING") {
-        setFollowersCount(user.followersCount || 0);
-      } else {
-        setFollowersCount(user.followersCount || 0);
-      }
+      setFollowState(prev);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startChat = async () => {
+    if (!user || chatLoading) return;
+    setChatLoading(true);
+    try {
+      const { data } = await api.post("/chats/dm", { userId: user._id });
+      if (data?.payload?._id) {
+        navigate(`/messages/${data.payload._id}`);
+      } else {
+        navigate("/messages");
+      }
+    } catch (error) {
+      console.error("Failed to start chat", error);
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -87,30 +114,39 @@ export const ProfileHeader = ({
                 <Settings size={22} className="cursor-pointer" />
               </>
             ) : (
-              <button
-                onClick={toggleFollow}
-                disabled={loading}
-                className={`px-8 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 ${relationship === "FOLLOWING" ? "bg-neutral-800" : relationship === "REQUESTED" ? "bg-neutral-700" : "bg-blue-500 hover:bg-blue-600"}`}
-              >
-                {relationship === "FOLLOWING" ? (
-                  <>
-                    <Check size={16} /> Following
-                  </>
-                ) : relationship === "REQUESTED" ? (
-                  <>Requested</>
-                ) : (
-                  <>
-                    <UserPlus size={16} /> Follow
-                  </>
-                )}
-              </button>
+              <>
+                <button
+                  onClick={toggleFollow}
+                  disabled={loading}
+                  className={`px-8 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 ${followState === "FOLLOWING" || followState === "REQUESTED" ? "bg-neutral-800" : "bg-blue-500 hover:bg-blue-600"}`}
+                >
+                  {followState === "FOLLOWING" ? (
+                    <>
+                      <Check size={16} /> Following
+                    </>
+                  ) : followState === "REQUESTED" ? (
+                    <>Requested</>
+                  ) : (
+                    <>
+                      <UserPlus size={16} /> Follow
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={startChat}
+                  disabled={chatLoading}
+                  className="px-4 py-1.5 rounded-lg text-sm font-semibold bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 transition"
+                >
+                  Message
+                </button>
+              </>
             )}
           </div>
         </div>
 
         <ProfileStats
           postsCount={postsCount}
-          followersCount={followersCount}
+          followersCount={user?.followersCount || 0}
           followingCount={user?.followingCount || 0}
           onFollowersClick={onFollowersClick}
           onFollowingClick={onFollowingClick}

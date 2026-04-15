@@ -2,8 +2,8 @@ const { SocketConflictException } = require("@helpers/socket-errors");
 const { NotFoundException } = require("@helpers/errors");
 const User = require("@models/user");
 const Block = require("@models/blocked-user");
-const FriendRequest = require("@models/friend-request");
 const Follow = require("@models/follow");
+const FriendRequest = require("@models/friend-request");
 const friendService = require("@services/friend.service");
 const blockTx = require("@transaction/friendship/block");
 const PolicyService = require("./policy.service");
@@ -32,7 +32,20 @@ class UserService {
     if (!user) {
       throw new NotFoundException("User not found");
     }
-    return { ...user, isFollowing };
+    const pendingRequest = await FriendRequest.findOne({
+      sender: viewerId,
+      receiver: targetId,
+      status: "PENDING",
+    })
+      .select("_id")
+      .lean();
+
+    return {
+      ...user,
+      isFollowing,
+      requestStatus: pendingRequest ? "PENDING" : null,
+      pendingRequestId: pendingRequest?._id || null,
+    };
   }
   findById(id) {
     return User.findById(id);

@@ -62,12 +62,13 @@ class FriendController {
     const founds = await userService.search(req.query.search);
     return sendSuccess(res, founds);
   }
-  async requests(req, res) {
-    const data = await friendService.requests(req.user._id);
-    return sendSuccess(res, data);
-  }
   async toggleBlock(req, res) {
     const data = await userService.toggleBlock(req.user._id, req.params.userId);
+    return sendSuccess(res, data);
+  }
+  async requests(req, res) {
+    const { page, limit, type } = req.validated.query;
+    const data = await friendService.requests(req.user._id, { page, limit, type });
     return sendSuccess(res, data);
   }
   async getBlockeds(req, res) {

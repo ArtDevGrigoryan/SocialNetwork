@@ -14,6 +14,7 @@ const messageRouter = require("@routes/message");
 const storyRouter = require("@routes/story");
 const archiveRouter = require("@routes/archive");
 const userRouter = require("@routes/user");
+const notificationsRouter = require("@routes/notifications");
 
 const swaggerUi = require("swagger-ui-express");
 const YAML = require("yamljs");
@@ -33,6 +34,7 @@ router.use("/messages", isAuth, messageRouter);
 router.use("/stories", isAuth, storyRouter);
 router.use("/archives", isAuth, archiveRouter);
 router.use("/users", isAuth, userRouter);
+router.use("/notifications", isAuth, notificationsRouter);
 router.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 console.log("API DOCS SWAGGER-UI \nhttp://localhost:8888/api/docs");

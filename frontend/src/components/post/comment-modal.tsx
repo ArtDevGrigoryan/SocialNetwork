@@ -17,12 +17,14 @@ interface CommentModalProps {
   post: IPost;
   isOpen: boolean;
   onClose: () => void;
+  onCommentsCountChange?: (nextCount: number) => void;
 }
 
 export default function CommentModal({
   post,
   isOpen,
   onClose,
+  onCommentsCountChange,
 }: CommentModalProps) {
   const currentUser = useAuthStore((state) => state.user);
   const { socket, joinPost, leavePost } = useSocketStore(
@@ -85,7 +87,9 @@ export default function CommentModal({
       setLoading(true);
       // Հիմնված schemas/comment.schema.js-ի վրա (getCommentsSchema)
       const { data } = await api.get(`/comments/${post._id}`);
-      setComments(data.payload || []);
+      const list = data.payload || [];
+      setComments(list);
+      onCommentsCountChange?.(list.length);
     } catch (error) {
       console.error("Error fetching comments:", error);
     } finally {
@@ -121,28 +125,36 @@ export default function CommentModal({
 
       // 3. Փոխարինում ենք temp մեկնաբանությունը իրականով (որն ունի ճիշտ _id բազայից)
       if (data.payload) {
-        setComments((prev) =>
-          prev.map((c) => (c._id === tempId ? data.payload : c)),
-        );
+        setComments((prev) => {
+          const next = prev.map((c) => (c._id === tempId ? data.payload : c));
+          onCommentsCountChange?.(next.length);
+          return next;
+        });
       }
     } catch (error) {
       console.error("Error posting comment:", error);
       // Սխալի դեպքում ջնջում ենք optimistic մեկնաբանությունը
       setComments((prev) => prev.filter((c) => c._id !== tempId));
+      onCommentsCountChange?.(Math.max(0, comments.length - 1));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (commentId: string) => {
-    const previous = comments;
+  const postAuthorId =
+    typeof post.author === "object" ? post.author?._id : post.author;
+
+  const handleDeleteComment = async (commentId: string) => {
     setDeletingId(commentId);
-    setComments((prev) => prev.filter((item) => item._id !== commentId));
+    const previous = comments;
+    setComments((prev) => prev.filter((comment) => comment._id !== commentId));
+    onCommentsCountChange?.(Math.max(0, comments.length - 1));
     try {
       await api.delete(`/comments/${commentId}`);
     } catch (error) {
       console.error("Error deleting comment:", error);
       setComments(previous);
+      onCommentsCountChange?.(previous.length);
     } finally {
       setDeletingId(null);
     }
@@ -230,18 +242,14 @@ export default function CommentModal({
                     <span>
                       {new Date(comment.createdAt).toLocaleDateString()}
                     </span>
-                    <button className="font-semibold hover:text-neutral-300">
-                      Պատասխանել
-                    </button>
                     {(comment.author?._id === currentUser?._id ||
-                      (typeof post.author === "object" &&
-                        post.author?._id === currentUser?._id)) && (
+                      currentUser?._id === postAuthorId) && (
                       <button
                         disabled={deletingId === comment._id}
-                        onClick={() => handleDelete(comment._id)}
-                        className="font-semibold text-red-400 hover:text-red-300 disabled:opacity-50"
+                        onClick={() => handleDeleteComment(comment._id)}
+                        className="font-semibold hover:text-red-300 disabled:opacity-60"
                       >
-                        {deletingId === comment._id ? "Deleting..." : "Delete"}
+                        Delete
                       </button>
                     )}
                   </div>

@@ -3,27 +3,24 @@ const { ObjectId } = require("mongoose").Types;
 const Post = require("@models/post");
 
 class AggregationHelperPost {
-  static findPostsWithViewerLikes(viewer, author, page = 1, limit = 20) {
+  static #basePostsAggregation(viewer, page = 1, limit = 20) {
     const viewerId = new ObjectId(viewer);
-    const authorId = new ObjectId(author);
     const skip = (page - 1) * limit;
 
     return new AggregationBuilder(Post)
-      .match({ author: authorId, isArchived: false })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .lookup({
         from: "likes",
-        localField: "_id",
-        as: "viewerLikes",
+        let: { postId: "$_id" },
         pipeline: [
           {
             $match: {
               $expr: {
                 $and: [
-                  { $eq: ["$postId", "$$local"] },
-                  { $eq: ["$userId", viewerId] },
+                  { $eq: ["$post", "$$postId"] },
+                  { $eq: ["$user", viewerId] },
                 ],
               },
             },
@@ -39,6 +36,7 @@ class AggregationHelperPost {
       })
       .addFields({
         viewer: { isLiked: { $gt: [{ $size: "$viewerLikes" }, 0] } },
+        isLiked: { $gt: [{ $size: "$viewerLikes" }, 0] },
         author: { $arrayElemAt: ["$authorData", 0] },
       })
       .project({
@@ -60,6 +58,19 @@ class AggregationHelperPost {
         ...post,
         images: post.images?.map((img) => img.url) || [],
       }))
+  }
+
+  static findPostsWithViewerLikes(viewer, author, page = 1, limit = 20) {
+    const authorId = new ObjectId(author);
+    return this.#basePostsAggregation(viewer, page, limit)
+      .match({ author: authorId, isArchived: false })
+      .execTransformed();
+  }
+
+  static findFeedPostsWithViewerLikes(viewer, authorIds, page = 1, limit = 20) {
+    const validAuthorIds = authorIds.map((id) => new ObjectId(id));
+    return this.#basePostsAggregation(viewer, page, limit)
+      .match({ author: { $in: validAuthorIds }, isArchived: false })
       .execTransformed();
   }
 
@@ -71,15 +82,24 @@ class AggregationHelperPost {
       .match({ _id: postId })
       .lookup({
         from: "likes",
-        localField: "_id",
-        as: "viewerLikes",
+        let: { postId: "$_id" },
         pipeline: [
-          { $match: { $expr: { $eq: ["$userId", viewerId] } } },
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$post", "$$postId"] },
+                  { $eq: ["$user", viewerId] },
+                ],
+              },
+            },
+          },
           { $project: { _id: 1 } },
         ],
       })
       .addFields({
         viewer: { isLiked: { $gt: [{ $size: "$viewerLikes" }, 0] } },
+        isLiked: { $gt: [{ $size: "$viewerLikes" }, 0] },
       })
       .project({
         viewerLikes: 0,

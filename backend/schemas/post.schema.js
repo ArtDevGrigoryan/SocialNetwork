@@ -2,7 +2,7 @@ const { z } = require("zod");
 const { idSchema, paginationSchema } = require("./common.schema");
 
 const getPostsSchema = z.object({
-  author: idSchema,
+  author: idSchema.optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).default(20),
 });

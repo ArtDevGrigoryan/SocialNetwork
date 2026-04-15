@@ -5,19 +5,15 @@ import { api } from "../../lib/axios.config";
 interface AddStoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreated?: () => void;
 }
 
-export default function AddStoryModal({
-  isOpen,
-  onClose,
-  onCreated,
-}: AddStoryModalProps) {
+export default function AddStoryModal({ isOpen, onClose }: AddStoryModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fileType, setFileType] = useState<"image" | "video">("image");
   const [musicUrl, setMusicUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -35,6 +31,7 @@ export default function AddStoryModal({
   const handleSubmit = async () => {
     if (!selectedFile || !musicUrl.trim()) return;
 
+    setError("");
     setIsSubmitting(true);
     try {
       const formData = new FormData();
@@ -48,11 +45,11 @@ export default function AddStoryModal({
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      onCreated?.();
-      window.dispatchEvent(new CustomEvent("stories:created"));
+      window.dispatchEvent(new Event("story:created"));
       handleClose();
     } catch (error) {
       console.error("Error uploading story:", error);
+      setError("Failed to upload story. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -63,6 +60,7 @@ export default function AddStoryModal({
     setSelectedFile(null);
     setPreviewUrl(null);
     setMusicUrl("");
+    setError("");
     onClose();
   };
 
@@ -155,6 +153,7 @@ export default function AddStoryModal({
               className="flex-1 bg-transparent border-none text-white text-sm focus:outline-none placeholder-neutral-600"
             />
           </div>
+          {error ? <p className="text-xs text-red-400">{error}</p> : null}
         </div>
       </div>
     </div>

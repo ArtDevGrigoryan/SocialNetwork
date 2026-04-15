@@ -10,6 +10,7 @@ import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/axios.config";
 import type { IPost, IUser } from "../../types/user.types";
+import CommentModal from "./comment-modal";
 
 interface FeedPost extends IPost {
   isLiked?: boolean;
@@ -26,7 +27,11 @@ export default function PostCard({ post }: { post: FeedPost }) {
   const [isLiked, setIsLiked] = useState(Boolean(post.isLiked));
   const [isSaved, setIsSaved] = useState(Boolean(post.isSaved));
   const [likesCount, setLikesCount] = useState(post.likesCount ?? post.likes ?? 0);
+  const [commentsCount, setCommentsCount] = useState(
+    post.commentsCount ?? post.comments ?? 0,
+  );
   const [animateLike, setAnimateLike] = useState(false);
+  const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
   const [expandedCaption, setExpandedCaption] = useState(false);
   const caption = post.content || "";
   const shouldTruncateCaption = caption.length > 110;
@@ -125,6 +130,7 @@ export default function PostCard({ post }: { post: FeedPost }) {
               strokeWidth={1.75}
             />
             <MessageCircle
+              onClick={() => setIsCommentModalOpen(true)}
               size={24}
               className="hover:text-neutral-500 cursor-pointer"
               strokeWidth={1.75}
@@ -166,10 +172,19 @@ export default function PostCard({ post }: { post: FeedPost }) {
 
         <p className="text-xs text-neutral-400 uppercase tracking-wide">Just now</p>
 
-        <button className="text-neutral-500 text-sm hover:underline p-0">
-          View all {post.commentsCount ?? post.comments ?? 0} comments
+        <button
+          onClick={() => setIsCommentModalOpen(true)}
+          className="text-neutral-500 text-sm hover:underline p-0"
+        >
+          View all {commentsCount} comments
         </button>
       </div>
+      <CommentModal
+        post={post}
+        isOpen={isCommentModalOpen}
+        onClose={() => setIsCommentModalOpen(false)}
+        onCommentsCountChange={setCommentsCount}
+      />
     </div>
   );
 }

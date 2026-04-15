@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export const UsersModal = ({ isOpen, onClose, title, users, type }: any) => {
   if (!isOpen) return null;
@@ -37,9 +38,12 @@ export const UsersModal = ({ isOpen, onClose, title, users, type }: any) => {
                       {profile.username}
                     </span>
                   </div>
-                  <button className="bg-white text-black text-xs font-bold px-4 py-1.5 rounded-lg">
+                  <Link
+                    to={`/profile/${profile._id}`}
+                    className="bg-white text-black text-xs font-bold px-4 py-1.5 rounded-lg"
+                  >
                     View
-                  </button>
+                  </Link>
                 </div>
               );
             })

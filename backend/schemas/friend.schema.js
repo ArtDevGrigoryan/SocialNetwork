@@ -8,6 +8,12 @@ const getSchema = z.object({
   limit: z.coerce.number().int().min(1).default(20),
 });
 
+const requestsSchema = z.object({
+  type: z.enum(["incoming", "outgoing"]).default("incoming"),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).default(20),
+});
+
 const followSchema = z.object({
   id: idSchema,
 });
@@ -22,6 +28,7 @@ const blockSchema = z.object({
 
 module.exports = {
   getSchema: [{ query: getSchema }, { defaults: true }],
+  requestsSchema: [{ query: requestsSchema }, { defaults: true }],
   followSchema: [{ params: followSchema }],
   requestSchema: [{ body: requestSchema }],
   blockSchema: [{ params: blockSchema }],

@@ -2,13 +2,13 @@ const router = require("express").Router();
 const friendController = require("@controllers/friend");
 const isAuth = require("@middlewares/is-auth");
 const validate = require("@middlewares/validate");
-const { getSchema, requestSchema, blockSchema, followSchema } = require("@schemas/friend.schema");
+const { getSchema, requestSchema, blockSchema, followSchema, requestsSchema } = require("@schemas/friend.schema");
 
 router.get("/followers/:id", isAuth, validate(getSchema), friendController.getFollowers);
 router.get("/followings/:id", isAuth, validate(getSchema), friendController.getFollowings);
-router.get("/blocks", isAuth, validate(getSchema), friendController.getBlockeds)
 router.get("/search", isAuth, friendController.search);
-router.get("/requests", isAuth, friendController.requests);
+router.get("/requests", isAuth, validate(requestsSchema), friendController.requests);
+router.get("/blocks", isAuth, validate(getSchema), friendController.getBlockeds)
 router.post("/follow/:id", isAuth, validate(followSchema), friendController.follow);
 router.post("/unfollow/:id", isAuth, validate(followSchema), friendController.unfollow);
 router.patch("/accept", isAuth, validate(requestSchema), friendController.accept);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
@@ -18,27 +18,35 @@ export default function StoryBar() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const fetchStories = useCallback(async () => {
+  const fetchStories = async () => {
     try {
       const { data } = await api.get("/stories?limit=15");
-      setUsersWithStories(data.payload || []);
+      const mapped = (data.payload || []).map((item: any) => ({
+        _id: item.user?._id,
+        username: item.user?.username,
+        avatar: item.user?.avatar,
+        hasUnseenStory: Boolean(item.hasUnseen),
+      }));
+      setUsersWithStories(mapped);
     } catch (error) {
       console.error("Error fetching stories:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     fetchStories();
-  }, [fetchStories]);
+  }, []);
 
   useEffect(() => {
-    const handleStoryCreated = () => fetchStories();
-    window.addEventListener("stories:created", handleStoryCreated);
-    return () =>
-      window.removeEventListener("stories:created", handleStoryCreated);
-  }, [fetchStories]);
+    const onStoryCreated = () => {
+      setLoading(true);
+      fetchStories();
+    };
+    window.addEventListener("story:created", onStoryCreated);
+    return () => window.removeEventListener("story:created", onStoryCreated);
+  }, []);
 
   return (
     <>
@@ -101,7 +109,6 @@ export default function StoryBar() {
       <AddStoryModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onCreated={fetchStories}
       />
     </>
   );

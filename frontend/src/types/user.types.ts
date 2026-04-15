@@ -17,6 +17,8 @@ export interface IUser {
   role: "admin" | "user";
   deactived: boolean;
   isFollowing?: boolean;
+  requestStatus?: "PENDING" | "ACCEPTED" | "DECLINED" | null;
+  pendingRequestId?: string | null;
   emailVerified?: boolean;
   twoFactorEnabled?: boolean;
   createdAt: string;

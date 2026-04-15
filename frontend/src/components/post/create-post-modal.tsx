@@ -5,22 +5,29 @@ import { api } from "../../lib/axios.config";
 export default function CreatePostModal({
   isOpen,
   onClose,
-  onCreated,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onCreated?: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
+  const reset = () => {
+    setFile(null);
+    setPreview(null);
+    setContent("");
+    setError("");
+  };
+
   const handleUpload = async () => {
     if (!content.trim() || loading) return;
+    setError("");
     setLoading(true);
     const formData = new FormData();
     formData.append("content", content);
@@ -28,14 +35,12 @@ export default function CreatePostModal({
 
     try {
       await api.post("/posts", formData);
-      setFile(null);
-      setPreview(null);
-      setContent("");
-      onCreated?.();
-      window.dispatchEvent(new CustomEvent("posts:created"));
+      window.dispatchEvent(new Event("post:created"));
+      reset();
       onClose();
     } catch (err) {
       console.error(err);
+      setError("Failed to create post. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -87,8 +92,12 @@ export default function CreatePostModal({
             placeholder="Write a caption..."
             className="w-full flex-1 bg-transparent border-none focus:ring-0 text-sm resize-none custom-scrollbar"
           />
+          {error ? <p className="text-xs text-red-400 mt-2">{error}</p> : null}
           <button
-            onClick={onClose}
+            onClick={() => {
+              reset();
+              onClose();
+            }}
             className="absolute top-4 right-4 text-white md:hidden"
           >
             <X />

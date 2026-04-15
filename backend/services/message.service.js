@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Message = require("@models/message");
 const Participants = require("@models/participants");
 const Reactions = require("@models/reactions");
@@ -21,14 +22,13 @@ class MessageService {
       throw new ForBiddenException("User is not a participant");
     }
 
-    const date = participant.deletedAt;
     const query = {
       chat: chatId,
       deletedAt: null,
     };
 
     if (participant.deletedAt) {
-      query.createdAt = { $gt: me.deletedAt };
+      query.createdAt = { $gt: participant.deletedAt };
     }
 
     if (cursor) {

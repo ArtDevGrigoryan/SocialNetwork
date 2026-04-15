@@ -5,6 +5,7 @@ const {
   BadRequestException,
 } = require("@helpers/errors");
 const Post = require("@models/post");
+const Follow = require("@models/follow");
 const Block = require("@models/blocked-user");
 const mediaService = require("@lib/media.service");
 const toggleLikeTx = require("@transaction/like-post");
@@ -42,10 +43,27 @@ class PostService {
     }).populate("author", "_id username bio avatar");
   }
   async getPosts(viewer, author, page = 1, limit = 20) {
-    await PolicyService.canViewProfile(viewer, author);
-    return AggreagtionHelperPost.findPostsWithViewerLikes(
+    if (author) {
+      await PolicyService.canViewProfile(viewer, author);
+      return AggreagtionHelperPost.findPostsWithViewerLikes(
+        viewer,
+        author,
+        page,
+        limit,
+      );
+    }
+
+    const following = await Follow.find({ follower: viewer })
+      .select("following")
+      .lean();
+    const authorIds = [
+      viewer.toString(),
+      ...following.map((item) => item.following.toString()),
+    ];
+
+    return AggreagtionHelperPost.findFeedPostsWithViewerLikes(
       viewer,
-      author,
+      authorIds,
       page,
       limit,
     );

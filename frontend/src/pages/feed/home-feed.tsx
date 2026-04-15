@@ -41,11 +41,13 @@ export default function HomeFeed() {
   }, [fetchPosts]);
 
   useEffect(() => {
-    const handlePostCreated = () => {
+    const onPostCreated = () => {
+      setLoading(true);
+      setHasMore(true);
       fetchPosts(1, false);
     };
-    window.addEventListener("posts:created", handlePostCreated);
-    return () => window.removeEventListener("posts:created", handlePostCreated);
+    window.addEventListener("post:created", onPostCreated);
+    return () => window.removeEventListener("post:created", onPostCreated);
   }, [fetchPosts]);
 
   useEffect(() => {

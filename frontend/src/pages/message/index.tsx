@@ -8,7 +8,10 @@ import type { IUser } from "../../types/user.types";
 
 interface IChat {
   _id: string;
-  participants: IUser[];
+  participants: Array<{
+    _id: string;
+    user: IUser;
+  }>;
   lastMessage?: {
     text: string;
     createdAt: string;
@@ -42,8 +45,7 @@ export default function Messages() {
     const fetchChats = async () => {
       try {
         const { data } = await api.get("/chats");
-        const payload = data.payload;
-        setChats(payload?.chats || payload || []);
+        setChats(data.payload?.chats || data.payload || []);
       } catch (error) {
         console.error("Error fetching chats:", error);
       } finally {
@@ -61,7 +63,11 @@ export default function Messages() {
       setLoadingMessages(true);
       try {
         const { data } = await api.get(`/messages/${chatId}`);
-        setMessages(data.payload || []);
+        const normalized = (data.payload || []).map((message: any) => ({
+          ...message,
+          chatId,
+        }));
+        setMessages(normalized);
       } catch (error) {
         console.error("Error fetching messages:", error);
       } finally {
@@ -69,6 +75,19 @@ export default function Messages() {
       }
     };
     fetchMessages();
+  }, [chatId]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    const markRead = async () => {
+      try {
+        await api.patch(`/chats/read/${chatId}`);
+        window.dispatchEvent(new Event("messages:changed"));
+      } catch (error) {
+        console.error("Failed to mark chat as read", error);
+      }
+    };
+    markRead();
   }, [chatId]);
 
   // 3. Իրական ժամանակի Socket.io իրադարձություններ (Real-time events)
@@ -101,6 +120,9 @@ export default function Messages() {
             : chat,
         ),
       );
+      if (message.chatId === chatId) {
+        window.dispatchEvent(new Event("messages:changed"));
+      }
     });
 
     return () => {
@@ -132,7 +154,17 @@ export default function Messages() {
     setMessages((prev) => [...prev, tempMessage]);
 
     try {
-      const { data } = await api.post(`/messages/${chatId}`, { text });
+      const activeParticipant = activeChat?.participants.find(
+        (participant) => participant.user?._id === currentUser?._id,
+      );
+      if (!activeParticipant?._id) {
+        throw new Error("Missing chat participant id");
+      }
+
+      const { data } = await api.post(`/messages/${chatId}`, {
+        text,
+        participantId: activeParticipant._id,
+      });
 
       // Socket-ով ուղարկելը կարող է կատարվել backend-ից,
       // կամ եթե ձեր backend-ը սպասում է client-ից:
@@ -152,9 +184,10 @@ export default function Messages() {
   };
 
   // Որոշել խոսակցին (մյուս մասնակցին) ցանկի էլեմենտի համար
-  const getOtherParticipant = (participants: IUser[]) => {
+  const getOtherParticipant = (participants: IChat["participants"]) => {
     return (
-      participants.find((p) => p._id !== currentUser?._id) || participants[0]
+      participants.find((p) => p.user?._id !== currentUser?._id)?.user ||
+      participants[0]?.user
     );
   };
 
@@ -224,6 +257,19 @@ export default function Messages() {
                       </p>
                     )}
                   </div>
+                  {(chat.participants || []).find(
+                    (participant) => participant.user?._id === currentUser?._id,
+                  )?.unreadCount ? (
+                    <span className="ml-2 min-w-5 h-5 px-1 rounded-full bg-blue-500 text-[11px] text-white leading-5 text-center">
+                      {Math.min(
+                        (chat.participants || []).find(
+                          (participant) =>
+                            participant.user?._id === currentUser?._id,
+                        )?.unreadCount || 0,
+                        99,
+                      )}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })

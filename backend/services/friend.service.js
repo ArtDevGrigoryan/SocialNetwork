@@ -1,7 +1,16 @@
+const mongoose = require("mongoose");
+const followTx = require("@models/transactions/friendship/follow");
+const unfollowTx = require("@models/transactions/friendship/unfollow");
+const cancelRequestTx = require("@models/transactions/friendship/cancel-request");
+const acceptRequestTx = require("@models/transactions/friendship/accept-request");
+const declineRequestTx = require("@models/transactions/friendship/decline-request");
 const Follow = require("@models/follow");
+const { SocketConflictException } = require("@helpers/socket-errors");
 const FriendRequest = require("@models/friend-request");
 const {
   ConflictException,
+  NotFoundException,
+  BadRequestException,
 } = require("@helpers/errors");
 const PolicyService = require("@services/policy.service");
 const notificationService = require("./notification.service");
@@ -16,76 +25,36 @@ class FriendService {
       receiver,
     );
 
-    const status = profileVisibility == "PRIVATE" ? "PENDING" : "ACCEPTED";
-    await FriendRequest.findOneAndUpdate(
-      { sender, receiver },
-      { sender, receiver, status },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
-
-    if (status === "ACCEPTED") {
-      await Follow.updateOne(
-        { follower: sender, following: receiver },
-        { follower: sender, following: receiver },
-        { upsert: true, setDefaultsOnInsert: true },
-      );
-      await notificationService.followNotification({
-        fromUser: sender,
-        toUser: receiver,
-      });
-      return "FOLLOW";
-    }
-
-    await notificationService.followRequestNotification({
+    const { message } = await followTx(sender, receiver, profileVisibility);
+    await notificationService.followNotification({
       fromUser: sender,
       toUser: receiver,
     });
-    return "FOLLOW_REQUEST";
+    console.log(message);
+    return message;
   }
-  async accept(receiver, sender) {
-    const request = await FriendRequest.findOneAndUpdate(
-      { sender, receiver, status: "PENDING" },
-      { status: "ACCEPTED" },
-      { new: true },
-    );
-    if (!request) {
-      throw new ConflictException("Request not found or already handled");
-    }
-    await Follow.updateOne(
-      { follower: sender, following: receiver },
-      { follower: sender, following: receiver },
-      { upsert: true, setDefaultsOnInsert: true },
-    );
+  async accept(receiver, requestId) {
+    const sender = await PolicyService.canRequestReaction(receiver, requestId);
+    await acceptRequestTx(requestId);
     await notificationService.acceptRequestNotification({
       fromUser: receiver,
       toUser: sender,
     });
     return true;
   }
-  async decline(receiver, sender) {
-    const request = await FriendRequest.findOneAndUpdate(
-      { sender, receiver, status: "PENDING" },
-      { status: "DECLINED" },
-      { new: true },
-    );
-    if (!request) {
-      throw new ConflictException("Request not found or already handled");
-    }
+  async decline(receiver, requestId) {
+    const sender = await PolicyService.canRequestReaction(receiver, requestId);
+
+    await declineRequestTx(requestId);
     await notificationService.declineRequestNotification({
       fromUser: receiver,
       toUser: sender,
     });
     return true;
   }
-  async cancel(sender, receiver) {
-    const request = await FriendRequest.findOneAndUpdate(
-      { sender, receiver, status: "PENDING" },
-      { status: "DECLINED" },
-      { new: true },
-    );
-    if (!request) {
-      throw new ConflictException("Request not found or already handled");
-    }
+  async cancel(sender, requestId) {
+    const receiver = await PolicyService.canRequestReaction(sender, requestId);
+    await cancelRequestTx(requestId);
     await notificationService.cancelRequestNotification({
       fromUser: sender,
       toUser: receiver,
@@ -94,11 +63,7 @@ class FriendService {
   }
   async unfollow(myId, targetId) {
     await PolicyService.canInitiateUnfollow(myId, targetId);
-    await FriendRequest.findOneAndUpdate(
-      { sender: myId, receiver: targetId, status: { $ne: "DECLINED" } },
-      { status: "DECLINED" },
-    );
-    await Follow.deleteOne({ follower: myId, following: targetId });
+    await unfollowTx(myId, targetId);
     await notificationService.unfollowNotification({
       fromUser: myId,
       toUser: targetId,
@@ -123,13 +88,18 @@ class FriendService {
       .limit(limit)
       .populate("following", "_id username avatar");
   }
-  async requests(userId) {
-    return FriendRequest.find({
-      $or: [{ receiver: userId }, { sender: userId }],
-    })
+  async requests(userId, { type = "incoming", page = 1, limit = 20 } = {}) {
+    const skip = (page - 1) * limit;
+    const baseQuery =
+      type === "outgoing"
+        ? { sender: userId, status: "PENDING" }
+        : { receiver: userId, status: "PENDING" };
+    return FriendRequest.find(baseQuery)
       .sort({ createdAt: -1 })
-      .populate("sender", "_id username avatar")
-      .populate("receiver", "_id username avatar");
+      .skip(skip)
+      .limit(limit)
+      .populate("sender", "_id username avatar bio")
+      .populate("receiver", "_id username avatar bio");
   }
 }
 

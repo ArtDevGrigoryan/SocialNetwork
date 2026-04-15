@@ -48,6 +48,18 @@ export const Profile = () => {
     fetchUser();
   }, [fetchUser]);
 
+  useEffect(() => {
+    const refreshProfile = () => {
+      fetchUser();
+    };
+    window.addEventListener("requests:changed", refreshProfile);
+    window.addEventListener("profile:changed", refreshProfile);
+    return () => {
+      window.removeEventListener("requests:changed", refreshProfile);
+      window.removeEventListener("profile:changed", refreshProfile);
+    };
+  }, [fetchUser]);
+
   // 2. Դինամիկ բեռնում ենք Գրիդի (Grid) տվյալները՝ ըստ ակտիվ ներդիրի
   useEffect(() => {
     const fetchTabData = async () => {
