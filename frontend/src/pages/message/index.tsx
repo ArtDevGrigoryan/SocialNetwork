@@ -27,7 +27,7 @@ export default function Messages() {
   const { chatId } = useParams<{ chatId: string }>();
   const navigate = useNavigate();
   const { user: currentUser } = useAuthStore();
-  const { socket } = useSocketStore();
+  const { socket, joinChat } = useSocketStore();
 
   const [chats, setChats] = useState<IChat[]>([]);
   const [messages, setMessages] = useState<IMessage[]>([]);
@@ -73,15 +73,20 @@ export default function Messages() {
   // 3. Իրական ժամանակի Socket.io իրադարձություններ (Real-time events)
   useEffect(() => {
     if (!socket) return;
+    if (chatId) {
+      joinChat(chatId);
+    }
 
-    // Երբ նոր նամակ է գալիս (ենթադրյալ event-ի անունը՝ receive_message)
     socket.on("receive_message", (message: IMessage) => {
-      // Եթե բացված է հենց այս չաթը, ավելացնել էկրանին
       if (message.chatId === chatId) {
-        setMessages((prev) => [...prev, message]);
+        setMessages((prev) => {
+          const withoutOptimistic = prev.filter(
+            (m) => !(m._id.startsWith("temp_") && m.text === message.text),
+          );
+          return [...withoutOptimistic, message];
+        });
       }
 
-      // Թարմացնել ձախ կողմի ցանկի (sidebar) վերջին նամակը
       setChats((prev) =>
         prev.map((chat) =>
           chat._id === message.chatId
@@ -100,7 +105,7 @@ export default function Messages() {
     return () => {
       socket.off("receive_message");
     };
-  }, [socket, chatId]);
+  }, [socket, chatId, joinChat]);
 
   // 4. Ավտոմատ սքրոլ դեպի ներքև նոր նամակ ստանալիս
   useEffect(() => {

@@ -16,6 +16,8 @@ type SocketState = {
   disconnect: () => void;
 
   joinChat: (chatId: string) => void;
+  joinPost: (postId: string) => void;
+  leavePost: (postId: string) => void;
   sendTyping: (chatId: string) => void;
   sendVoice: (chatId: string) => void;
 };
@@ -55,6 +57,20 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     const socket = get().socket;
     if (socket && get().connected) {
       socket.emit("join_chat", { chatId });
+    }
+  },
+
+  joinPost: (postId: string) => {
+    const socket = get().socket;
+    if (socket && get().connected) {
+      socket.emit("join_post", { postId });
+    }
+  },
+
+  leavePost: (postId: string) => {
+    const socket = get().socket;
+    if (socket && get().connected) {
+      socket.emit("leave_post", { postId });
     }
   },
 

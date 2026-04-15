@@ -19,7 +19,7 @@ export const PostGrid = ({ posts, onPostClick }: PostGridProps) => {
   }
 
   return (
-    <div className="grid grid-cols-3 gap-1 md:gap-2 lg:gap-4 px-1 md:px-0">
+    <div className="grid grid-cols-3 gap-[1px] px-0">
       {posts.map((post) => (
         <div
           key={post._id}
@@ -30,6 +30,7 @@ export const PostGrid = ({ posts, onPostClick }: PostGridProps) => {
             src={post.images[0]}
             alt=""
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            loading="lazy"
           />
 
           {/* Instagram style overlay */}

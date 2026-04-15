@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
+import { useSocketStore } from "../../store/socket.store";
+import { useShallow } from "zustand/react/shallow";
 import type { IPost, IUser } from "../../types/user.types";
 
 export interface IComment {
@@ -22,7 +24,14 @@ export default function CommentModal({
   isOpen,
   onClose,
 }: CommentModalProps) {
-  const { user: currentUser } = useAuthStore();
+  const currentUser = useAuthStore((state) => state.user);
+  const { socket, joinPost, leavePost } = useSocketStore(
+    useShallow((state) => ({
+      socket: state.socket,
+      joinPost: state.joinPost,
+      leavePost: state.leavePost,
+    })),
+  );
   const [comments, setComments] = useState<IComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
@@ -39,6 +48,36 @@ export default function CommentModal({
       document.body.style.overflow = "unset";
     };
   }, [isOpen, post._id]);
+
+  useEffect(() => {
+    if (!isOpen || !socket) return;
+
+    joinPost(post._id);
+    const handleIncomingComment = (comment: IComment & { postId?: string }) => {
+      if (comment.postId && comment.postId !== post._id) return;
+      setComments((prev) => {
+        const duplicateIndex = prev.findIndex(
+          (item) =>
+            item._id === comment._id ||
+            (item._id.startsWith("temp_") &&
+              item.text === comment.text &&
+              item.author?._id === comment.author?._id),
+        );
+        if (duplicateIndex >= 0) {
+          return prev.map((item, index) =>
+            index === duplicateIndex ? (comment as IComment) : item,
+          );
+        }
+        return [comment as IComment, ...prev];
+      });
+    };
+
+    socket.on("comment:new", handleIncomingComment);
+    return () => {
+      socket.off("comment:new", handleIncomingComment);
+      leavePost(post._id);
+    };
+  }, [isOpen, joinPost, leavePost, post._id, socket]);
 
   const fetchComments = async () => {
     try {

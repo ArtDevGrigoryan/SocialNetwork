@@ -37,13 +37,13 @@ export default function StoryBar() {
   return (
     <>
       <div className="w-full bg-black border-b border-neutral-800 md:border md:border-neutral-800 md:rounded-lg mb-4 p-4">
-        <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-2">
+        <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-2 snap-x snap-mandatory">
           {/* 1. Իմ Սթորին (Add Story) */}
           <div
             className="flex flex-col items-center gap-1 cursor-pointer shrink-0 group"
             onClick={() => setIsAddModalOpen(true)}
           >
-            <div className="relative w-16 h-16 rounded-full overflow-hidden border border-neutral-800">
+            <div className="relative w-16 h-16 rounded-full overflow-hidden border border-neutral-800 snap-start">
               <img
                 src={user?.avatar || "/default-avatar.png"}
                 alt="My Story"
@@ -71,10 +71,10 @@ export default function StoryBar() {
             : usersWithStories.map((storyUser) => (
                 <div
                   key={storyUser._id}
-                  className="flex flex-col items-center gap-1 cursor-pointer shrink-0"
+                  className="flex flex-col items-center gap-1 cursor-pointer shrink-0 snap-start"
                 >
                   <div
-                    className={`p-[2px] rounded-full ${storyUser.hasUnseenStory ? "bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600" : "bg-neutral-800"}`}
+                    className={`p-[2px] rounded-full transition-transform duration-200 hover:scale-[1.03] ${storyUser.hasUnseenStory ? "bg-gradient-to-tr from-[#feda75] via-[#d62976] to-[#4f5bd5]" : "bg-neutral-800"}`}
                   >
                     <div className="w-[60px] h-[60px] rounded-full bg-black p-[2px]">
                       <img

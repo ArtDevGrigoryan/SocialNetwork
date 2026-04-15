@@ -18,7 +18,11 @@ router.patch(
   validate(schemas.updateCommentSchema),
   commentController.update,
 );
-router.post("/", validate(schemas.addCommentSchema), commentController.add);
+router.post(
+  "/:postId",
+  validate(schemas.addCommentSchema),
+  commentController.add,
+);
 router.delete(
   "/:id",
   validate(schemas.deleteCommentSchema),

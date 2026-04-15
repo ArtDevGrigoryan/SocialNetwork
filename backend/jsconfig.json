@@ -21,7 +21,8 @@
       "@mongoose-middleware/*": ["models/middlewares/*"],
       "@transaction/*": ["models/transactions/*"],
       "@lib/*": ["lib/*"],
-      "@worker/*": ["worker/*"]
+      "@worker/*": ["worker/*"],
+      "@socket/*": ["socket/*"]
     }
   },
   "include": ["**/*.js"],

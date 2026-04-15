@@ -29,6 +29,16 @@ class SocketEvent {
     await PolicyService.canAccessChat(user._id, chatId);
     socket.join(`chat:${chatId}`);
   }
+  async join_post(socket, data) {
+    const { postId } = data;
+    if (!postId) return;
+    socket.join(`post:${postId}`);
+  }
+  async leave_post(socket, data) {
+    const { postId } = data;
+    if (!postId) return;
+    socket.leave(`post:${postId}`);
+  }
   async typing(socket, data) {
     const { chatId } = data;
     const { user } = socket;

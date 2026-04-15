@@ -10,7 +10,7 @@ import type { IResponse } from "../../types/api.types";
 import type { IUser } from "../../types/user.types";
 
 export default function MainLayout() {
-  const { isAuthenticated, accessToken, user, setAuth, setUser } =
+  const { isAuthenticated, accessToken, user, setUser } =
     useAuthStore();
   const { connect, disconnect } = useSocketStore();
 
@@ -29,7 +29,7 @@ export default function MainLayout() {
     };
 
     fetchMe();
-  }, [isAuthenticated, user, accessToken, setAuth]);
+  }, [isAuthenticated, user, accessToken, setUser]);
 
   useEffect(() => {
     if (isAuthenticated && user && accessToken) {
@@ -49,11 +49,11 @@ export default function MainLayout() {
     <div className="min-h-screen bg-black text-white flex flex-col md:flex-row">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col md:ml-20 lg:ml-64 transition-all duration-300">
+      <div className="flex-1 flex flex-col md:ml-20 lg:ml-[244px] transition-all duration-300">
         <Header />
 
         <div className="flex justify-center w-full grow">
-          <main className="w-full max-w-[630px] pb-20 md:pb-0">
+          <main className="w-full max-w-[630px] pb-24 md:pb-0">
             <div className="py-2 md:py-8">
               <Outlet />
             </div>

@@ -118,7 +118,6 @@ export const Profile = () => {
         postsCount={targetUser?.postsCount || 0}
         onFollowersClick={() => handleFetchUsers("followers")}
         onFollowingClick={() => handleFetchUsers("followings")}
-        refreshData={fetchUser}
       />
 
       <ProfileTabs

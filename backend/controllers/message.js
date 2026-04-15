@@ -1,5 +1,6 @@
 const { sendSuccess } = require("@helpers/api-response");
 const messageService = require("@services/message.service");
+const { getIO } = require("@socket/socket");
 
 class MessageController {
   async messages(req, res) {
@@ -46,6 +47,11 @@ class MessageController {
       req.params.chatId,
       text,
     );
+    const payload = {
+      ...message.toObject(),
+      chatId: req.params.chatId,
+    };
+    getIO().to(`chat:${req.params.chatId}`).emit("receive_message", payload);
     return sendSuccess(res, message);
   }
   async addVoice(req, res) {

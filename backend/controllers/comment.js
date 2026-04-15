@@ -1,5 +1,6 @@
 const { sendSuccess } = require("@helpers/api-response");
 const commentService = require("@services/comment.service");
+const { getIO } = require("@socket/socket");
 
 class CommentController {
   async add(req, res) {
@@ -11,6 +12,10 @@ class CommentController {
       postId,
       text,
     );
+    getIO().to(`post:${postId}`).emit("comment:new", {
+      ...comment.toObject(),
+      postId,
+    });
     return sendSuccess(res, comment);
   }
   async update(req, res) {
@@ -38,7 +43,7 @@ class CommentController {
       req.user._id,
       req.validated.query,
     );
-    return sendSuccess(res, commetns);
+    return sendSuccess(res, comments);
   }
 }
 

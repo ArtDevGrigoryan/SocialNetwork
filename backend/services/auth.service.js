@@ -203,7 +203,7 @@ class AuthService {
   async handleUserConfigExpiration(user) {
     const config = await UserConfig.findOne({ user });
 
-    if (!config.isVerified) {
+    if (config.isVerified) {
       throw new ConflictException("Please contact the support team");
     }
     if (config.limit >= env.FAILED_LIMIT) {
@@ -239,7 +239,7 @@ class AuthService {
         "This acccount deactived please contact the support team",
       );
     }
-    const config = await this.handleUserConfigExpiration(user.userConfig);
+    const config = await this.handleUserConfigExpiration(user._id);
 
     const code = generateCode();
     config.emailVerificationCode = await hash(code);

@@ -61,7 +61,7 @@ module.exports = {
   forgotPassword: [{ body: forgotPasswordSchema }],
   resetPassword: [{ body: resetPasswordSchema }],
   verifyEmail: [{ body: verifyEmailSchema }],
-  resendVerificationEmail: [{ body: resendVerificationEmailSchema }],
+  resendVerificationEmail: [{ body: resendVerificationEmailSchema }, {defaults: true}],
   changePassword: [{ body: changePasswordSchema }],
   updateProfile: [{ body: updateProfileSchema }],
   oauth: [oauthSchema],
