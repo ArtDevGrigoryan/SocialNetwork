@@ -36,6 +36,7 @@ export default function CommentModal({
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -133,6 +134,20 @@ export default function CommentModal({
     }
   };
 
+  const handleDelete = async (commentId: string) => {
+    const previous = comments;
+    setDeletingId(commentId);
+    setComments((prev) => prev.filter((item) => item._id !== commentId));
+    try {
+      await api.delete(`/comments/${commentId}`);
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      setComments(previous);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -218,6 +233,17 @@ export default function CommentModal({
                     <button className="font-semibold hover:text-neutral-300">
                       Պատասխանել
                     </button>
+                    {(comment.author?._id === currentUser?._id ||
+                      (typeof post.author === "object" &&
+                        post.author?._id === currentUser?._id)) && (
+                      <button
+                        disabled={deletingId === comment._id}
+                        onClick={() => handleDelete(comment._id)}
+                        className="font-semibold text-red-400 hover:text-red-300 disabled:opacity-50"
+                      >
+                        {deletingId === comment._id ? "Deleting..." : "Delete"}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

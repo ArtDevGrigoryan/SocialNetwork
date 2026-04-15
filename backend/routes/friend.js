@@ -7,6 +7,8 @@ const { getSchema, requestSchema, blockSchema, followSchema } = require("@schema
 router.get("/followers/:id", isAuth, validate(getSchema), friendController.getFollowers);
 router.get("/followings/:id", isAuth, validate(getSchema), friendController.getFollowings);
 router.get("/blocks", isAuth, validate(getSchema), friendController.getBlockeds)
+router.get("/search", isAuth, friendController.search);
+router.get("/requests", isAuth, friendController.requests);
 router.post("/follow/:id", isAuth, validate(followSchema), friendController.follow);
 router.post("/unfollow/:id", isAuth, validate(followSchema), friendController.unfollow);
 router.patch("/accept", isAuth, validate(requestSchema), friendController.accept);

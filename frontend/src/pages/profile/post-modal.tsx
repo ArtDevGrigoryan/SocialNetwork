@@ -24,6 +24,7 @@ export const PostModal = ({
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [commentText, setCommentText] = useState("");
   const [sending, setSending] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const author = useMemo(
     () => (typeof post.author === "object" ? post.author : null),
     [post.author],
@@ -75,6 +76,20 @@ export const PostModal = ({
       setComments((prev) => prev.filter((item) => item._id !== optimistic._id));
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    const previous = comments;
+    setDeletingId(commentId);
+    setComments((prev) => prev.filter((item) => item._id !== commentId));
+    try {
+      await api.delete(`/comments/${commentId}`);
+    } catch (error) {
+      console.error("Failed to delete comment", error);
+      setComments(previous);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -142,6 +157,17 @@ export const PostModal = ({
                     {comment.author?.username || "user"}
                   </span>
                   <span className="text-neutral-300">{comment.text}</span>
+                  {(comment.author?._id === user?._id ||
+                    author?._id === user?._id) && (
+                    <button
+                      type="button"
+                      disabled={deletingId === comment._id}
+                      onClick={() => handleDeleteComment(comment._id)}
+                      className="ml-2 text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                    >
+                      {deletingId === comment._id ? "..." : "Delete"}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

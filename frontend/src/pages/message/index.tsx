@@ -41,8 +41,9 @@ export default function Messages() {
   useEffect(() => {
     const fetchChats = async () => {
       try {
-        const { data } = await api.get("/chat"); // Հիմնված backend/routes/chat.js-ի վրա
-        setChats(data.payload || []);
+        const { data } = await api.get("/chats");
+        const payload = data.payload;
+        setChats(payload?.chats || payload || []);
       } catch (error) {
         console.error("Error fetching chats:", error);
       } finally {
@@ -59,7 +60,7 @@ export default function Messages() {
     const fetchMessages = async () => {
       setLoadingMessages(true);
       try {
-        const { data } = await api.get(`/message/${chatId}`); // Հիմնված message.js-ի վրա
+        const { data } = await api.get(`/messages/${chatId}`);
         setMessages(data.payload || []);
       } catch (error) {
         console.error("Error fetching messages:", error);
@@ -131,7 +132,7 @@ export default function Messages() {
     setMessages((prev) => [...prev, tempMessage]);
 
     try {
-      const { data } = await api.post(`/message/${chatId}`, { text });
+      const { data } = await api.post(`/messages/${chatId}`, { text });
 
       // Socket-ով ուղարկելը կարող է կատարվել backend-ից,
       // կամ եթե ձեր backend-ը սպասում է client-ից:

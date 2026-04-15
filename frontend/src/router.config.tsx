@@ -7,6 +7,7 @@ import Profile from "./pages/profile/home";
 import HomeFeed from "./pages/feed/home-feed";
 import Settings from "./pages/settings";
 import Messages from "./pages/message";
+import SearchPage from "./pages/search";
 
 const router = createBrowserRouter([
   {
@@ -19,6 +20,8 @@ const router = createBrowserRouter([
       },
       { path: "profile/:id", element: <Profile /> },
       { path: "settings", element: <Settings /> },
+      { path: "search", element: <SearchPage /> },
+      { path: "explore", element: <SearchPage /> },
       { path: "messages", element: <Messages /> },
       { path: "messages/:chatId", element: <Messages /> },
     ],

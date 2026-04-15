@@ -46,7 +46,7 @@ class FriendController {
   async getFollowings(req, res) {
     if ("search" in req.query) {
       const { search } = req.query;
-      const founds = await userService.searchInFollowings(req.user.id, search);
+      const founds = await userService.searchInFollowings(req.user._id, search);
       return sendSuccess(res, founds);
     }
     const { page, limit } = req.validated.query;
@@ -61,6 +61,10 @@ class FriendController {
   async search(req, res) {
     const founds = await userService.search(req.query.search);
     return sendSuccess(res, founds);
+  }
+  async requests(req, res) {
+    const data = await friendService.requests(req.user._id);
+    return sendSuccess(res, data);
   }
   async toggleBlock(req, res) {
     const data = await userService.toggleBlock(req.user._id, req.params.userId);

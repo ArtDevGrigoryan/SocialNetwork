@@ -21,18 +21,40 @@ export const ProfileHeader = ({
   onFollowingClick,
 }: ProfileHeaderProps) => {
   const navigate = useNavigate();
-  const [following, setFollowing] = useState(user?.isFollowing || false);
+  const [relationship, setRelationship] = useState<
+    "FOLLOWING" | "REQUESTED" | "NONE"
+  >(user?.isFollowing ? "FOLLOWING" : "NONE");
+  const [followersCount, setFollowersCount] = useState(user?.followersCount || 0);
   const [loading, setLoading] = useState(false);
 
   const toggleFollow = async () => {
     if (!user) return;
     setLoading(true);
-    const prev = following;
-    setFollowing(!prev);
+    const prevRelation = relationship;
+    const wasFollowing = prevRelation === "FOLLOWING";
+    if (prevRelation === "FOLLOWING") {
+      setRelationship("NONE");
+      setFollowersCount((count) => Math.max(0, count - 1));
+    } else {
+      setRelationship("FOLLOWING");
+      setFollowersCount((count) => count + 1);
+    }
     try {
-      await api.post(`/friends/${prev ? "unfollow" : "follow"}/${user._id}`);
+      const { data } = await api.post(
+        `/friends/${wasFollowing ? "unfollow" : "follow"}/${user._id}`,
+      );
+      if (!wasFollowing && data?.payload === "FOLLOW_REQUEST") {
+        setRelationship("REQUESTED");
+      } else if (!wasFollowing) {
+        setRelationship("FOLLOWING");
+      }
     } catch {
-      setFollowing(prev);
+      setRelationship(prevRelation);
+      if (prevRelation === "FOLLOWING") {
+        setFollowersCount(user.followersCount || 0);
+      } else {
+        setFollowersCount(user.followersCount || 0);
+      }
     } finally {
       setLoading(false);
     }
@@ -68,12 +90,14 @@ export const ProfileHeader = ({
               <button
                 onClick={toggleFollow}
                 disabled={loading}
-                className={`px-8 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 ${following ? "bg-neutral-800" : "bg-blue-500 hover:bg-blue-600"}`}
+                className={`px-8 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 ${relationship === "FOLLOWING" ? "bg-neutral-800" : relationship === "REQUESTED" ? "bg-neutral-700" : "bg-blue-500 hover:bg-blue-600"}`}
               >
-                {following ? (
+                {relationship === "FOLLOWING" ? (
                   <>
                     <Check size={16} /> Following
                   </>
+                ) : relationship === "REQUESTED" ? (
+                  <>Requested</>
                 ) : (
                   <>
                     <UserPlus size={16} /> Follow
@@ -86,7 +110,7 @@ export const ProfileHeader = ({
 
         <ProfileStats
           postsCount={postsCount}
-          followersCount={user?.followersCount || 0}
+          followersCount={followersCount}
           followingCount={user?.followingCount || 0}
           onFollowersClick={onFollowersClick}
           onFollowingClick={onFollowingClick}

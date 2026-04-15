@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus } from "lucide-react";
 import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
@@ -18,21 +18,27 @@ export default function StoryBar() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchStories = async () => {
-      try {
-        // Հիմնված GET /stories ռոութի վրա
-        const { data } = await api.get("/stories?limit=15");
-        // Ենթադրենք backend-ը վերադարձնում է օգտատերերի ցանկ, ովքեր ունեն ակտիվ սթորիներ
-        setUsersWithStories(data.payload || []);
-      } catch (error) {
-        console.error("Error fetching stories:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStories();
+  const fetchStories = useCallback(async () => {
+    try {
+      const { data } = await api.get("/stories?limit=15");
+      setUsersWithStories(data.payload || []);
+    } catch (error) {
+      console.error("Error fetching stories:", error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchStories();
+  }, [fetchStories]);
+
+  useEffect(() => {
+    const handleStoryCreated = () => fetchStories();
+    window.addEventListener("stories:created", handleStoryCreated);
+    return () =>
+      window.removeEventListener("stories:created", handleStoryCreated);
+  }, [fetchStories]);
 
   return (
     <>
@@ -95,6 +101,7 @@ export default function StoryBar() {
       <AddStoryModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+        onCreated={fetchStories}
       />
     </>
   );

@@ -5,9 +5,14 @@ import { api } from "../../lib/axios.config";
 interface AddStoryModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreated?: () => void;
 }
 
-export default function AddStoryModal({ isOpen, onClose }: AddStoryModalProps) {
+export default function AddStoryModal({
+  isOpen,
+  onClose,
+  onCreated,
+}: AddStoryModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fileType, setFileType] = useState<"image" | "video">("image");
@@ -43,8 +48,9 @@ export default function AddStoryModal({ isOpen, onClose }: AddStoryModalProps) {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
+      onCreated?.();
+      window.dispatchEvent(new CustomEvent("stories:created"));
       handleClose();
-      window.location.reload(); // Պարզության համար թարմացնում ենք էջը՝ նոր սթորին տեսնելու համար
     } catch (error) {
       console.error("Error uploading story:", error);
     } finally {

@@ -41,6 +41,14 @@ export default function HomeFeed() {
   }, [fetchPosts]);
 
   useEffect(() => {
+    const handlePostCreated = () => {
+      fetchPosts(1, false);
+    };
+    window.addEventListener("posts:created", handlePostCreated);
+    return () => window.removeEventListener("posts:created", handlePostCreated);
+  }, [fetchPosts]);
+
+  useEffect(() => {
     if (!sentinelRef.current || !hasMore) return;
 
     const observer = new IntersectionObserver(

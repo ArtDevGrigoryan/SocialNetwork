@@ -5,9 +5,11 @@ import { api } from "../../lib/axios.config";
 export default function CreatePostModal({
   isOpen,
   onClose,
+  onCreated,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  onCreated?: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -26,8 +28,12 @@ export default function CreatePostModal({
 
     try {
       await api.post("/posts", formData);
+      setFile(null);
+      setPreview(null);
+      setContent("");
+      onCreated?.();
+      window.dispatchEvent(new CustomEvent("posts:created"));
       onClose();
-      window.location.reload();
     } catch (err) {
       console.error(err);
     } finally {

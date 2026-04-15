@@ -1,7 +1,9 @@
 const { SocketConflictException } = require("@helpers/socket-errors");
+const { NotFoundException } = require("@helpers/errors");
 const User = require("@models/user");
 const Block = require("@models/blocked-user");
 const FriendRequest = require("@models/friend-request");
+const Follow = require("@models/follow");
 const friendService = require("@services/friend.service");
 const blockTx = require("@transaction/friendship/block");
 const PolicyService = require("./policy.service");
@@ -82,7 +84,7 @@ class UserService {
       .limit(limit);
   }
   searchInBlockeds(blocker, text) {
-    const regex = new RegExp(str, "i");
+    const regex = new RegExp(text, "i");
     return Block.find({ blocker }).populate({
       path: "blocked",
       match: { username: regex },
