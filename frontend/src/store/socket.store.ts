@@ -1,12 +1,23 @@
 import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
 
+export interface ISocketUserResult {
+  _id: string;
+  username: string;
+  avatar?: string;
+  bio?: string;
+}
+
 type SocketState = {
   socket: Socket | null;
   connected: boolean;
 
   connect: (token: string) => void;
   disconnect: () => void;
+
+  joinChat: (chatId: string) => void;
+  sendTyping: (chatId: string) => void;
+  sendVoice: (chatId: string) => void;
 };
 
 export const useSocketStore = create<SocketState>((set, get) => ({
@@ -38,5 +49,26 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     socket?.disconnect();
 
     set({ socket: null, connected: false });
+  },
+
+  joinChat: (chatId: string) => {
+    const socket = get().socket;
+    if (socket && get().connected) {
+      socket.emit("join_chat", { chatId });
+    }
+  },
+
+  sendTyping: (chatId: string) => {
+    const socket = get().socket;
+    if (socket && get().connected) {
+      socket.emit("typing", { chatId });
+    }
+  },
+
+  sendVoice: (chatId: string) => {
+    const socket = get().socket;
+    if (socket && get().connected) {
+      socket.emit("voice", { chatId });
+    }
   },
 }));

@@ -1,76 +1,95 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/auth.store";
-import { Home, Compass, MessageCircle, User as UserIcon } from "lucide-react";
+import {
+  Home,
+  Search,
+  MessageCircle,
+  User,
+  PlusSquare,
+  Settings,
+  LogOut,
+} from "lucide-react";
+import CreatePostModal from "../post/create-post-modal";
 
 export default function Sidebar() {
   const { pathname } = useLocation();
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
 
   const navItems = [
     { name: "Home", path: "/", icon: Home },
-    { name: "Explore", path: "/explore", icon: Compass },
+    { name: "Search", path: "/explore", icon: Search },
     { name: "Messages", path: "/messages", icon: MessageCircle },
-    { name: "Profile", path: `/profile/${user?._id}`, icon: UserIcon },
+    {
+      name: "Create",
+      path: "#",
+      icon: PlusSquare,
+      onClick: () => setIsPostModalOpen(true),
+    },
+    { name: "Profile", path: `/profile/${user?._id}`, icon: User },
   ];
 
   return (
     <>
-      <div className="hidden md:flex fixed left-0 top-0 h-screen border-r border-neutral-800 flex-col p-3 md:w-20 lg:w-64 bg-black z-50">
+      <aside className="hidden md:flex fixed left-0 top-0 h-screen border-r border-neutral-800 flex-col p-3 md:w-20 lg:w-64 bg-black z-50 transition-all">
         <div className="p-4 mb-8">
-          <h1 className="text-2xl font-bold hidden lg:block italic font-serif">
-            B-Social
+          <h1 className="text-2xl font-bold hidden lg:block font-serif italic tracking-tighter">
+            Bardiner
           </h1>
           <div className="lg:hidden flex justify-center text-2xl font-bold">
             B
           </div>
         </div>
 
-        <nav className="flex flex-col gap-2 grow">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-4 p-3 rounded-lg hover:bg-neutral-900 transition-all duration-200 ${
-                pathname === item.path
-                  ? "font-bold scale-105"
-                  : "text-neutral-300"
-              }`}
-            >
-              <item.icon
-                size={28}
-                strokeWidth={pathname === item.path ? 2.5 : 2}
-              />
-              <span className="hidden lg:block text-lg">{item.name}</span>
-            </Link>
-          ))}
+        <nav className="flex flex-col gap-2 flex-1">
+          {navItems.map((item) => {
+            const isActive = pathname === item.path;
+            const Icon = item.icon;
+            return item.path !== "#" ? (
+              <Link
+                key={item.name}
+                to={item.path}
+                className={`flex items-center gap-4 p-3 rounded-xl hover:bg-neutral-900 transition-all ${isActive ? "text-white font-bold" : "text-neutral-400"}`}
+              >
+                <Icon size={28} strokeWidth={isActive ? 2.5 : 2} />
+                <span className="hidden lg:block text-lg">{item.name}</span>
+              </Link>
+            ) : (
+              <button
+                key={item.name}
+                onClick={item.onClick}
+                className="flex items-center gap-4 p-3 rounded-xl hover:bg-neutral-900 text-neutral-400 transition-all"
+              >
+                <Icon size={28} />
+                <span className="hidden lg:block text-lg">{item.name}</span>
+              </button>
+            );
+          })}
         </nav>
-      </div>
 
-      {/* MOBILE BOTTOM NAV */}
-      <div className="md:hidden fixed bottom-0 left-0 w-full h-14 bg-black border-t border-neutral-900 flex items-center justify-around z-50 px-4">
-        {navItems.map((item) => (
-          <Link key={item.path} to={item.path}>
-            <item.icon
-              size={26}
-              className={
-                pathname === item.path ? "text-white" : "text-neutral-400"
-              }
-              strokeWidth={pathname === item.path ? 2.5 : 2}
-            />
-          </Link>
-        ))}
-        {/* User Avatar Tiny */}
-        <Link to={`/profile/${user?._id}`}>
-          <div
-            className={`w-7 h-7 rounded-full border ${pathname.includes("profile") ? "border-white" : "border-transparent"}`}
+        <div className="mt-auto border-t border-neutral-800 pt-4 flex flex-col gap-2">
+          <Link
+            to="/settings"
+            className="flex items-center gap-4 p-3 rounded-xl hover:bg-neutral-900 text-neutral-400"
           >
-            <img
-              src={user?.avatar || "/default-avatar.png"}
-              className="w-full h-full rounded-full object-cover"
-            />
-          </div>
-        </Link>
-      </div>
+            <Settings size={28} />
+            <span className="hidden lg:block">Settings</span>
+          </Link>
+          <button
+            onClick={logout}
+            className="flex items-center gap-4 p-3 rounded-xl hover:bg-red-500/10 text-red-500 transition-colors"
+          >
+            <LogOut size={28} />
+            <span className="hidden lg:block">Logout</span>
+          </button>
+        </div>
+      </aside>
+
+      <CreatePostModal
+        isOpen={isPostModalOpen}
+        onClose={() => setIsPostModalOpen(false)}
+      />
     </>
   );
 }

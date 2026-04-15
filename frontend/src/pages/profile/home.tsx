@@ -13,49 +13,81 @@ export const Profile = () => {
   const { id } = useParams<{ id: string }>();
   const { user: currentUser } = useAuthStore();
 
+  // Օգտատիրոջ տվյալների վիճակ (State)
   const [targetUser, setTargetUser] = useState<IUser | null>(null);
-  const [posts, setPosts] = useState<IPost[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  // MODALS STATE
+  // Ներդիրների (Tabs) վիճակ (State)
+  const [activeTab, setActiveTab] = useState("posts");
+  const [tabData, setTabData] = useState<IPost[]>([]);
+  const [loadingTab, setLoadingTab] = useState(true);
+
+  // Մոդալների վիճակ (Modals State)
   const [selectedPost, setSelectedPost] = useState<IPost | null>(null);
-  const [usersModal, setUsersModal] = useState<{
-    open: boolean;
-    title: string;
-    type: "followers" | "followings";
-    data: any[];
-    loading: boolean;
-  }>({
+  const [usersModal, setUsersModal] = useState({
     open: false,
     title: "",
-    type: "followers",
+    type: "followers" as "followers" | "followings",
     data: [],
     loading: false,
   });
 
-  const [activeTab, setActiveTab] = useState("posts");
   const isOwner = currentUser?._id === id;
 
-  const fetchData = useCallback(async () => {
+  // 1. Բեռնում ենք միայն պրոֆիլի սեփականատիրոջ տվյալները
+  const fetchUser = useCallback(async () => {
     if (!id) return;
-    setLoading(true);
     try {
-      const [userRes, postsRes] = await Promise.all([
-        api.get(`/users/${id}`),
-        api.get(`/posts?author=${id}`),
-      ]);
-      setTargetUser(userRes.data.payload);
-      setPosts(postsRes.data.payload);
+      const { data } = await api.get(`/users/${id}`);
+      setTargetUser(data.payload);
     } catch (error) {
-      console.error("Error fetching profile:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching user profile:", error);
     }
   }, [id]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchUser();
+  }, [fetchUser]);
+
+  // 2. Դինամիկ բեռնում ենք Գրիդի (Grid) տվյալները՝ ըստ ակտիվ ներդիրի
+  useEffect(() => {
+    const fetchTabData = async () => {
+      if (!id) return;
+
+      setLoadingTab(true);
+      setTabData([]); // Մաքրում ենք նախորդ գրիդը անիմացիայի համար
+
+      try {
+        let res;
+
+        // Հիմնված api.js-ի վրա
+        if (activeTab === "posts") {
+          res = await api.get(`/posts?author=${id}`);
+          setTabData(res.data.payload || []);
+        } else if (activeTab === "saved" && isOwner) {
+          res = await api.get(`/saves`);
+          // Ենթադրելով, որ save ռոութը վերադարձնում է մոդելներ՝ populate արված post դաշտով
+          const extractedPosts = (res.data.payload || []).map(
+            (item: any) => item.post || item,
+          );
+          setTabData(extractedPosts);
+        } else if (activeTab === "reposts") {
+          res = await api.get(`/reposts?user=${id}`);
+          // Նույն տրամաբանությունը repost-ների համար
+          const extractedPosts = (res.data.payload || []).map(
+            (item: any) => item.post || item,
+          );
+          setTabData(extractedPosts);
+        }
+      } catch (error) {
+        console.error(`Error fetching ${activeTab}:`, error);
+        setTabData([]);
+      } finally {
+        setLoadingTab(false);
+      }
+    };
+
+    fetchTabData();
+  }, [activeTab, id, isOwner]);
 
   const handleFetchUsers = async (type: "followers" | "followings") => {
     setUsersModal((prev) => ({
@@ -83,16 +115,21 @@ export const Profile = () => {
       <ProfileHeader
         user={isOwner ? currentUser : targetUser}
         isOwner={isOwner}
-        postsCount={posts.length}
+        postsCount={targetUser?.postsCount || 0}
         onFollowersClick={() => handleFetchUsers("followers")}
         onFollowingClick={() => handleFetchUsers("followings")}
-        refreshData={fetchData}
+        refreshData={fetchUser}
       />
 
-      <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <ProfileTabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        isOwner={isOwner}
+      />
 
-      <div className="mt-4 px-px md:px-0">
-        {loading ? (
+      {/* Grid Բեռնման Վիճակ */}
+      <div className="mt-4 px-px md:px-0 min-h-[300px]">
+        {loadingTab ? (
           <div className="grid grid-cols-3 gap-1 md:gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
@@ -102,19 +139,19 @@ export const Profile = () => {
             ))}
           </div>
         ) : (
-          <PostGrid
-            posts={posts}
-            onPostClick={(post) => setSelectedPost(post)}
-          />
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <PostGrid
+              posts={tabData}
+              onPostClick={(post) => setSelectedPost(post)}
+            />
+          </div>
         )}
       </div>
 
-      {/* 1. POST DETAIL MODAL */}
       {selectedPost && (
         <PostModal post={selectedPost} onClose={() => setSelectedPost(null)} />
       )}
 
-      {/* 2. FOLLOWERS / FOLLOWING MODAL */}
       <UsersModal
         isOpen={usersModal.open}
         onClose={() => setUsersModal((prev) => ({ ...prev, open: false }))}

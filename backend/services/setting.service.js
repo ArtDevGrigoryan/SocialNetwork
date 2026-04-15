@@ -9,7 +9,7 @@ class SettingService {
       await setting.save();
       return "Profile Visibility public";
     }
-    settig.privacy.profileVisibility = "PRIVATE";
+    setting.privacy.profileVisibility = "PRIVATE";
     await setting.save();
     return "Profile Visibilty private";
   }

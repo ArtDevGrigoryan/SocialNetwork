@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { use, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { SignupDto } from "./types";
 import { useNavigate } from "react-router-dom";
@@ -8,6 +8,7 @@ import axios from "axios";
 import { api } from "../../lib/axios.config";
 import type { ILoginResponse, IResponse } from "../../types/api.types";
 import { Alert, type AlertType } from "../../components/message-popup/alert";
+import { useAuthStore } from "../../store/auth.store";
 
 const passwordRules = {
   upper: /[A-Z]/,
@@ -27,7 +28,7 @@ export const Signup = () => {
   const [type, setType] = useState<AlertType>("info");
   const [message, setMessage] = useState<string>("");
   const navigate = useNavigate();
-
+  const { setAuth } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -59,8 +60,11 @@ export const Signup = () => {
         "/auth/register",
         body,
       );
-      localStorage.setItem("accessToken", data.payload.accessToken);
-      localStorage.setItem("refreshToken", data.payload.refreshToken);
+      await setAuth(
+        data.payload.user,
+        data.payload.accessToken,
+        data.payload.refreshToken,
+      );
       setMessage("");
       navigate("/");
     } catch (err) {
@@ -78,7 +82,7 @@ export const Signup = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white px-4">
       <div className="w-full max-w-sm flex flex-col gap-4">
-        {message.length? <Alert type={type} message={message} />: ""}
+        {message.length ? <Alert type={type} message={message} /> : ""}
         {/* CARD */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8">
           <h1 className="text-3xl mb-6 text-center font-[Grand_Hotel]">

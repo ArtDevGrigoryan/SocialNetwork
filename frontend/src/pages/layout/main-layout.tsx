@@ -10,7 +10,8 @@ import type { IResponse } from "../../types/api.types";
 import type { IUser } from "../../types/user.types";
 
 export default function MainLayout() {
-  const { isAuthenticated, accessToken, user, setAuth } = useAuthStore();
+  const { isAuthenticated, accessToken, user, setAuth, setUser } =
+    useAuthStore();
   const { connect, disconnect } = useSocketStore();
 
   useEffect(() => {
@@ -19,11 +20,7 @@ export default function MainLayout() {
         try {
           const { data } = await api.get<IResponse<IUser>>("/auth/me");
 
-          setAuth({
-            user: data.payload,
-            accessToken,
-            refreshToken: localStorage.getItem("refreshToken") || "",
-          });
+          setUser(data.payload);
         } catch (error) {
           useAuthStore.getState().logout();
           console.error("Failed to fetch user:", error);

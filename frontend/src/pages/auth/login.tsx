@@ -6,11 +6,12 @@ import type { ILoginResponse, IResponse } from "../../types/api.types";
 import { useNavigate } from "react-router-dom";
 
 import { Eye, EyeOff, Mail, KeyRound } from "lucide-react";
+import { useAuthStore } from "../../store/auth.store";
 
 export const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-
+  const { setAuth } = useAuthStore();
   const {
     register,
     handleSubmit,
@@ -22,10 +23,11 @@ export const Login = () => {
       "/auth/login",
       body,
     );
-
-    localStorage.setItem("accessToken", data.payload.accessToken);
-    localStorage.setItem("refreshToken", data.payload.refreshToken);
-
+    setAuth(
+      data.payload.user,
+      data.payload.accessToken,
+      data.payload.refreshToken,
+    );
     navigate("/");
   };
 
