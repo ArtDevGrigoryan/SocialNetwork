@@ -1,1 +1,25 @@
 @import "tailwindcss";
+/* Custom scrollbar for chat (Instagram style) */
+@layer utilities {
+  .instagram-scrollbar {
+    overflow-y: auto;
+  }
+  
+  .instagram-scrollbar::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+  
+  .instagram-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .instagram-scrollbar::-webkit-scrollbar-thumb {
+    background: #404040; /* bg-neutral-700 */
+    border-radius: 10px;
+  }
+  
+  .instagram-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #525252; /* bg-neutral-600 */
+  }
+}

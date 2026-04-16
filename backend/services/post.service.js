@@ -139,10 +139,10 @@ class PostService {
     const { liked, author } = await toggleLikeTx(user, postId);
 
     if (liked && author.toString() != user)
-      eventBus.emitEvent("like", {
-        user: author,
-        entity: user,
-        entityModel: "User",
+      notificationService.likeNotification({
+        postId,
+        fromUser: user,
+        toUser: author,
       });
     return { liked };
   }

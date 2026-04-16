@@ -6,7 +6,8 @@ const getStorySchema = z.object({
 });
 
 const getFeedStories = z.object({
-  limit: z.coerce.number().int().min(10).max(50),
+  limit: z.coerce.number().int().min(10).max(50).default(20),
+  cursor: z.string().nonempty().optional(),
 });
 
 const addSchema = z.object({

@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const redis = require("@db/redis");
 const PrivacyPolicy = require("./privacy");
 const NotificationAggregator = require("@worker/notification/aggregator");
@@ -22,7 +23,12 @@ class NotificationJobService {
       countKey: k.countKey,
       usersKey: k.usersKey,
     });
+
     if (!count) return;
+
+    const objectIdUsers = users
+      .slice(0, 3)
+      .map((id) => new mongoose.Types.ObjectId(id));
 
     const notification = await Notification.findOneAndUpdate(
       { type: "LIKE", toUser, entity: postId, entityModel: "Post" },
@@ -33,16 +39,160 @@ class NotificationJobService {
               $cond: [
                 { $eq: ["$isRead", true] },
                 count,
-                { $add: ["$meta.count", count] },
+                { $add: [{ $ifNull: ["$meta.count", 0] }, count] },
               ],
             },
-            "meta.users": users.slice(0, 3),
+            "meta.users": {
+              $cond: [
+                { $eq: ["$isRead", true] },
+                objectIdUsers,
+                {
+                  $slice: [
+                    {
+                      $setUnion: [
+                        objectIdUsers,
+                        { $ifNull: ["$meta.users", []] },
+                      ],
+                    },
+                    3,
+                  ],
+                },
+              ],
+            },
             isRead: false,
           },
         },
       ],
       { upsert: true, new: true },
     ).populate("meta.users", "_id username bio avatar");
+
+    await NotificationAggregator.clear(redis, [
+      k.countKey,
+      k.usersKey,
+      k.scheduledKey,
+    ]);
+    await socketService.notify(notification);
+  }
+
+  static async "comment-batch"(data) {
+    const { postId, toUser } = data;
+    const canSend = await PrivacyPolicy.chekNotificationSetting(
+      toUser,
+      "comment",
+    );
+    if (!canSend) return;
+
+    const k = keys({ type: "comment", entityId: postId, toUser });
+    const { count, users } = await NotificationAggregator.consume(redis, {
+      countKey: k.countKey,
+      usersKey: k.usersKey,
+    });
+
+    if (!count) return;
+
+    const objectIdUsers = users
+      .slice(0, 3)
+      .map((id) => new mongoose.Types.ObjectId(id));
+
+    const notification = await Notification.findOneAndUpdate(
+      { type: "COMMENT", toUser, entity: postId, entityModel: "Post" },
+      [
+        {
+          $set: {
+            "meta.count": {
+              $cond: [
+                { $eq: ["$isRead", true] },
+                count,
+                { $add: [{ $ifNull: ["$meta.count", 0] }, count] },
+              ],
+            },
+            "meta.users": {
+              $cond: [
+                { $eq: ["$isRead", true] },
+                objectIdUsers,
+                {
+                  $slice: [
+                    {
+                      $setUnion: [
+                        objectIdUsers,
+                        { $ifNull: ["$meta.users", []] },
+                      ],
+                    },
+                    3,
+                  ],
+                },
+              ],
+            },
+            isRead: false,
+          },
+        },
+      ],
+      { upsert: true, new: true },
+    ).populate("meta.users", "_id username avatar bio");
+
+    await NotificationAggregator.clear(redis, [
+      k.countKey,
+      k.usersKey,
+      k.scheduledKey,
+    ]);
+    await socketService.notify(notification);
+  }
+
+  static async "follow-request"(data) {
+    const { toUser } = data;
+    const canSend = await PrivacyPolicy.chekNotificationSetting(
+      toUser,
+      "follow_request",
+    );
+    if (!canSend) return;
+
+    const k = requestKey(toUser);
+    const { count, users } = await NotificationAggregator.consume(redis, {
+      countKey: k.countKey,
+      usersKey: k.usersKey,
+    });
+
+    if (!count) return;
+
+    const objectIdUsers = users
+      .slice(0, 3)
+      .map((id) => new mongoose.Types.ObjectId(id));
+
+    const notification = await Notification.findOneAndUpdate(
+      { toUser, type: "REQUEST" },
+      [
+        {
+          $set: {
+            "meta.count": {
+              $cond: [
+                { $eq: ["$isRead", true] },
+                count,
+                { $add: [{ $ifNull: ["$meta.count", 0] }, count] },
+              ],
+            },
+            "meta.users": {
+              $cond: [
+                { $eq: ["$isRead", true] },
+                objectIdUsers,
+                {
+                  $slice: [
+                    {
+                      $setUnion: [
+                        objectIdUsers,
+                        { $ifNull: ["$meta.users", []] },
+                      ],
+                    },
+                    3,
+                  ],
+                },
+              ],
+            },
+            isRead: false,
+          },
+        },
+      ],
+      { upsert: true, new: true },
+    ).populate("meta.users", "_id avatar bio username");
 
     await NotificationAggregator.clear(redis, [
       k.countKey,

@@ -1,4 +1,3 @@
-
 class AggregationBuilder {
   constructor(model) {
     this.model = model;
@@ -26,17 +25,30 @@ class AggregationBuilder {
     return this;
   }
 
-  lookup({ from, localField, foreignField, as, pipeline = null }) {
-    const lookupStage = {
-      $lookup: { from, localField, foreignField, as },
-    };
+  lookup({
+    from,
+    localField,
+    foreignField,
+    as,
+    pipeline = null,
+    let: letVars = null,
+  }) {
+    const lookupObj = { from, as };
+
     if (pipeline) {
-      lookupStage.$lookup.let = { local: `$${localField}` };
-      lookupStage.$lookup.pipeline = pipeline;
-      delete lookupStage.$lookup.localField;
-      delete lookupStage.$lookup.foreignField;
+      lookupObj.pipeline = pipeline;
+
+      if (letVars) {
+        lookupObj.let = letVars;
+      } else if (localField) {
+        lookupObj.let = { local: `$${localField}` };
+      }
+    } else {
+      lookupObj.localField = localField;
+      lookupObj.foreignField = foreignField;
     }
-    this.pipeline.push(lookupStage);
+
+    this.pipeline.push({ $lookup: lookupObj });
     return this;
   }
 
@@ -65,7 +77,5 @@ class AggregationBuilder {
     return data;
   }
 }
-
-
 
 module.exports = AggregationBuilder;

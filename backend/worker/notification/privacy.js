@@ -42,13 +42,13 @@ class PrivacyPolicy {
   static async checkNotificationFollowers(fromUser, action = "post") {
     const key = action === "post" ? "new_post" : "new_story";
 
-    const chatIds = (
-      await Chat.find({ participants: fromUser })
-        .sort({ lastActivityAt: -1 })
-        .limit(30)
-        .select("_id")
-        .lean()
-    ).map((c) => c._id);
+    const myParticipants = await Participant.find({ user: fromUser })
+      .sort({ createdAt: -1 })
+      .limit(30)
+      .select("chatId")
+      .lean();
+
+    const chatIds = myParticipants.map((p) => p.chatId);
 
     if (!chatIds.length) return [];
 
@@ -73,9 +73,9 @@ class PrivacyPolicy {
 
     const followSet = new Set(follows.map((f) => f.follower.toString()));
 
-    const settings = await Settings.find({
+    const settings = await Setting.find({
       user: { $in: userIds },
-      [`notifications.${action === "post" ? "newPost" : "newStory"}`]: true,
+      [`notifications.${key}`]: true,
     })
       .select("user")
       .lean();

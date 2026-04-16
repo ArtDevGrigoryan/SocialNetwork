@@ -3,11 +3,11 @@ const { ObjectId } = require("mongoose").Types;
 const Post = require("@models/post");
 
 class AggregationHelperPost {
-  static #basePostsAggregation(viewer, page = 1, limit = 20) {
+  static #basePostsAggregation(builder, viewer, page = 1, limit = 20) {
     const viewerId = new ObjectId(viewer);
     const skip = (page - 1) * limit;
 
-    return new AggregationBuilder(Post)
+    return builder
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -27,6 +27,25 @@ class AggregationHelperPost {
           },
           { $project: { _id: 1 } },
         ],
+        as: "viewerLikes",
+      })
+      .lookup({
+        from: "saves",
+        let: { postId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$post", "$$postId"] },
+                  { $eq: ["$user", viewerId] },
+                ],
+              },
+            },
+          },
+          { $project: { _id: 1 } },
+        ],
+        as: "viewerSaves",
       })
       .lookup({
         from: "users",
@@ -35,12 +54,17 @@ class AggregationHelperPost {
         as: "authorData",
       })
       .addFields({
-        viewer: { isLiked: { $gt: [{ $size: "$viewerLikes" }, 0] } },
+        viewer: {
+          isLiked: { $gt: [{ $size: "$viewerLikes" }, 0] },
+          isSaved: { $gt: [{ $size: "$viewerSaves" }, 0] },
+        },
         isLiked: { $gt: [{ $size: "$viewerLikes" }, 0] },
+        isSaved: { $gt: [{ $size: "$viewerSaves" }, 0] },
         author: { $arrayElemAt: ["$authorData", 0] },
       })
       .project({
         viewerLikes: 0,
+        viewerSaves: 0,
         authorData: 0,
         "author.email": 0,
         "author.password": 0,
@@ -57,58 +81,44 @@ class AggregationHelperPost {
       .transform((post) => ({
         ...post,
         images: post.images?.map((img) => img.url) || [],
-      }))
+      }));
   }
 
   static findPostsWithViewerLikes(viewer, author, page = 1, limit = 20) {
     const authorId = new ObjectId(author);
-    return this.#basePostsAggregation(viewer, page, limit)
-      .match({ author: authorId, isArchived: false })
-      .execTransformed();
+    // Ստեղծում ենք builder և $match-ը դնում սկզբում
+    const builder = new AggregationBuilder(Post).match({
+      author: authorId,
+      isArchived: false,
+    });
+    return this.#basePostsAggregation(
+      builder,
+      viewer,
+      page,
+      limit,
+    ).execTransformed();
   }
 
   static findFeedPostsWithViewerLikes(viewer, authorIds, page = 1, limit = 20) {
     const validAuthorIds = authorIds.map((id) => new ObjectId(id));
-    return this.#basePostsAggregation(viewer, page, limit)
-      .match({ author: { $in: validAuthorIds }, isArchived: false })
-      .execTransformed();
+    // Ստեղծում ենք builder և $match-ը դնում սկզբում
+    const builder = new AggregationBuilder(Post).match({
+      author: { $in: validAuthorIds },
+      isArchived: false,
+    });
+    return this.#basePostsAggregation(
+      builder,
+      viewer,
+      page,
+      limit,
+    ).execTransformed();
   }
 
   static postWithViewerLikes(viewer, id) {
     const viewerId = new ObjectId(viewer);
     const postId = new ObjectId(id);
-
-    return new AggregationBuilder(Post)
-      .match({ _id: postId })
-      .lookup({
-        from: "likes",
-        let: { postId: "$_id" },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $eq: ["$post", "$$postId"] },
-                  { $eq: ["$user", viewerId] },
-                ],
-              },
-            },
-          },
-          { $project: { _id: 1 } },
-        ],
-      })
-      .addFields({
-        viewer: { isLiked: { $gt: [{ $size: "$viewerLikes" }, 0] } },
-        isLiked: { $gt: [{ $size: "$viewerLikes" }, 0] },
-      })
-      .project({
-        viewerLikes: 0,
-      })
-      .transform((post) => ({
-        ...post,
-        images: post.images?.map((img) => img.url) || [],
-      }))
-      .execTransformed();
+    const builder = new AggregationBuilder(Post).match({ _id: postId });
+    return this.#basePostsAggregation(builder, viewer, 1, 1).execTransformed();
   }
 }
 

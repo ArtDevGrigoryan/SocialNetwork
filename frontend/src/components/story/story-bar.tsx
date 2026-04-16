@@ -1,33 +1,51 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Plus } from "lucide-react";
 import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
-import AddStoryModal from "./add-story-modal";
+import CreateStoryModal from "./add-story-modal";
+import StoryViewer from "./story-viewer";
 
-// Ենթադրյալ տիպեր backend-ից եկող տվյալների համար
-interface IStoryUser {
+interface StoryUser {
   _id: string;
   username: string;
   avatar?: string;
-  hasUnseenStory: boolean;
+}
+
+interface StoryGroup {
+  _id: string; // userId
+  user: StoryUser;
+  hasUnseen: boolean;
 }
 
 export default function StoryBar() {
-  const { user } = useAuthStore();
-  const [usersWithStories, setUsersWithStories] = useState<IStoryUser[]>([]);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [otherStories, setOtherStories] = useState<StoryGroup[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchStories = async () => {
+  const { user } = useAuthStore();
+
+  const [myStoriesCount, setMyStoriesCount] = useState(0);
+  const [hasUnseenMyStory, setHasUnseenMyStory] = useState(false);
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [viewingUserId, setViewingUserId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const fetchData = async () => {
     try {
-      const { data } = await api.get("/stories?limit=15");
-      const mapped = (data.payload || []).map((item: any) => ({
-        _id: item.user?._id,
-        username: item.user?.username,
-        avatar: item.user?.avatar,
-        hasUnseenStory: Boolean(item.hasUnseen),
-      }));
-      setUsersWithStories(mapped);
+      setLoading(true);
+
+      // 1. Քաշում ենք ընկերների սթորիները (Feed)
+      const { data } = await api.get("/stories");
+      const allGroups: StoryGroup[] = data.payload || [];
+      setOtherStories(allGroups.filter((g) => g._id !== user?._id)); // Ապահովագրում ենք, որ մենք կրկնակի չլինենք
+
+      // 2. ԱՌԱՆՁԻՆ քաշում ենք ՀԵՆՑ ՄԵՐ սթորիները, որ կարողանանք նայել դրանք
+      if (user?._id) {
+        const { data: myData } = await api.get(`/stories/user/${user._id}`);
+        const myStories = myData.payload || [];
+        setMyStoriesCount(myStories.length);
+        setHasUnseenMyStory(myStories.some((s: any) => !s.viewer?.seen));
+      }
     } catch (error) {
       console.error("Error fetching stories:", error);
     } finally {
@@ -36,80 +54,154 @@ export default function StoryBar() {
   };
 
   useEffect(() => {
-    fetchStories();
-  }, []);
+    fetchData();
+    window.addEventListener("story:created", fetchData);
+    return () => window.removeEventListener("story:created", fetchData);
+  }, [user?._id]);
 
-  useEffect(() => {
-    const onStoryCreated = () => {
-      setLoading(true);
-      fetchStories();
-    };
-    window.addEventListener("story:created", onStoryCreated);
-    return () => window.removeEventListener("story:created", onStoryCreated);
-  }, []);
+  const handleScroll = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (scrollRef.current) {
+      e.preventDefault();
+      scrollRef.current.scrollLeft += e.deltaY;
+    }
+  };
+
+  // Next/Prev User տրամաբանություն Viewer-ի համար
+  const handleNextUser = () => {
+    const userIds = [];
+    if (myStoriesCount > 0 && user) userIds.push(user._id);
+    otherStories.forEach((g) => userIds.push(g._id));
+
+    const currentIndex = userIds.indexOf(viewingUserId!);
+    if (currentIndex !== -1 && currentIndex < userIds.length - 1) {
+      setViewingUserId(userIds[currentIndex + 1]);
+    } else {
+      setViewingUserId(null);
+    }
+  };
+
+  const handlePrevUser = () => {
+    const userIds = [];
+    if (myStoriesCount > 0 && user) userIds.push(user._id);
+    otherStories.forEach((g) => userIds.push(g._id));
+
+    const currentIndex = userIds.indexOf(viewingUserId!);
+    if (currentIndex > 0) {
+      setViewingUserId(userIds[currentIndex - 1]);
+    }
+  };
 
   return (
     <>
-      <div className="w-full bg-black border-b border-neutral-800 md:border md:border-neutral-800 md:rounded-lg mb-4 p-4">
-        <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-2 snap-x snap-mandatory">
-          {/* 1. Իմ Սթորին (Add Story) */}
-          <div
-            className="flex flex-col items-center gap-1 cursor-pointer shrink-0 group"
-            onClick={() => setIsAddModalOpen(true)}
-          >
-            <div className="relative w-16 h-16 rounded-full overflow-hidden border border-neutral-800 snap-start">
-              <img
-                src={user?.avatar || "/default-avatar.png"}
-                alt="My Story"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-              <div className="absolute bottom-0 right-0 bg-blue-500 rounded-full p-0.5 border-2 border-black">
-                <Plus size={16} className="text-white" />
+      <style>{`
+        .story-scroll::-webkit-scrollbar { display: none; }
+      `}</style>
+
+      <div className="w-full bg-black sm:bg-neutral-950 sm:border sm:border-neutral-800 rounded-lg p-4 mb-4">
+        <div
+          ref={scrollRef}
+          onWheel={handleScroll}
+          className="flex items-center gap-4 overflow-x-auto story-scroll snap-x"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
+          {/* 1. ԻՄ ՍԹՈՐԻՆԵՐԸ (Current User) */}
+          <div className="flex flex-col items-center gap-1 shrink-0 snap-start">
+            <div
+              className={`relative rounded-full cursor-pointer transition-transform hover:scale-[1.02] ${
+                myStoriesCount > 0 && hasUnseenMyStory
+                  ? "p-[2.5px] bg-gradient-to-tr from-yellow-400 via-rose-500 to-fuchsia-600"
+                  : myStoriesCount > 0
+                    ? "p-[2.5px] bg-neutral-700"
+                    : "p-[2px] border border-neutral-800"
+              }`}
+              onClick={() => {
+                // Եթե ունենք սթորի, ԱՎԱՏԱՐԻՆ սեղմելիս բացում է դիտելու պատուհանը
+                if (myStoriesCount > 0) {
+                  setViewingUserId(user?._id || null);
+                } else {
+                  setIsCreateModalOpen(true);
+                }
+              }}
+            >
+              <div
+                className={`bg-black rounded-full p-[2px] ${myStoriesCount > 0 ? "w-[60px] h-[60px]" : "w-16 h-16"}`}
+              >
+                <img
+                  src={user?.avatar || "/default-avatar.png"}
+                  alt="Your story"
+                  className="w-full h-full rounded-full object-cover bg-neutral-800"
+                />
+              </div>
+
+              {/* + (Plus) Կոճակը միշտ առկա է. Սեղմելիս բացում է Create Story-ն */}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation(); // Որպեսզի ավատարի click-ը չաշխատի
+                  setIsCreateModalOpen(true);
+                }}
+                className="absolute bottom-0 right-0 bg-blue-500 rounded-full border-2 border-black p-0.5 flex items-center justify-center cursor-pointer hover:scale-110 transition z-10"
+              >
+                <Plus className="w-3.5 h-3.5 text-white" strokeWidth={3} />
               </div>
             </div>
-            <span className="text-xs text-neutral-400">Ձեր սթորին</span>
+            <span className="text-xs text-neutral-400 truncate w-16 text-center mt-1">
+              Your story
+            </span>
           </div>
 
-          {/* 2. Մյուս օգտատերերի սթորիները */}
+          {/* 2. ԸՆԿԵՐՆԵՐԻ ՍԹՈՐԻՆԵՐԸ (Other Users) */}
           {loading
-            ? // Skeletons
-              Array.from({ length: 5 }).map((_, i) => (
+            ? Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
                   className="flex flex-col items-center gap-1 shrink-0"
                 >
-                  <div className="w-16 h-16 rounded-full bg-neutral-900 animate-pulse" />
-                  <div className="w-12 h-2 bg-neutral-900 rounded animate-pulse" />
+                  <div className="w-[65px] h-[65px] rounded-full bg-neutral-800 animate-pulse" />
+                  <div className="w-12 h-2 bg-neutral-800 animate-pulse rounded mt-1" />
                 </div>
               ))
-            : usersWithStories.map((storyUser) => (
+            : otherStories.map((group) => (
                 <div
-                  key={storyUser._id}
-                  className="flex flex-col items-center gap-1 cursor-pointer shrink-0 snap-start"
+                  key={group._id}
+                  className="flex flex-col items-center gap-1 cursor-pointer shrink-0 snap-start transition-transform hover:scale-[1.02]"
+                  onClick={() => setViewingUserId(group._id)}
                 >
                   <div
-                    className={`p-[2px] rounded-full transition-transform duration-200 hover:scale-[1.03] ${storyUser.hasUnseenStory ? "bg-gradient-to-tr from-[#feda75] via-[#d62976] to-[#4f5bd5]" : "bg-neutral-800"}`}
+                    className={`rounded-full p-[2.5px] ${
+                      group.hasUnseen
+                        ? "bg-gradient-to-tr from-yellow-400 via-rose-500 to-fuchsia-600"
+                        : "bg-neutral-700" // Եթե նայել ես, մնում է, բայց մոխրագույն գույնով
+                    }`}
                   >
-                    <div className="w-[60px] h-[60px] rounded-full bg-black p-[2px]">
+                    <div className="bg-black rounded-full p-[2px] w-[60px] h-[60px]">
                       <img
-                        src={storyUser.avatar || "/default-avatar.png"}
-                        alt={storyUser.username}
-                        className="w-full h-full rounded-full object-cover border border-black"
+                        src={group.user.avatar || "/default-avatar.png"}
+                        alt={group.user.username}
+                        className="w-full h-full rounded-full object-cover bg-neutral-800"
                       />
                     </div>
                   </div>
-                  <span className="text-xs text-white truncate w-16 text-center">
-                    {storyUser.username}
+                  <span className="text-xs text-neutral-300 truncate w-16 text-center mt-1">
+                    {group.user.username}
                   </span>
                 </div>
               ))}
         </div>
       </div>
 
-      <AddStoryModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+      <CreateStoryModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
       />
+
+      {viewingUserId && (
+        <StoryViewer
+          userId={viewingUserId}
+          onClose={() => setViewingUserId(null)}
+          onNextUser={handleNextUser}
+          onPrevUser={handlePrevUser}
+        />
+      )}
     </>
   );
 }
