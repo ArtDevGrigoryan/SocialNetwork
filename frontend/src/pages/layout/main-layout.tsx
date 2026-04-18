@@ -12,8 +12,7 @@ import type { IUser } from "../../types/user.types";
 
 export default function MainLayout() {
   const { pathname } = useLocation();
-  const { isAuthenticated, accessToken, user, setUser } =
-    useAuthStore();
+  const { isAuthenticated, accessToken, user, setUser } = useAuthStore();
   const { connect, disconnect, socket } = useSocketStore();
   const { toasts, addToast } = useUIStore();
 
@@ -22,7 +21,7 @@ export default function MainLayout() {
       if (isAuthenticated && !user && accessToken) {
         try {
           const { data } = await api.get<IResponse<IUser>>("/auth/me");
-
+console.log(data)
           setUser(data.payload);
         } catch (error) {
           useAuthStore.getState().logout();

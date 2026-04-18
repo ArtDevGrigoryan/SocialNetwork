@@ -16,7 +16,7 @@ async function initStoryScheduler() {
     await storyQueue.upsertJobScheduler(
       "archive-expired-stories",
       {
-        cron: "5 * * * *",
+        pattern: "5 * * * *",
       },
       {
         name: "archiveExpired",

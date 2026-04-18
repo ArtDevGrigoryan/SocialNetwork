@@ -7,6 +7,7 @@
     "dev": "nodemon index.js",
     "back": "nodemon index.js",
     "notif": "node ./worker/notification/index.js",
+    "story": "node ./worker/story/index.js",
     "test:notif": "node ./tests/bullMq.test.js"
   },
   "keywords": [],

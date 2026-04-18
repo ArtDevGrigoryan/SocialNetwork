@@ -1,6 +1,7 @@
 const { SocketConflictException } = require("@helpers/socket-errors");
 const { NotFoundException } = require("@helpers/errors");
 const User = require("@models/user");
+const UserConfig = require("@models/user-config");
 const Block = require("@models/blocked-user");
 const Follow = require("@models/follow");
 const FriendRequest = require("@models/friend-request");
@@ -103,6 +104,13 @@ class UserService {
       match: { username: regex },
       select: "username avatar _id",
     });
+  }
+  async getUserConfig(userId) {
+    const config = await UserConfig.findOne({ user: userId });
+    if (!config) {
+      return { isEmailVerified: false };
+    }
+    return config;
   }
 }
 

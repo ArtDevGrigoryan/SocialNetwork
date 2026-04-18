@@ -17,7 +17,7 @@ class AuthController {
     return sendSuccess(res, null, 204, "Logged out successfully");
   }
   async getCurrentUser(req, res) {
-    const data = this.service.getCurrentUser(req.user);
+    const data = await this.service.getCurrentUser(req.user);
     return sendSuccess(res, data);
   }
   async refreshToken(req, res) {
@@ -45,7 +45,11 @@ class AuthController {
     return sendSuccess(res, null, 200, "Password changed successfully");
   }
   async updateProfile(req, res) {
-    const data = await this.service.updateProfile(req.validated.body, req.user);
+    const data = await this.service.updateProfile(
+      req.validated.body,
+      req.file,
+      req.user,
+    );
     return sendSuccess(res, data, 200, "Profile updated successfully");
   }
   async deleteAccount(req, res) {

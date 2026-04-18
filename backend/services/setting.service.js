@@ -2,6 +2,11 @@ const { NotFoundException } = require("@helpers/errors");
 const Setting = require("@models/setting");
 
 class SettingService {
+  async getSettings(user) {
+    const settings = await Setting.findOne({ user }).lean();
+    if (!settings) throw new NotFoundException("Settings not found");
+    return settings;
+  }
   async profileVisibility(user) {
     const setting = await Setting.findOne({ user });
     if (setting.privacy.profileVisibility == "PRIVATE") {

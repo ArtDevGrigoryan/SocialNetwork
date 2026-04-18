@@ -2,6 +2,10 @@ const { sendSuccess } = require("@helpers/api-response");
 const settingService = require("@services/setting.service");
 
 class SettingController {
+  async getSettings(req, res) {
+    const data = await settingService.getSettings(req.user._id);
+    return sendSuccess(res, data);
+  }
   async profileVisibilty(req, res) {
     const data = await settingService.profileVisibility(req.user._id);
     return sendSuccess(res, data);

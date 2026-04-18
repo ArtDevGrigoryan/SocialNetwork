@@ -4,6 +4,7 @@ const validate = require("@middlewares/validate");
 const isAuth = require("@middlewares/is-auth");
 const { notificationSchema } = require("@schemas/setting.schema");
 
+router.get("/", isAuth, settingController.getSettings);
 router.patch(
   "/privacy/profile-visibility",
   isAuth,

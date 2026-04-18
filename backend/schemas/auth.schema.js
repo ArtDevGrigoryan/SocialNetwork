@@ -27,8 +27,10 @@ const changePasswordSchema = z.object({
   oldPassword: passwordSchema,
   newPassword: passwordSchema,
 });
+
 const updateProfileSchema = z.object({
-  name: z.string().nonempty("Missing name"),
+  name: z.string().optional(),
+  bio: z.string().optional(),
 });
 
 const oauthSchema = z.object({
@@ -61,7 +63,10 @@ module.exports = {
   forgotPassword: [{ body: forgotPasswordSchema }],
   resetPassword: [{ body: resetPasswordSchema }],
   verifyEmail: [{ body: verifyEmailSchema }],
-  resendVerificationEmail: [{ body: resendVerificationEmailSchema }, {defaults: true}],
+  resendVerificationEmail: [
+    { body: resendVerificationEmailSchema },
+    { defaults: true },
+  ],
   changePassword: [{ body: changePasswordSchema }],
   updateProfile: [{ body: updateProfileSchema }],
   oauth: [oauthSchema],

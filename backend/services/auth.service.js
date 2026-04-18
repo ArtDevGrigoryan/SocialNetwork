@@ -20,6 +20,7 @@ const twoFactorService = require("@services/two-factor.service");
 const env = require("@helpers/env");
 const TwoFactor = require("@models/two-factor");
 const newUserTx = require("@transaction/new-user");
+const mediaService = require("@lib/media.service");
 
 class AuthService {
   async login(data, userAgent) {
@@ -37,9 +38,12 @@ class AuthService {
     if (!isPasswordValid) {
       throw new NotFoundException("Invalid email or password");
     }
-    if (user.twoFactorEnabled) {
+
+    const twoFa = await TwoFactor.findOne({ user: user._id });
+    if (twoFa && twoFa.twoFactorEnabled) {
       return { twoFactorCredintals: true, userId: user._id };
     }
+
     const { accessToken, refreshToken } = generateTokens({
       id: user._id,
       email: user.email,
@@ -48,7 +52,10 @@ class AuthService {
     user.lastLogin = new Date();
     user.token = await hash(refreshToken);
     await user.save();
+
     const userObj = user.toObject();
+    userObj.twoFactorEnabled = false;
+
     return { accessToken, refreshToken, user: userObj };
   }
   async register(data, userAgent) {
@@ -71,8 +78,11 @@ class AuthService {
     await user.save();
     return true;
   }
-  getCurrentUser(user) {
-    return user.toObject();
+  async getCurrentUser(user) {
+    const twoFa = await TwoFactor.findOne({ user: user._id });
+    const userObj = user.toObject();
+    userObj.twoFactorEnabled = twoFa ? twoFa.twoFactorEnabled : false;
+    return userObj;
   }
   async refreshToken(refreshToken) {
     const payload = verifyRefreshToken(refreshToken);
@@ -267,7 +277,7 @@ class AuthService {
     await user.save();
     return true;
   }
-  async updateProfile(data, account) {
+  async updateProfile(data, file, account) {
     const user = await User.findById(account._id);
     if (!user) {
       throw new NotFoundException("User not found");
@@ -277,9 +287,17 @@ class AuthService {
         "This acccount deactived please contact the support team",
       );
     }
+
     if (data.name) user.username = data.name;
+    if (data.bio !== undefined) user.bio = data.bio;
+
+    if (file) {
+      const [uploadedImage] = await mediaService.upload(file, "avatars");
+      user.avatar = uploadedImage.url;
+    }
+
     await user.save();
-    return user;
+    return user.toObject();
   }
   async deleteAccount(user) {
     await User.findByIdAndUpdate(user._id, { deactived: true });
@@ -338,7 +356,9 @@ class AuthService {
       );
     }
     const twoFa = await TwoFactor.findOne({ user: user._id });
-
+    if (twoFa.twoFactorEnabled) {
+      throw new ConflictException("2FA already enabled");
+    }
     const secret = twoFactorService.generateSecret(user.email);
     twoFa.twoFactorTempSecret = secret.base32;
 
@@ -349,6 +369,12 @@ class AuthService {
   async verifyTwoFactorAuth(user, data) {
     const { token } = data;
     const twoFa = await TwoFactor.findOne({ user: user._id });
+
+    if (!twoFa.twoFactorTempSecret) {
+      throw new BadRequestException(
+        "2FA setup not initiated. Please call /setup first.",
+      );
+    }
 
     const isValid = twoFactorService.verifyToken(
       twoFa.twoFactorTempSecret,
@@ -381,7 +407,8 @@ class AuthService {
       await twoFa.save();
       return true;
     }
-    const twoFa = await TwoFactor.findById(user.twoFa);
+    const twoFa = await TwoFactor.findOne({ user: user._id });
+    console.log(twoFa);
     const isValid = twoFactorService.verifyToken(twoFa.twoFactorSecret, token);
 
     if (!isValid) {
@@ -461,39 +488,40 @@ class AuthService {
       User.findById(userId),
       TwoFactor.findOne({ user: userId }),
     ]);
+
     if (!twoFa || !user) {
       throw new NotFoundException("User not found");
     }
+
     if (token) {
       const isValid = twoFactorService.verifyToken(
         twoFa.twoFactorSecret,
         token,
       );
-      if (!isValid) {
-        throw new BadRequestException("Invalid token");
-      }
-      return generateTokens({
-        id: user._id,
-        email: user.email,
-        role: user.role,
-      });
+      if (!isValid) throw new BadRequestException("Invalid token");
     } else {
       const index = twoFactorService.verifyBackupCode(
         backupCode,
         twoFa.backupCodes,
       );
-      if (index < 0) {
-        throw new BadRequestException("Invalid backup code");
-      }
+      if (index < 0) throw new BadRequestException("Invalid backup code");
       twoFa.backupCodes[index].used = true;
       await twoFa.save();
-
-      return generateTokens({
-        id: user._id,
-        email: user.email,
-        role: user.role,
-      });
     }
+    const { accessToken, refreshToken } = generateTokens({
+      id: user._id,
+      email: user.email,
+      role: user.role,
+    });
+
+    user.lastLogin = new Date();
+    user.token = await hash(refreshToken);
+    await user.save();
+
+    const userObj = user.toObject();
+    userObj.twoFactorEnabled = true;
+
+    return { accessToken, refreshToken, user: userObj };
   }
 }
 

@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Story = require("@models/story");
 const StoryViewer = require("@models/story-views");
-const StoryArchive = require("@models/story-archive");
+const StoryArchive = require("@models/archive");
 
 class StoryJobService {
   static async storyArchive(data) {
