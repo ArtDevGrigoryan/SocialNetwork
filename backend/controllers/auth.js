@@ -61,7 +61,6 @@ class AuthController {
     return sendSuccess(res, data);
   }
   async oauthCallback(req, res) {
-    console.log(req.params, req.query);
     const data = await this.service.oauthCallback(
       req.params.provider,
       req.query,

@@ -26,10 +26,12 @@ const updateSchema = z.object({
 const addMessage = z.object({
   text: z.string().nonempty(),
   participantId: idSchema,
+  replyTo: idSchema.optional(), // Ավելացված է
 });
 
 const addVoiceSchema = z.object({
   participantId: idSchema,
+  replyTo: idSchema.optional(), // Ավելացված է
 });
 
 const getMessageParams = z.object({

@@ -1,4 +1,4 @@
-import { use, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import type { SignupDto } from "./types";
 import { useNavigate } from "react-router-dom";
@@ -83,7 +83,6 @@ export const Signup = () => {
     <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white px-4">
       <div className="w-full max-w-sm flex flex-col gap-4">
         {message.length ? <Alert type={type} message={message} /> : ""}
-        {/* CARD */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8">
           <h1 className="text-3xl mb-6 text-center font-[Grand_Hotel]">
             Bardiner-Social
@@ -93,7 +92,6 @@ export const Signup = () => {
             onSubmit={handleSubmit(onSubmit)}
             className="flex flex-col gap-3"
           >
-            {/* EMAIL */}
             <div className="relative">
               <Mail className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
               <input
@@ -118,13 +116,13 @@ export const Signup = () => {
               <input
                 placeholder="Username"
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-lg pl-9 px-3 py-2 text-sm outline-none focus:border-neutral-500"
-                {...register("username", {
+                {...register("name", {
                   required: "Username is required",
                 })}
               />
             </div>
-            {errors.username && (
-              <p className="text-xs text-red-400">{errors.username.message}</p>
+            {errors.name && (
+              <p className="text-xs text-red-400">{errors.name.message}</p>
             )}
 
             {/* PASSWORD */}

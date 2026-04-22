@@ -20,10 +20,12 @@ module.exports = async function disjoinChatTx(participantId, chatId) {
       const participants = await Participants.find({ chatId })
         .sort({ createdAt: 1 })
         .session(session);
-      if (!paricipants.length) {
-        await Chat.deleteOne({ _id, chatId }).session(session);
+
+      if (!participants.length) {
+        await Chat.deleteOne({ _id: chatId }).session(session);
         return true;
       }
+
       const isAdmin = deleted.role == "admin";
       if (isAdmin) {
         const existAdmin = participants.find((p) => p.role == "admin");
@@ -32,7 +34,7 @@ module.exports = async function disjoinChatTx(participantId, chatId) {
             _id: participants[0]._id,
             role: "admin",
           }).session(session);
-        }
+        } // [cite: 187]
       }
     });
   } finally {

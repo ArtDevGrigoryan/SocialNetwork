@@ -44,6 +44,7 @@ class SocketEvent {
     const { user } = socket;
     await PolicyService.canAccessChat(user._id, chatId);
     const result = {
+      chatId,
       bio: user.bio,
       username: user.username,
       avatar: user.avatar,
@@ -57,6 +58,7 @@ class SocketEvent {
     const { user } = socket;
     await PolicyService.canAccessChat(user._id, chatId);
     const result = {
+      chatId,
       bio: user.bio,
       username: user.username,
       avatar: user.avatar,

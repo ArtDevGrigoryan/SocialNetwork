@@ -14,7 +14,11 @@ import axios from "axios";
 
 import type { ILoginDto } from "./types";
 import { api } from "../../lib/axios.config";
-import type { ILoginResponse, IResponse } from "../../types/api.types";
+import type {
+  ILoginResponse,
+  ILoginResponseTwoFactor,
+  IResponse,
+} from "../../types/api.types";
 import { useAuthStore } from "../../store/auth.store";
 
 export const Login = () => {
@@ -22,7 +26,6 @@ export const Login = () => {
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
 
-  // --- 2FA State ---
   const [step, setStep] = useState<"login" | "2fa">("login");
   const [twoFaUserId, setTwoFaUserId] = useState<string | null>(null);
   const [twoFaToken, setTwoFaToken] = useState("");
@@ -39,17 +42,14 @@ export const Login = () => {
 
   const onSubmit = async (body: ILoginDto) => {
     try {
-      const { data } = await api.post<IResponse<ILoginResponse>>(
-        "/auth/login",
-        body,
-      );
+      const { data } = await api.post<
+        IResponse<ILoginResponse | ILoginResponseTwoFactor>
+      >("/auth/login", body);
 
-      if (data.payload.twoFactorCredintals) {
-        // Եթե 2FA ակտիվ է, պահում ենք ID-ն ու անցնում հաջորդ քայլին
+      if ("twoFactorCredintals" in data.payload) {
         setTwoFaUserId(data.payload.userId as string);
         setStep("2fa");
       } else {
-        // Եթե 2FA չկա, միանգամից մտնում ենք համակարգ
         setAuth(
           data.payload.user!,
           data.payload.accessToken!,

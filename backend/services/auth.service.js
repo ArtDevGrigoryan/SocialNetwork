@@ -213,7 +213,7 @@ class AuthService {
   async handleUserConfigExpiration(user) {
     const config = await UserConfig.findOne({ user });
 
-    if (config.isVerified) {
+    if (!config.isVerified) {
       throw new ConflictException("Please contact the support team");
     }
     if (config.limit >= env.FAILED_LIMIT) {
@@ -408,7 +408,6 @@ class AuthService {
       return true;
     }
     const twoFa = await TwoFactor.findOne({ user: user._id });
-    console.log(twoFa);
     const isValid = twoFactorService.verifyToken(twoFa.twoFactorSecret, token);
 
     if (!isValid) {

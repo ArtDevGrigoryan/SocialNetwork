@@ -1,5 +1,5 @@
 const { sendSuccess } = require("@helpers/api-response");
-const notificationsService = require("@services/notifications.service");
+const notificationsService = require("@services/notifications-rest.service");
 const notificationService = require("@services/notification.service");
 
 class NotificationsController {

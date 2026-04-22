@@ -1,6 +1,5 @@
 const { sendSuccess } = require("@helpers/api-response");
 const messageService = require("@services/message.service");
-const { getIO } = require("@socket/socket");
 
 class MessageController {
   async messages(req, res) {
@@ -41,27 +40,56 @@ class MessageController {
     return sendSuccess(res, updated);
   }
   async addMessage(req, res) {
-    const { participantId, text } = req.body;
+    const { participantId, text, replyTo } = req.body;
     const message = await messageService.addMessage(
       participantId,
       req.params.chatId,
       text,
+      replyTo,
     );
-    const payload = {
-      ...message.toObject(),
-      chatId: req.params.chatId,
-    };
-    getIO().to(`chat:${req.params.chatId}`).emit("receive_message", payload);
     return sendSuccess(res, message);
   }
   async addVoice(req, res) {
-    const { participantId } = req.body;
+    const { participantId, replyTo } = req.body;
     const voice = await messageService.addVoice(
       participantId,
       req.params.chatId,
       req.file,
+      replyTo,
     );
     return sendSuccess(res, voice);
+  }
+  async addMediaGroup(req, res) {
+    const { participantId, text, replyTo } = req.body;
+    const message = await messageService.addMediaGroup(
+      participantId,
+      req.params.chatId,
+      req.files,
+      text,
+      replyTo,
+    );
+    return sendSuccess(res, message);
+  }
+
+  async shareContent(req, res) {
+    const { participantId, type, sharedId, text } = req.body;
+    const message = await messageService.shareContent(
+      participantId,
+      req.params.chatId,
+      { type, sharedId, text },
+    );
+    return sendSuccess(res, message);
+  }
+  async addImage(req, res) {
+    const { participantId, text, replyTo } = req.body;
+    const image = await messageService.addImage(
+      participantId,
+      req.params.chatId,
+      req.file,
+      text,
+      replyTo,
+    );
+    return sendSuccess(res, image);
   }
 }
 

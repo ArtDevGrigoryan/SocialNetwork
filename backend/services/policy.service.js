@@ -143,7 +143,6 @@ class PolicyService {
   // Chat
   static async canAccessChat(userId, chatId) {
     const participants = await Participant.find({ chatId });
-    console.log(participants);
     const me = participants.find((p) => p.user.equals(userId));
     if (!me) {
       throw new ForBiddenException("Cannot access chat");

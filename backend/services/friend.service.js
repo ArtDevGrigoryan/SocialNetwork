@@ -30,7 +30,6 @@ class FriendService {
       fromUser: sender,
       toUser: receiver,
     });
-    console.log(message);
     return message;
   }
   async accept(receiver, requestId) {

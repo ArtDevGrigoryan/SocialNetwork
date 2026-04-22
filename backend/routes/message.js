@@ -19,6 +19,13 @@ router.post(
   messageController.addReaction,
 );
 router.post(
+  "/:chatId/media",
+  upload.array("media", 10),
+  messageController.addMediaGroup,
+);
+
+router.post("/:chatId/share", messageController.shareContent);
+router.post(
   "/:chatId",
   validate(addMessageSchema),
   messageController.addMessage,
@@ -28,6 +35,11 @@ router.post(
   upload.single("voice"),
   validate(addVoiceSchema),
   messageController.addVoice,
+);
+router.post(
+  "/:chatId/image",
+  upload.single("image"),
+  messageController.addImage,
 );
 router.patch("/:id", validate(updateSchema), messageController.editMessage);
 router.delete("/:id", validate(paramsWithId), messageController.remove);

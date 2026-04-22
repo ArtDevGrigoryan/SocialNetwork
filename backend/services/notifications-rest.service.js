@@ -13,12 +13,18 @@ class NotificationsService {
   }
 
   async unreadCount(userId) {
-    const count = await Notification.countDocuments({ toUser: userId, isRead: false });
+    const count = await Notification.countDocuments({
+      toUser: userId,
+      isRead: false,
+    });
     return { count };
   }
 
   async markAllRead(userId) {
-    await Notification.updateMany({ toUser: userId, isRead: false }, { isRead: true });
+    await Notification.updateMany(
+      { toUser: userId, isRead: false },
+      { isRead: true },
+    );
     return true;
   }
 }

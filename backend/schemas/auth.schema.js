@@ -60,7 +60,7 @@ module.exports = {
   login: [{ body: loginSchema }],
   register: [{ body: registerSchema }],
   refreshToken: [{ body: refreshTokenSchema }],
-  forgotPassword: [{ body: forgotPasswordSchema }],
+  forgotPassword: [{ body: forgotPasswordSchema }, { defaults: true }],
   resetPassword: [{ body: resetPasswordSchema }],
   verifyEmail: [{ body: verifyEmailSchema }],
   resendVerificationEmail: [

@@ -12,4 +12,7 @@ export interface ILoginResponse {
   user: IUser;
 }
 
-
+export interface ILoginResponseTwoFactor {
+  twoFactorCredintals: Boolean;
+  userId: string;
+}

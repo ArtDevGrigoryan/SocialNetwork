@@ -34,7 +34,7 @@ module.exports = async function deleteMsgTx(userId, msgId) {
           { lastMessage: lastMsg._id },
         ).session(session);
       }
-      result.key = message.voice.key;
+      result.key = message.voice?.key || null;
     });
     return result;
   } finally {

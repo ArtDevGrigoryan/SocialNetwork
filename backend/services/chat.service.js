@@ -8,6 +8,7 @@ const removeUserTx = require("@transaction/chat/remove-user-from-group");
 const deleteGroupTx = require("@transaction/chat/delete-group");
 const createGroupTx = require("@transaction/chat/create-group");
 const Participants = require("@models/participants");
+const socketService = require("@services/socket.service");
 const {
   BadRequestException,
   ConflictException,
@@ -64,6 +65,23 @@ class ChatService {
           localField: "participants.user",
           foreignField: "_id",
           as: "participantsUsers",
+        },
+      },
+      // Ավելացված հատված. ֆիլտրում ենք բերված user-ներին, որ մնան միայն նշված դաշտերը
+      {
+        $addFields: {
+          participantsUsers: {
+            $map: {
+              input: "$participantsUsers",
+              as: "u",
+              in: {
+                _id: "$$u._id",
+                username: "$$u.username",
+                avatar: "$$u.avatar",
+                bio: "$$u.bio",
+              },
+            },
+          },
         },
       },
       {
@@ -139,6 +157,23 @@ class ChatService {
           localField: "chat.participants.user",
           foreignField: "_id",
           as: "allUsers",
+        },
+      },
+      // Ավելացված հատված. ֆիլտրում ենք allUsers զանգվածը
+      {
+        $addFields: {
+          allUsers: {
+            $map: {
+              input: "$allUsers",
+              as: "u",
+              in: {
+                _id: "$$u._id",
+                username: "$$u.username",
+                avatar: "$$u.avatar",
+                bio: "$$u.bio",
+              },
+            },
+          },
         },
       },
       {
@@ -287,8 +322,10 @@ class ChatService {
       });
   }
 
-  read(userId, chatId) {
-    return readMessagesTx(userId, chatId);
+  async read(userId, chatId) {
+    const data = await readMessagesTx(userId, chatId);
+    await socketService.emitChatRead(chatId.toString(), userId.toString());
+    return data;
   }
 
   async createDM(myId, targetId) {

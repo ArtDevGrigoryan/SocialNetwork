@@ -16,6 +16,10 @@ class SocketService {
       await notificationService.markSended(notif);
     }
   }
+  async emitReceiveMessage(chatId, message) {
+    const io = await SocketService.getIO();
+    io.to(`chat:${chatId}`).emit("receive_message", message);
+  }
   async notifyMany(notifs) {
     const io = await SocketService.getIO();
     const sended = [];
@@ -28,6 +32,44 @@ class SocketService {
       }
     }
     await notificationService.markSendedMany(sended);
+  }
+
+  async emitReaction(chatId, messageId, reactionData) {
+    const io = await SocketService.getIO();
+    io.to(`chat:${chatId}`).emit("message:reaction", {
+      messageId,
+      reaction: reactionData,
+    });
+  }
+
+  async emitRemoveReaction(chatId, messageId, participantId) {
+    const io = await SocketService.getIO();
+    io.to(`chat:${chatId}`).emit("message:remove_reaction", {
+      messageId,
+      participantId,
+    });
+  }
+
+  async emitDeleteMessage(chatId, messageId) {
+    const io = await SocketService.getIO();
+    io.to(`chat:${chatId}`).emit("message:deleted", {
+      messageId,
+    });
+  }
+  async emitEditMessage(chatId, messageId, text) {
+    const io = await SocketService.getIO();
+    io.to(`chat:${chatId}`).emit("message:edited", {
+      messageId,
+      text,
+    });
+  }
+
+  async emitChatRead(chatId, userId) {
+    const io = await SocketService.getIO();
+    io.to(`chat:${chatId}`).emit("chat:read", {
+      chatId,
+      userId,
+    });
   }
 }
 

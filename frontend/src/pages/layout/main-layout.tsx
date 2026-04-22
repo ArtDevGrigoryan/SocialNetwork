@@ -15,13 +15,12 @@ export default function MainLayout() {
   const { isAuthenticated, accessToken, user, setUser } = useAuthStore();
   const { connect, disconnect, socket } = useSocketStore();
   const { toasts, addToast } = useUIStore();
-
+  const isMessagePage = location.pathname.includes("/message");
   useEffect(() => {
     const fetchMe = async () => {
       if (isAuthenticated && !user && accessToken) {
         try {
           const { data } = await api.get<IResponse<IUser>>("/auth/me");
-console.log(data)
           setUser(data.payload);
         } catch (error) {
           useAuthStore.getState().logout();
@@ -89,19 +88,25 @@ console.log(data)
       </div>
       <Sidebar />
 
-      <div className="flex-1 flex flex-col md:ml-20 lg:ml-[244px] transition-all duration-300">
-        <Header />
+      <div className="flex-1 flex flex-col md:ml-[76px] transition-all duration-300 min-h-screen">
+        {!isMessagePage && <Header />}
 
-        <div className="flex justify-center w-full grow">
-          <main className="w-full max-w-[630px] pb-24 md:pb-0">
-            <div className="py-2 md:py-8">
+        <div
+          className={`flex justify-center w-full grow ${isMessagePage ? "h-screen overflow-hidden" : ""}`}
+        >
+          <main
+            className={`w-full ${isMessagePage ? "h-full" : "max-w-[630px] pb-24 md:pb-0"}`}
+          >
+            <div className={`h-full ${isMessagePage ? "" : "py-2 md:py-8"}`}>
               <Outlet />
             </div>
           </main>
 
-          <aside className="hidden xl:block w-[320px] pt-10 pl-10 pr-4">
-            <RightPanel />
-          </aside>
+          {!isMessagePage && (
+            <aside className="hidden xl:block w-[320px] pt-10 pl-10 pr-4 shrink-0">
+              <RightPanel />
+            </aside>
+          )}
         </div>
       </div>
     </div>
