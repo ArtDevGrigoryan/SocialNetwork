@@ -58,9 +58,21 @@ const messageSchema = new mongoose.Schema(
       {
         url: { type: String, required: true },
         key: { type: String, required: true },
-        mediaType: { type: String, enum: ["IMAGE", "VIDEO"], required: true },
+        mediaType: {
+          type: String,
+          enum: ["IMAGE", "VIDEO", "LINK"],
+          required: true,
+        },
       },
     ],
+    sharedPost: {
+      type: mongoose.Types.ObjectId,
+      ref: "Posts",
+    },
+    sharedProfile: {
+      type: mongoose.Types.ObjectId,
+      ref: "User",
+    },
     deletedAt: { type: Date, default: null },
     editedAt: { type: Date, default: null },
   },

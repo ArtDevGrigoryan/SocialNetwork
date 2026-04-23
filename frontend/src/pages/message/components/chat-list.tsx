@@ -1,22 +1,22 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Edit, ChevronLeft } from "lucide-react";
 import type { ChatListProps, IParticipant } from "../types";
 import NewChatModal from "./new-chat-modal";
 
 export default function ChatList({
   chats,
-  chatId,
   currentUser,
   loading,
   typingData = {},
 }: ChatListProps) {
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const navigate = useNavigate();
+  const { chatId } = useParams<{ chatId: string }>();
 
   const getOtherParticipant = (participants: IParticipant[]) => {
     return (
-      participants.find((p) => p.user._id !== currentUser?._id)?.user ||
+      participants?.find((p) => p?.user?._id != currentUser?._id)?.user ||
       participants[0]?.user
     );
   };
@@ -26,7 +26,6 @@ export default function ChatList({
       <div
         className={`w-full h-full bg-black flex-col shrink-0 border-r border-neutral-800 ${chatId ? "hidden md:flex" : "flex"}`}
       >
-        {/* Header */}
         <div className="h-[75px] px-4 md:px-6 border-b border-neutral-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 md:gap-3">
             <button
@@ -47,7 +46,6 @@ export default function ChatList({
           </button>
         </div>
 
-        {/* List Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar pt-2 pb-4 overscroll-contain">
           <div className="px-4 md:px-6 py-2 flex justify-between items-center mb-2">
             <h2 className="text-[16px] font-bold text-white">Messages</h2>
@@ -74,9 +72,9 @@ export default function ChatList({
           ) : (
             <div className="flex flex-col">
               {chats.map((chat) => {
-                const otherUser = getOtherParticipant(chat.participants);
-                const myParticipantInfo = chat.participants.find(
-                  (p) => p.user._id === currentUser._id,
+                const otherUser = getOtherParticipant(chat?.participants);
+                const myParticipantInfo = chat?.participants?.find(
+                  (p) => p && p.user?._id === currentUser?._id,
                 );
                 const unreadCount = myParticipantInfo?.unreadCount || 0;
                 const isTyping = typingData[chat._id];

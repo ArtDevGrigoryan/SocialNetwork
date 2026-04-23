@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import type { IReaction, MessageBubbleProps } from "../types";
-import { Reply, MoreHorizontal } from "lucide-react";
+import { Reply, MoreHorizontal, ExternalLink } from "lucide-react";
 import { api } from "../../../lib/axios.config";
 import { useAuthStore } from "../../../store/auth.store";
 import VoicePlayer from "./voice-player";
@@ -334,7 +334,98 @@ export default function MessageBubble({
             {msg.type === "VOICE" && (
               <VoicePlayer url={msg.voice?.url || ""} isMine={isMine} />
             )}
-            {msg.type === "TEXT" && msg.text}
+            {msg.type === "TEXT" && (
+              <div className="flex flex-col">
+                <span className="whitespace-pre-wrap">{msg.text}</span>
+                {msg.media &&
+                  msg.media[0]?.mediaType === "LINK" &&
+                  (() => {
+                    const linkMedia = msg.media[0];
+
+                    const extractValidLink = (text: string) => {
+                      if (!text) return "";
+                      const match = text.match(
+                        /(https?:\/\/[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9-]+\.[a-zA-Z]{2,})/,
+                      );
+                      return match ? match[0] : "";
+                    };
+
+                    const targetUrl = extractValidLink(msg.text || "");
+                    if (!targetUrl) return null;
+
+                    const validHref = targetUrl.startsWith("http")
+                      ? targetUrl
+                      : `https://${targetUrl}`;
+                    const domainName = validHref
+                      .replace(/^https?:\/\//, "")
+                      .split("/")[0];
+
+                    return (
+                      <div
+                        className={`mt-2 flex flex-col overflow-hidden rounded-xl border ${
+                          isMine
+                            ? "border-white/10 bg-black/10 hover:bg-black/20"
+                            : "border-neutral-700/50 bg-neutral-900 hover:bg-neutral-800"
+                        } max-w-[260px] md:max-w-[300px] select-none group/link relative transition-colors`}
+                      >
+                        {linkMedia.url && (
+                          <div className="relative w-full h-[140px] bg-black overflow-hidden shrink-0 border-b border-white/5">
+                            <img
+                              src={linkMedia.url}
+                              alt="Link preview"
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                            <a
+                              href={validHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              onTouchStart={(e) => e.stopPropagation()}
+                              onTouchEnd={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              className="absolute top-2 right-2 flex items-center justify-center w-8 h-8 bg-black/40 hover:bg-black/70 backdrop-blur-md text-white rounded-full transition-all duration-200 opacity-80 hover:opacity-100 hover:scale-105 shadow-lg z-50 cursor-pointer"
+                              title="Open link"
+                            >
+                              <ExternalLink size={16} />
+                            </a>
+                          </div>
+                        )}
+                        <div className="p-3 flex flex-col gap-1 relative">
+                          <div className="text-[13px] font-semibold text-white line-clamp-1 pr-6">
+                            {linkMedia.title || domainName}
+                          </div>
+                          {linkMedia.description && (
+                            <div className="text-[11px] text-neutral-300 line-clamp-2 opacity-80 leading-tight">
+                              {linkMedia.description}
+                            </div>
+                          )}
+                          <div className="text-[10px] text-neutral-400 mt-1 flex items-center justify-between opacity-70 uppercase tracking-wider font-semibold">
+                            <span className="truncate">{domainName}</span>
+
+                            {/* Եթե հանկարծ նկար չկա, կոճակը կհայտնվի ներքևում */}
+                            {!linkMedia.url && (
+                              <a
+                                href={validHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                onTouchStart={(e) => e.stopPropagation()}
+                                onTouchEnd={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-white z-50 cursor-pointer"
+                                title="Open link"
+                              >
+                                <ExternalLink size={14} />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+              </div>
+            )}
 
             {uniqueReactions.length > 0 && (
               <div

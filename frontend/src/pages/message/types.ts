@@ -3,6 +3,7 @@ import type { IUser } from "../../types/user.types";
 export interface IParticipant {
   _id: string;
   user: IUser;
+  participantName: string;
   unreadCount: number;
   lastReadMessage: string | null;
   role: "member" | "admin";
@@ -12,7 +13,7 @@ export interface IParticipant {
 export interface IReaction {
   _id: string;
   type: string;
-  reaction?: string; // Բազայում և սոքեթում երբեմն type է, երբեմն reaction
+  reaction?: string;
   participant: string | IParticipant;
   message: string;
   createdAt?: string;
@@ -21,7 +22,10 @@ export interface IReaction {
 export interface IMedia {
   url: string;
   key?: string;
-  mediaType: "IMAGE" | "VIDEO";
+  mediaType: "IMAGE" | "VIDEO" | "LINK";
+  linkUrl?: string;
+  title?: string;
+  description?: string;
 }
 
 export interface IMessage {
@@ -43,14 +47,14 @@ export interface IMessage {
 export interface IChat {
   _id: string;
   type: "dm" | "group";
+  groupName: string;
+  groupAvatar?: string;
   participants: IParticipant[];
   lastMessage?: IMessage;
   lastActivityAt: string;
 }
 
 export interface ExtendedChat extends IChat {}
-
-// --- Socket Event Payloads (ՆՈՐ: Type Safety-ի համար) ---
 
 export interface ISocketReactionPayload {
   messageId: string;
@@ -102,11 +106,11 @@ export interface ActiveChatProps {
 
 export interface ChatHeaderProps {
   activeUser: IParticipant["user"] | null;
+  onHeaderClick?: () => void;
 }
 
 export interface ChatListProps {
   chats: ExtendedChat[];
-  chatId?: string;
   currentUser: IUser;
   loading: boolean;
   typingData?: Record<string, { isRecording?: boolean }>;
@@ -179,13 +183,71 @@ export interface VoicePlayerProps {
 }
 
 export interface MediaViewerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  mediaList: IMediaItem[];
+  isOpen?: boolean;
+  media: IMediaItem[];
   initialIndex: number;
+  onClose: () => void;
 }
 
 export interface IMediaItem {
   url: string;
   mediaType: "IMAGE" | "VIDEO";
 }
+
+export interface ChatDetailsProps {
+  chatId: string;
+  onClose: () => void;
+  activeUser: IParticipant["user"] | null;
+}
+
+export interface ISharedMediaItem {
+  _id: string;
+  url: string;
+  type: "IMAGE" | "VIDEO";
+  createdAt: string;
+}
+
+export interface ISharedLinkItem {
+  _id: string;
+  url: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface ISharedPostData {
+  _id: string;
+  images?: string[];
+  author: {
+    _id: string;
+    username: string;
+    avatar?: string;
+  };
+}
+
+export interface ISharedProfileData {
+  _id: string;
+  username: string;
+  avatar?: string;
+  bio?: string;
+}
+
+export interface ISharedMessageItem {
+  _id: string;
+  type: "SHARE_POST" | "SHARE_PROFILE";
+  sharedPost?: ISharedPostData;
+  sharedProfile?: ISharedProfileData;
+  createdAt: string;
+}
+
+export interface ISharedContentPayload {
+  media: ISharedMediaItem[];
+  shared: ISharedMessageItem[];
+  links: ISharedLinkItem[];
+}
+
+export interface IViewerData {
+  items: IMediaItem[];
+  initialIndex: number;
+}
+
+export type ChatActiveTab = "media" | "links" | "shared";

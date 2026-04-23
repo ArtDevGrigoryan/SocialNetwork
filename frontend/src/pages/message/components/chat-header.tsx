@@ -1,8 +1,11 @@
 import { Info, Phone, Video, ChevronLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import type { ChatHeaderProps } from "../types";
 
-export default function ChatHeader({ activeUser }: ChatHeaderProps) {
+export default function ChatHeader({
+  activeUser,
+  onHeaderClick,
+}: ChatHeaderProps) {
   const navigate = useNavigate();
 
   return (
@@ -14,9 +17,11 @@ export default function ChatHeader({ activeUser }: ChatHeaderProps) {
         >
           <ChevronLeft size={30} />
         </button>
-        <Link
-          to={`/profile/${activeUser?._id}`}
-          className="flex items-center gap-3 active:opacity-70 transition-opacity ml-1 md:ml-0"
+
+        {/* Ավելացված է onHeaderClick և cursor-pointer */}
+        <div
+          onClick={onHeaderClick}
+          className="flex items-center gap-3 active:opacity-70 transition-opacity ml-1 md:ml-0 cursor-pointer"
         >
           <img
             src={activeUser?.avatar || "/default-avatar.png"}
@@ -31,9 +36,8 @@ export default function ChatHeader({ activeUser }: ChatHeaderProps) {
               Active now
             </span>
           </div>
-        </Link>
+        </div>
       </div>
-
       <div className="flex items-center gap-1 md:gap-3 text-white pr-2 md:pr-0">
         <button className="hover:bg-neutral-800 transition p-2.5 rounded-full">
           <Phone size={24} strokeWidth={1.8} />
@@ -41,7 +45,10 @@ export default function ChatHeader({ activeUser }: ChatHeaderProps) {
         <button className="hover:bg-neutral-800 transition p-2.5 rounded-full">
           <Video size={25} strokeWidth={1.8} />
         </button>
-        <button className="hover:bg-neutral-800 transition p-2.5 rounded-full hidden md:flex">
+        <button
+          onClick={onHeaderClick}
+          className="hover:bg-neutral-800 transition p-2.5 rounded-full hidden md:flex"
+        >
           <Info size={24} strokeWidth={1.8} />
         </button>
       </div>

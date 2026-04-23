@@ -318,7 +318,6 @@ export default function MessagePage() {
       >
         <ChatList
           chats={chats}
-          chatId={chatId}
           currentUser={user!}
           loading={loadingChats}
           typingData={typingData}

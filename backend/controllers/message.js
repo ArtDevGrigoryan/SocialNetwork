@@ -2,6 +2,13 @@ const { sendSuccess } = require("@helpers/api-response");
 const messageService = require("@services/message.service");
 
 class MessageController {
+  async sharedContent(req, res) {
+    const data = await messageService.getSharedContent(
+      req.user._id,
+      req.params.id,
+    );
+    return sendSuccess(res, data);
+  }
   async messages(req, res) {
     const { cursor, limit = 20 } = req.validated.query;
     const { chatId } = req.params;

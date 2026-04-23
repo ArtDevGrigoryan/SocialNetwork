@@ -15,8 +15,84 @@ const participantsService = require("./participants.service");
 const mediaService = require("../lib/media.service");
 const socketService = require("@services/socket.service");
 const notificationService = require("@services/notification.service");
+const fetchLinkPreview = require("@utilities/link-preview");
 
 class MessageService {
+  async getSharedContent(userId, chatId) {
+    await PolicyService.canAccessChat(userId, chatId);
+    const mediaMessages = await Message.find({
+      chat: chatId,
+      deletedAt: null,
+      type: { $in: ["IMAGE", "MEDIA", "MEDIA_GROUP"] },
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    let media = [];
+    mediaMessages.forEach((msg) => {
+      if (msg.type === "IMAGE" && msg.image?.url) {
+        media.push({
+          _id: msg._id,
+          url: msg.image.url,
+          type: "IMAGE",
+          createdAt: msg.createdAt,
+        });
+      } else if (
+        (msg.type === "MEDIA" || msg.type === "MEDIA_GROUP") &&
+        msg.media
+      ) {
+        msg.media.forEach((m) => {
+          media.push({
+            _id: msg._id,
+            url: m.url,
+            type: m.mediaType,
+            createdAt: msg.createdAt,
+          });
+        });
+      }
+    });
+
+    const sharedMessages = await Message.find({
+      chat: chatId,
+      deletedAt: null,
+      type: { $in: ["SHARE_POST", "SHARE_PROFILE"] },
+    })
+      .populate({
+        path: "sharedPost",
+        populate: { path: "author", select: "_id username avatar" },
+      })
+      .populate("sharedProfile", "_id username avatar bio")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const linkRegex = /(https?:\/\/[^\s]+)/g;
+    const textMessages = await Message.find({
+      chat: chatId,
+      deletedAt: null,
+      type: "TEXT",
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    let links = [];
+    textMessages.forEach((msg) => {
+      if (msg.text) {
+        const matches = msg.text.match(linkRegex);
+        if (matches) {
+          matches.forEach((url) => {
+            links.push({
+              _id: msg._id,
+              url,
+              text: msg.text,
+              createdAt: msg.createdAt,
+            });
+          });
+        }
+      }
+    });
+
+    return { media, shared: sharedMessages, links };
+  }
   async getMessages({ userId, chatId, cursor, limit = 20 }) {
     const participant = await participantsService.findOne(userId, chatId);
     if (!participant) {
@@ -241,6 +317,23 @@ class MessageService {
 
     message.text = newText;
     message.editedAt = new Date();
+    const linkPreview = await fetchLinkPreview(newText);
+    if (linkPreview) {
+      message.media = [
+        {
+          mediaType: "LINK",
+          url: linkPreview.image || linkPreview.url,
+          linkUrl: linkPreview.url,
+          title: linkPreview.title,
+          description: linkPreview.description,
+        },
+      ];
+    } else if (
+      message.media &&
+      message.media.some((m) => m.mediaType === "LINK")
+    ) {
+      message.media = message.media.filter((m) => m.mediaType !== "LINK");
+    }
     await message.save();
 
     await socketService.emitEditMessage(
@@ -262,7 +355,19 @@ class MessageService {
       text,
     };
     if (replyTo) payload.replyTo = replyTo;
-
+    const linkPreview = await fetchLinkPreview(text);
+    if (linkPreview) {
+      payload.media = [
+        {
+          mediaType: "LINK",
+          url: linkPreview.image || linkPreview.url,
+          key: "LINK",
+          linkUrl: linkPreview.url,
+          title: linkPreview.title,
+          description: linkPreview.description,
+        },
+      ];
+    }
     const { message } = await sendMessageTx(participant.user, chatId, payload);
 
     const populatedMessage = await message.populate([

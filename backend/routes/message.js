@@ -11,7 +11,11 @@ const {
   addVoiceSchema,
 } = require("@schemas/message.schema");
 const upload = require("@middlewares/upload");
-
+router.get(
+  "/:id/shared",
+  validate(paramsWithId),
+  messageController.sharedContent,
+);
 router.get("/:chatId", validate(getMessagesSchema), messageController.messages);
 router.post(
   "/:id/reaction",
