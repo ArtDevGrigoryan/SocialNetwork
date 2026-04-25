@@ -8,7 +8,7 @@ const chatSchema = new mongoose.Schema(
       enum: ["dm", "group"],
       default: "dm",
     },
-
+    theme: { type: String, default: "default" },
     groupName: String,
     groupAvatar: String,
 

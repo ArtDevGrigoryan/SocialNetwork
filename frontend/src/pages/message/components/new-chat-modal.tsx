@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../../lib/axios.config";
 import type { IUser } from "../../../types/user.types";
 import type { NewChatModalProps } from "../types";
 
-export default function NewChatModal({ onClose }: NewChatModalProps) {
+export default function NewChatModal({
+  onClose,
+  onOpenGroup,
+}: NewChatModalProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<IUser[]>([]);
@@ -85,6 +88,22 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+          {!query.trim() && !loading && onOpenGroup && (
+            <div
+              onClick={onOpenGroup}
+              className="flex items-center gap-3 p-3 hover:bg-neutral-800/60 rounded-xl cursor-pointer transition-colors mb-2 group"
+            >
+              <div className="w-12 h-12 rounded-full bg-neutral-800 group-hover:bg-[#3797F0] flex items-center justify-center transition-colors">
+                <Users size={24} className="text-white" />
+              </div>
+              <div className="flex flex-col flex-1">
+                <span className="text-[15px] font-semibold text-white">
+                  Create a group chat
+                </span>
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div className="flex justify-center p-4">
               <Loader2 className="animate-spin text-neutral-500" />

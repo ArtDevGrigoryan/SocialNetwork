@@ -47,14 +47,24 @@ export interface IMessage {
 export interface IChat {
   _id: string;
   type: "dm" | "group";
+  theme?: string;
   groupName: string;
   groupAvatar?: string;
   participants: IParticipant[];
   lastMessage?: IMessage;
   lastActivityAt: string;
+  pinned?: IMessage[];
 }
 
 export interface ExtendedChat extends IChat {}
+
+export interface AddMemberModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  chatId: string | null | undefined;
+  existingParticipants: string[];
+  onMemberAdded: (participants: IParticipant[]) => void;
+}
 
 export interface ISocketReactionPayload {
   messageId: string;
@@ -87,24 +97,21 @@ export interface ISocketTypingPayload {
   isRecording?: boolean;
 }
 
+export interface CreateGroupModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
 export interface ActiveChatProps {
   chatId?: string;
+  chat?: IChat | null;
   activeUser: IParticipant["user"] | null;
   currentUser: IUser | null;
-  messages: IMessage[];
   participants: IParticipant[];
-  loading: boolean;
-  sending: boolean;
-  onSendMessage: (
-    text: string,
-    files?: File[],
-    type?: "MEDIA" | "VOICE" | "TEXT",
-    replyToId?: string,
-  ) => void;
-  onEditMessage: (msgId: string, text: string) => void;
 }
 
 export interface ChatHeaderProps {
+  chat?: IChat | null;
   activeUser: IParticipant["user"] | null;
   onHeaderClick?: () => void;
 }
@@ -118,6 +125,7 @@ export interface ChatListProps {
 
 export interface MessageBubbleProps {
   msg: IMessage;
+  showName?: boolean;
   isMine: boolean;
   showAvatar: boolean;
   isSequenceMatch?: boolean;
@@ -129,6 +137,7 @@ export interface MessageBubbleProps {
   isSeen?: boolean;
   activeMenuId: string | null;
   setActiveMenuId: (id: string | null) => void;
+  isPinned?: boolean;
 }
 
 export interface MessageInputProps {
@@ -158,10 +167,12 @@ export interface MessageMenuProps {
   onSetEdit?: (msg: IMessage) => void;
   onUnsend: () => void;
   setActiveMenuId: (id: string | null) => void;
+  isPinned?: boolean;
 }
 
 export interface NewChatModalProps {
   onClose: () => void;
+  onOpenGroup?: () => void;
 }
 
 export interface ReactionModalProps {
@@ -195,9 +206,8 @@ export interface IMediaItem {
 }
 
 export interface ChatDetailsProps {
-  chatId: string;
   onClose: () => void;
-  activeUser: IParticipant["user"] | null;
+  onPinnedMessageClick?: (msgId: string) => void;
 }
 
 export interface ISharedMediaItem {
@@ -250,4 +260,27 @@ export interface IViewerData {
   initialIndex: number;
 }
 
-export type ChatActiveTab = "media" | "links" | "shared";
+export type GroupActiveTab = "media" | "links" | "shared" | "pinned";
+
+export interface LinkTabProps {
+  links: ISharedLinkItem[];
+}
+
+export interface MediaTabProps {
+  media: ISharedMediaItem[];
+  onOpenMedia: (index: number) => void;
+}
+
+export interface MemberTabProps {
+  onLeaveGroup: () => void;
+}
+
+export interface PinnedTabProps {
+  message: IMessage | string;
+  onScrollTo: (msgId: string) => void;
+  onUnpin?: (msgId: string) => void;
+}
+
+export interface SharedTabProps {
+  shared: ISharedMessageItem[];
+}

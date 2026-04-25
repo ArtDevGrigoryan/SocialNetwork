@@ -18,6 +18,7 @@ const togglePinMsg = z.object({
 
 const updateSchema = z.object({
   groupName: z.string().trim().nonempty().optional(),
+  groupAvatar: z.string().optional(),
 });
 
 const dmSchema = z.object({

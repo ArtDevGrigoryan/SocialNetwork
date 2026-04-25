@@ -24,6 +24,16 @@ router.patch("/:id", validate(updateSchema), chatController.update);
 router.patch("/read/:id", validate(paramsWithId), chatController.readMsg);
 router.post("/dm", validate(dmSchema), chatController.createDM);
 router.post("/group", validate(groupSchema), chatController.createGroup);
+router.post(
+  "/:id/participant",
+  validate(paramsWithId),
+  chatController.addMembers,
+);
+router.patch(
+  "/:id/participant/:participantId",
+  // validate(updateSchema),
+  chatController.updateParticipant,
+);
 router.delete("/:id", validate(paramsWithId), chatController.removeGroup);
 router.delete(
   "/:id/participant",

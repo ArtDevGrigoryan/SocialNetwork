@@ -11,7 +11,6 @@ class ChatController {
     const chats = isSearch
       ? await chatService.searchChat(req.user._id, req.query.text)
       : await chatService.getChats(req.user._id, req.validated.query);
-
     return sendSuccess(res, chats);
   }
   async createDM(req, res) {
@@ -23,6 +22,27 @@ class ChatController {
     const chat = await chatService.createGroup(req.user._id, req.body);
     return sendSuccess(res, chat);
   }
+  async addMembers(req, res) {
+    const { userIds } = req.body;
+    const addedParticipants = await chatService.addMembers(
+      req.user._id,
+      req.params.id,
+      userIds,
+    );
+    return sendSuccess(res, addedParticipants);
+  }
+
+  async updateParticipant(req, res) {
+    const { id, participantId } = req.params;
+    const updated = await chatService.updateParticipant(
+      req.user._id,
+      id,
+      participantId,
+      req.body,
+    );
+    return sendSuccess(res, updated);
+  }
+
   async admins(req, res) {
     const admins = await chatService.getAdmins(req.user._id, req.params.id);
     return sendSuccess(res, admins);

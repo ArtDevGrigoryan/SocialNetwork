@@ -280,7 +280,6 @@ export default function MediaViewer({
                     </div>
                   )}
 
-                  {/* Ստվեր ակտիվ չլինելու դեպքում՝ ավելի կոնտրաստային տեսքի համար */}
                   {!isActive && (
                     <div className="absolute inset-0 bg-black/20 hover:bg-transparent transition-colors" />
                   )}

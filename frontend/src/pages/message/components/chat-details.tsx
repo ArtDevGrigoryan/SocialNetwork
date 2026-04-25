@@ -1,221 +1,179 @@
-import { useEffect, useState } from "react";
-import { ChevronLeft, Loader2, Link2 } from "lucide-react";
+import { useEffect } from "react";
+import { ChevronLeft } from "lucide-react";
 import { api } from "../../../lib/axios.config";
-import type {
-  ChatActiveTab,
-  ChatDetailsProps,
-  ISharedContentPayload,
-  IViewerData,
-} from "../types";
+import { useParams, useNavigate } from "react-router-dom";
+
+import { useChatStore } from "../../../store/chat.store";
+import { useAuthStore } from "../../../store/auth.store";
+import { useChatDetailsStore } from "../../../store/chat-details.store";
+
 import MediaViewer from "./media-viewer";
+import AddMemberModal from "./add-member-modal";
+import ChatMembersTab from "./chat-members-tab";
+import ChatDetailsMain from "./chat-details-main";
+import {
+  ThemeView,
+  PrivacyView,
+  OptionsView,
+  NicknamesView,
+} from "./chat-details-view";
+import type { IParticipant, ChatDetailsProps } from "../types";
 
 export default function ChatDetails({
-  chatId,
   onClose,
-  activeUser,
+  onPinnedMessageClick,
 }: ChatDetailsProps) {
-  const [activeTab, setActiveTab] = useState<ChatActiveTab>("media");
-  const [data, setData] = useState<ISharedContentPayload>({
-    media: [],
-    links: [],
-    shared: [],
-  });
-  const [loading, setLoading] = useState(true);
+  const { chatId } = useParams();
+  const navigate = useNavigate();
+  const { chats, setChats } = useChatStore();
+  const { user } = useAuthStore();
 
-  const [viewerData, setViewerData] = useState<IViewerData | null>(null);
+  const store = useChatDetailsStore();
+  const activeChat = chats.find((c) => c._id === chatId);
 
   useEffect(() => {
-    const fetchSharedData = async () => {
-      try {
-        const { data: resData } = await api.get(`/messages/${chatId}/shared`);
-        setData(resData.payload);
-      } catch (error) {
-        console.error("Failed to load shared content", error);
-      } finally {
-        setLoading(false);
+    if (chatId) {
+      store.reset();
+      store.fetchSharedData(chatId);
+      if (activeChat) {
+        store.setGroupNameInput(activeChat.groupName || "");
+        store.setGroupAvatarLocal(activeChat.groupAvatar || "");
       }
-    };
-    fetchSharedData();
+    }
   }, [chatId]);
 
-  const handleOpenMedia = (index: number) => {
-    const items = data.media.map((m) => ({
-      url: m.url,
-      mediaType: m.type === "VIDEO" ? "VIDEO" : "IMAGE",
-    }));
-    setViewerData({ items, initialIndex: index } as IViewerData);
+  if (!activeChat || !chatId) return null;
+
+  const isGroup = activeChat.type === "group";
+  const myParticipant = activeChat.participants.find(
+    (p) => p.user._id === user?._id,
+  );
+  const isAdmin = myParticipant?.role === "admin";
+
+  const handleSaveGroupInfo = async () => {
+    try {
+      await api.patch(`/chats/${chatId}`, {
+        groupName: store.groupNameInput,
+        groupAvatar: store.groupAvatarLocal,
+      });
+      setChats(
+        chats.map((c) =>
+          c._id === chatId
+            ? {
+                ...c,
+                groupName: store.groupNameInput,
+                groupAvatar: store.groupAvatarLocal,
+              }
+            : c,
+        ),
+      );
+      store.setIsEditingGroup(false);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  const handleOpenShared = (index: number) => {
-    const items = data.shared
-      .filter((s: any) => s.sharedPost?.images?.[0])
-      .map((s: any) => ({
-        url: s.sharedPost.images[0],
-        mediaType: "IMAGE",
-      }));
-    setViewerData({ items, initialIndex: index } as IViewerData);
+  const handleDeleteChat = async () => {
+    try {
+      await api.delete(`/chats/${chatId}`);
+      // ՖԻՔՍ: Անմիջապես ջնջում ենք ֆրոնտի state-ից
+      setChats(chats.filter((c) => c._id !== chatId));
+      navigate("/messages");
+    } catch (error) {
+      console.error("Failed to delete chat", error);
+    }
+  };
+
+  const handleLeaveGroup = async () => {
+    if (!myParticipant?._id) return;
+    try {
+      await api.delete(`/chats/${chatId}/disjoin`, {
+        data: { participantId: myParticipant._id },
+      });
+      // ՖԻՔՍ: Խմբից դուրս գալուց հետո նույնպես հանում ենք լիստից
+      setChats(chats.filter((c) => c._id !== chatId));
+      navigate("/messages");
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
-    <>
-      <div className="absolute inset-0 z-40 bg-black flex flex-col animate-in slide-in-from-right-2 duration-200">
-        <div className="h-[75px] px-4 border-b border-neutral-800 flex items-center shrink-0">
+    <div className="flex flex-col h-full w-full bg-black relative z-40">
+      <div className="h-[75px] px-4 border-b border-neutral-800 flex items-center justify-between shrink-0 bg-black">
+        <div className="flex items-center gap-2">
           <button
-            onClick={onClose}
-            className="p-2 mr-2 hover:bg-neutral-800 rounded-full transition"
+            onClick={() =>
+              store.view === "main" ? onClose() : store.setView("main")
+            }
+            className="p-2 -ml-2 hover:bg-neutral-800 rounded-full transition"
           >
-            <ChevronLeft size={28} className="text-white" />
+            <ChevronLeft size={30} className="text-white" />
           </button>
-          <h2 className="text-white text-lg font-semibold">Details</h2>
+          <h2 className="text-white text-[17px] font-semibold capitalize">
+            {store.view === "main"
+              ? "Details"
+              : store.view === "nicknames"
+                ? "Nicknames"
+                : store.view}
+          </h2>
         </div>
-
-        <div className="p-6 flex flex-col items-center border-b border-neutral-800 shrink-0">
-          <img
-            src={activeUser?.avatar || "/default-avatar.png"}
-            className="w-24 h-24 rounded-full object-cover mb-4 border border-neutral-800"
-            alt={activeUser?.username}
-          />
-          <h3 className="text-white font-bold text-[20px]">
-            {activeUser?.username}
-          </h3>
-        </div>
-
-        <div className="flex border-b border-neutral-800 shrink-0">
+        {isGroup && isAdmin && store.view === "main" && (
           <button
-            onClick={() => setActiveTab("media")}
-            className={`flex-1 py-3.5 text-[15px] font-semibold transition ${
-              activeTab === "media"
-                ? "text-white border-b border-white"
-                : "text-neutral-500"
-            }`}
+            onClick={
+              store.isEditingGroup
+                ? handleSaveGroupInfo
+                : () => store.setIsEditingGroup(true)
+            }
+            className="text-[#3797F0] font-semibold text-[15px] px-2"
           >
-            Media
+            {store.isEditingGroup ? "Save" : "Edit"}
           </button>
-          <button
-            onClick={() => setActiveTab("shared")}
-            className={`flex-1 py-3.5 text-[15px] font-semibold transition ${
-              activeTab === "shared"
-                ? "text-white border-b border-white"
-                : "text-neutral-500"
-            }`}
-          >
-            Posts
-          </button>
-          <button
-            onClick={() => setActiveTab("links")}
-            className={`flex-1 py-3.5 text-[15px] font-semibold transition ${
-              activeTab === "links"
-                ? "text-white border-b border-white"
-                : "text-neutral-500"
-            }`}
-          >
-            Links
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
-          {loading ? (
-            <div className="flex justify-center items-center h-full">
-              <Loader2 className="animate-spin text-neutral-500 w-8 h-8" />
-            </div>
-          ) : (
-            <div className="animate-in fade-in duration-300">
-              {activeTab === "media" && (
-                <div className="grid grid-cols-3 gap-0.5">
-                  {data.media.map((item: any, i: number) => (
-                    <div
-                      key={i}
-                      onClick={() => handleOpenMedia(i)}
-                      className="aspect-square bg-neutral-900 overflow-hidden relative cursor-pointer hover:opacity-90 transition-opacity"
-                    >
-                      {item.type === "VIDEO" ? (
-                        <video
-                          src={item.url}
-                          className="w-full h-full object-cover pointer-events-none"
-                        />
-                      ) : (
-                        <img
-                          src={item.url}
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                    </div>
-                  ))}
-                  {data.media.length === 0 && (
-                    <p className="text-neutral-500 col-span-3 text-center mt-10 text-sm">
-                      No shared media
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {activeTab === "shared" && (
-                <div className="grid grid-cols-3 gap-0.5">
-                  {data.shared.map((item: any, i: number) =>
-                    item.sharedPost?.images?.[0] ? (
-                      <div
-                        key={i}
-                        onClick={() => handleOpenShared(i)}
-                        className="aspect-square bg-neutral-900 overflow-hidden relative cursor-pointer hover:opacity-90 transition-opacity"
-                      >
-                        <img
-                          src={item.sharedPost.images[0]}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ) : null,
-                  )}
-                  {data.shared.length === 0 && (
-                    <p className="text-neutral-500 col-span-3 text-center mt-10 text-sm">
-                      No shared posts
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {activeTab === "links" && (
-                <div className="flex flex-col gap-2 p-2">
-                  {data.links.map((link: any, i: number) => (
-                    <a
-                      key={i}
-                      href={link.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-4 p-3 bg-neutral-900 rounded-xl hover:bg-neutral-800 transition-colors"
-                    >
-                      <div className="p-3.5 bg-neutral-800 rounded-full shrink-0">
-                        <Link2 size={20} className="text-white" />
-                      </div>
-                      <div className="overflow-hidden min-w-0">
-                        <p className="text-blue-400 text-[15px] truncate font-medium">
-                          {link.url}
-                        </p>
-                        <p className="text-neutral-500 text-[13px] truncate mt-0.5">
-                          {link.text}
-                        </p>
-                      </div>
-                    </a>
-                  ))}
-                  {data.links.length === 0 && (
-                    <p className="text-neutral-500 text-center mt-8 text-sm">
-                      No shared links
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      {viewerData && (
+      <div className="flex-1 overflow-y-auto custom-scrollbar pb-10">
+        {store.view === "main" && (
+          <ChatDetailsMain onPinnedMessageClick={onPinnedMessageClick} />
+        )}
+        {store.view === "theme" && <ThemeView />}
+        {store.view === "privacy" && <PrivacyView />}
+        {store.view === "options" && (
+          <OptionsView onLeave={handleLeaveGroup} onDelete={handleDeleteChat} />
+        )}
+        {store.view === "nicknames" && <NicknamesView />}
+        {store.view === "members" && (
+          <ChatMembersTab onLeaveGroup={handleLeaveGroup} />
+        )}
+      </div>
+
+      {store.viewerData && (
         <MediaViewer
           isOpen={true}
-          media={viewerData.items}
-          initialIndex={viewerData.initialIndex}
-          onClose={() => setViewerData(null)}
+          media={store.viewerData.items}
+          initialIndex={store.viewerData.initialIndex}
+          onClose={() => store.setViewerData(null)}
         />
       )}
-    </>
+
+      {isGroup && (
+        <AddMemberModal
+          isOpen={store.isAddMemberOpen}
+          onClose={() => store.setIsAddMemberOpen(false)}
+          chatId={chatId}
+          existingParticipants={activeChat.participants.map((p) => p.user._id)}
+          onMemberAdded={(newParts: IParticipant[]) => {
+            setChats(
+              chats.map((c) =>
+                c._id === chatId
+                  ? { ...c, participants: [...c.participants, ...newParts] }
+                  : c,
+              ),
+            );
+            store.setIsAddMemberOpen(false);
+          }}
+        />
+      )}
+    </div>
   );
 }

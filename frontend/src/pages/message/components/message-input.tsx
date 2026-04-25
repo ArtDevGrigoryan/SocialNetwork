@@ -58,9 +58,7 @@ const POPULAR_EMOJIS = [
   "🌸",
   "🙌",
   "😋",
-  "💖",
   "💯",
-  "քո",
   "🤪",
   "😑",
   "🤢",
@@ -92,13 +90,34 @@ export default function MessageInput({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isCancelledRef = useRef<boolean>(false);
 
-  const { sendTyping, socket } = useSocketStore();
+  const { sendTyping, sendVoice, socket } = useSocketStore();
 
   useEffect(() => {
+    if (!socket || !chatId) return;
+
+    let joinTimer: ReturnType<typeof setTimeout>;
+
+    const handleJoin = () => {
+      joinTimer = setTimeout(() => {
+        socket.emit("join_chat", { chatId });
+      }, 300);
+    };
+
+    if (socket.connected) {
+      handleJoin();
+    }
+
+    socket.on("connect", handleJoin);
+
     return () => {
+      clearTimeout(joinTimer);
+
+      socket.off("connect", handleJoin);
+      socket.emit("leave_chat", { chatId });
+
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [socket, chatId]);
 
   useEffect(() => {
     if (editingMessage?.text) {
@@ -160,8 +179,26 @@ export default function MessageInput({
 
   const startRecording = async () => {
     try {
+      sendVoice(chatId || "");
       setShowEmojiPicker(false);
       isCancelledRef.current = false;
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : "audio/mp4";
+      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+      const ext = mimeType === "audio/mp4" ? "m4a" : "webm";
+      const file = new File([audioBlob], `voice-message.${ext}`, {
+        type: mimeType,
+      });
+
+      if (!isCancelledRef.current && audioChunksRef.current.length > 0) {
+        const replyId =
+          typeof replyingMessage === "string"
+            ? replyingMessage
+            : replyingMessage?._id;
+        onSendMessage("", [file], "VOICE", replyId);
+        if (onCancelReply) onCancelReply();
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -179,7 +216,6 @@ export default function MessageInput({
         const file = new File([audioBlob], "voice-message.webm", {
           type: "audio/webm",
         });
-
         if (!isCancelledRef.current && audioChunksRef.current.length > 0) {
           const replyId =
             typeof replyingMessage === "string"
@@ -194,9 +230,12 @@ export default function MessageInput({
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingTime(0);
+
+      if (socket && chatId)
+        socket.emit("typing:start", { chatId, isRecording: true });
+
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
-        if (socket && chatId) socket.emit("voice", { chatId });
       }, 1000);
     } catch (error) {
       console.error("Microphone access denied or failed", error);
@@ -208,6 +247,8 @@ export default function MessageInput({
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       if (timerRef.current) clearInterval(timerRef.current);
+
+      if (socket && chatId) socket.emit("typing:stop", { chatId });
     }
   };
 
@@ -217,6 +258,8 @@ export default function MessageInput({
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       if (timerRef.current) clearInterval(timerRef.current);
+
+      if (socket && chatId) socket.emit("typing:stop", { chatId });
     }
   };
 

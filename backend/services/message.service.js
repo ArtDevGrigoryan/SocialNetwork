@@ -311,13 +311,14 @@ class MessageService {
     }
     if (message.type != "TEXT") {
       throw new BadRequestException(
-        "Cannot edit this message but is it not edditable",
+        "Cannot edit this message as it is not editable",
       );
     }
 
     message.text = newText;
     message.editedAt = new Date();
     const linkPreview = await fetchLinkPreview(newText);
+
     if (linkPreview) {
       message.media = [
         {
@@ -326,6 +327,7 @@ class MessageService {
           linkUrl: linkPreview.url,
           title: linkPreview.title,
           description: linkPreview.description,
+          key: "LINK",
         },
       ];
     } else if (
@@ -334,12 +336,14 @@ class MessageService {
     ) {
       message.media = message.media.filter((m) => m.mediaType !== "LINK");
     }
+
     await message.save();
 
     await socketService.emitEditMessage(
       message.chat.toString(),
       message._id.toString(),
       newText,
+      message.media,
     );
     return message;
   }

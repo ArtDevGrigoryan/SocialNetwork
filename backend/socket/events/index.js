@@ -20,6 +20,7 @@ module.exports = {
   join_post: event(isAuth, socketEvent.join_post.bind(socketEvent)),
   leave_post: event(isAuth, socketEvent.leave_post.bind(socketEvent)),
   join_chat: event(isAuth, socketEvent.join_chat.bind(socketEvent)),
+  leave_chat: event(isAuth, socketEvent.leave_chat.bind(socketEvent)),
   typing: event(isAuth, socketEvent.typing.bind(socketEvent)),
   voice: event(isAuth, socketEvent.voice.bind(socketEvent)),
 };

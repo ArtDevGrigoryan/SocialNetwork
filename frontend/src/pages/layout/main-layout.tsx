@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
 import Sidebar from "../../components/layout/sidebar";
 import Header from "../../components/layout/header";
@@ -12,10 +12,18 @@ import type { IUser } from "../../types/user.types";
 
 export default function MainLayout() {
   const { pathname } = useLocation();
+  const pathnameRef = useRef(pathname);
+
   const { isAuthenticated, accessToken, user, setUser } = useAuthStore();
   const { connect, disconnect, socket } = useSocketStore();
   const { toasts, addToast } = useUIStore();
-  const isMessagePage = location.pathname.includes("/message");
+
+  const isMessagePage = pathname.includes("/message");
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
   useEffect(() => {
     const fetchMe = async () => {
       if (isAuthenticated && !user && accessToken) {
@@ -56,7 +64,7 @@ export default function MainLayout() {
     };
 
     const onMessage = (message: any) => {
-      if (!pathname.startsWith("/messages")) {
+      if (!pathnameRef.current.startsWith("/messages")) {
         const from = message?.sender?.username || "Someone";
         addToast(`${from}: ${message?.text || "New message"}`);
       }
@@ -64,18 +72,19 @@ export default function MainLayout() {
 
     socket.on("notification", onNotification);
     socket.on("receive_message", onMessage);
+
     return () => {
       socket.off("notification", onNotification);
       socket.off("receive_message", onMessage);
     };
-  }, [addToast, pathname, socket]);
+  }, [addToast, socket]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col md:flex-row">
+    <div className="min-h-[100dvh] bg-black text-white flex flex-col md:flex-row">
       <div className="fixed top-3 right-3 z-[120] space-y-2 pointer-events-none">
         {toasts.map((toast) => (
           <div

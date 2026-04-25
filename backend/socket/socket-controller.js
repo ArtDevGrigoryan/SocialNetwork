@@ -6,11 +6,10 @@ class SocketController {
   }
   async registerEvents() {
     const io = await this.getIO();
-    const { connection } = eventsHandlers;
-    delete eventsHandlers.connection;
+    const { connection, ...others } = eventsHandlers;
     io.on("connection", async (socket) => {
       await connection(socket);
-      for (const [event, handler] of Object.entries(eventsHandlers)) {
+      for (const [event, handler] of Object.entries(others)) {
         socket.on(event, handler.bind(null, socket));
       }
     });

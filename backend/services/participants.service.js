@@ -8,7 +8,7 @@ class ParticipantService {
       throw new NotFoundException("Participant not found");
     }
     if (userId.toString() == participantId) {
-      participant.name = name;
+      participant.participantName = name;
       await participant.save();
       return participant;
     }
@@ -19,7 +19,7 @@ class ParticipantService {
     if (!renamerParticipant) {
       throw new ConflictException("Is not a member in this chat");
     }
-    participant.name = name;
+    participant.participantName = name;
     await participant.save();
     return participant;
   }

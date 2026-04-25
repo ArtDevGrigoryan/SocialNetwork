@@ -16,7 +16,7 @@ module.exports = async function removeUserTx(participantId) {
     await session.withTransaction(async () => {
       await Participant.deleteOne({ _id: participantId }).session(session);
     });
-    return result;
   } finally {
+    await session.endSession();
   }
 };

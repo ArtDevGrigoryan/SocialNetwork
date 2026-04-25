@@ -21,7 +21,8 @@ const PolicyService = require("@services/policy.service");
 class ChatService {
   async searchChat(userId, text) {
     const userObjectId = new mongoose.Types.ObjectId(userId);
-    const regexp = new RegExp(text, "i");
+    const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regexp = new RegExp(escapedText, "i");
 
     return Chat.aggregate([
       {
@@ -67,7 +68,6 @@ class ChatService {
           as: "participantsUsers",
         },
       },
-      // Ավելացված հատված. ֆիլտրում ենք բերված user-ներին, որ մնան միայն նշված դաշտերը
       {
         $addFields: {
           participantsUsers: {
@@ -113,12 +113,42 @@ class ChatService {
         },
       },
       {
+        $lookup: {
+          from: "messages",
+          localField: "pinned",
+          foreignField: "_id",
+          pipeline: [
+            {
+              $lookup: {
+                from: "users",
+                localField: "sender",
+                foreignField: "_id",
+                as: "sender",
+              },
+            },
+            { $unwind: { path: "$sender", preserveNullAndEmptyArrays: true } },
+            {
+              $addFields: {
+                sender: {
+                  _id: "$sender._id",
+                  username: "$sender.username",
+                  avatar: "$sender.avatar",
+                  bio: "$sender.bio",
+                },
+              },
+            },
+          ],
+          as: "pinned",
+        },
+      },
+      {
         $project: {
           groupName: 1,
           type: 1,
           participants: 1,
           lastMessage: 1,
           lastActivityAt: 1,
+          pinned: 1,
         },
       },
       {
@@ -159,7 +189,6 @@ class ChatService {
           as: "allUsers",
         },
       },
-      // Ավելացված հատված. ֆիլտրում ենք allUsers զանգվածը
       {
         $addFields: {
           allUsers: {
@@ -218,6 +247,40 @@ class ChatService {
         $unwind: {
           path: "$chat.lastMessage",
           preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "messages",
+          localField: "chat.pinned",
+          foreignField: "_id",
+          pipeline: [
+            {
+              $lookup: {
+                from: "users",
+                localField: "sender",
+                foreignField: "_id",
+                as: "sender",
+              },
+            },
+            {
+              $unwind: {
+                path: "$sender",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+            {
+              $addFields: {
+                sender: {
+                  _id: "$sender._id",
+                  username: "$sender.username",
+                  avatar: "$sender.avatar",
+                  bio: "$sender.bio",
+                },
+              },
+            },
+          ],
+          as: "chat.pinned",
         },
       },
 
@@ -282,44 +345,55 @@ class ChatService {
     );
   }
 
-  async togglePinMsg(participantId, chatId, msg) {
+  async togglePinMsg(participantId, chatId, msgId) {
     const isMember = await PolicyService.isMember(participantId, chatId);
     if (!isMember) {
       throw new ForBiddenException("User is not a member of this chat");
     }
 
-    const message = await PolicyService.isChatMessage(msg, chatId);
+    const message = await PolicyService.isChatMessage(msgId, chatId);
     if (!message) {
       throw new NotFoundException("Message not found");
     }
 
-    return Chat.findByIdAndUpdate(
-      chatId,
-      [
-        {
-          $set: {
-            pinned: {
-              $cond: [
-                { $in: [msg, "$pinned"] },
-                {
-                  $filter: { input: "$pinned", cond: { $ne: ["$$this", msg] } },
-                },
-                { $concatArrays: ["$pinned", [msg]] },
-              ],
-            },
-          },
-        },
-      ],
-      { new: true },
-    )
+    const chat = await Chat.findById(chatId).select("pinned");
+    if (!chat) {
+      throw new NotFoundException("Chat not found");
+    }
+
+    const msgObjectId = new mongoose.Types.ObjectId(msgId);
+
+    const isPinned = chat.pinned?.some(
+      (pId) => pId.toString() === msgObjectId.toString(),
+    );
+
+    const updateQuery = isPinned
+      ? { $pull: { pinned: msgObjectId } }
+      : { $addToSet: { pinned: msgObjectId } };
+
+    await Chat.findByIdAndUpdate(chatId, updateQuery);
+
+    const updated = await Chat.findById(chatId)
       .populate({
         path: "pinned",
-        populate: { path: "sender", select: "_id username avatar bio" },
+        model: "Message",
+        populate: {
+          path: "sender",
+          model: "User",
+          select: "_id username avatar bio",
+        },
       })
       .populate({
         path: "participants",
-        populate: { path: "user", select: "_id username avatar bio" },
+        populate: {
+          path: "user",
+          model: "User",
+          select: "_id username avatar bio",
+        },
       });
+
+    await socketService.emitUpdateChat(chatId, updated);
+    return updated;
   }
 
   async read(userId, chatId) {
@@ -333,25 +407,27 @@ class ChatService {
     if (isBlocked) throw new NotFoundException("User not found");
 
     const chatKey = [myId, targetId].sort().join(":");
-
     try {
       const chat = await Chat.create({ type: "dm", chatKey });
-
       await Participants.insertMany([
         { chatId: chat._id, user: myId },
         { chatId: chat._id, user: targetId },
       ]);
+      const populatedChat = await this.find(myId, chat._id);
+      await socketService.emitNewChat([myId, targetId], populatedChat);
 
-      return chat;
+      return populatedChat;
     } catch (err) {
       if (err.code === 11000) {
-        return await Chat.findOne({ type: "dm", chatKey });
+        const existingChat = await Chat.findOne({ type: "dm", chatKey });
+        return await this.find(myId, existingChat._id);
       }
       throw err;
     }
   }
 
   async createGroup(myId, data) {
+    myId = myId.toString();
     const { userIds } = data;
     const existings = await PolicyService.existUsers(userIds);
 
@@ -361,7 +437,6 @@ class ChatService {
         ...existings.map((user) => user._id.toString()),
       ]),
     ];
-
     if (uniqueIds.length < 2) {
       throw new BadRequestException("At least 2 users required");
     }
@@ -375,11 +450,16 @@ class ChatService {
     }));
 
     const { chat } = await createGroupTx(participants, update);
-    return chat;
+
+    const populatedChat = await this.find(myId, chat._id);
+    await socketService.emitNewChat(uniqueIds, populatedChat);
+
+    return populatedChat;
   }
 
   async deleteGroup(userId, chatId) {
     await PolicyService.canRemoveGroup(userId, chatId);
+    await socketService.emitDeleteChat(chatId);
     await deleteGroupTx(chatId);
     await notificationService.groupRemovedNotification({
       chatId,
@@ -421,8 +501,9 @@ class ChatService {
     const update = {};
     if (data.groupAvatar) update.groupAvatar = data.groupAvatar;
     if (data.groupName) update.groupName = data.groupName;
+    if (data.theme) update.theme = data.theme;
 
-    return Chat.findByIdAndUpdate(chatId, update, { new: true })
+    const updated = await Chat.findByIdAndUpdate(chatId, update, { new: true })
       .populate({
         path: "pinned",
         populate: { path: "sender", select: "_id username avatar bio" },
@@ -431,6 +512,96 @@ class ChatService {
         path: "participants",
         populate: { path: "user", select: "_id username avatar bio" },
       });
+
+    await socketService.emitUpdateChat(chatId, updated);
+
+    return updated;
+  }
+
+  async addMembers(adderId, chatId, userIds) {
+    await PolicyService.canAccessChat(adderId, chatId);
+
+    const chat = await Chat.findById(chatId);
+    if (!chat || chat.type !== "group") {
+      throw new BadRequestException(
+        "This action is only allowed in group chats",
+      );
+    }
+
+    const existings = await PolicyService.existUsers(userIds);
+    const currentParticipants = await Participants.find({ chatId });
+    const currentParticipantUserIds = currentParticipants.map((p) =>
+      p.user.toString(),
+    );
+
+    const newUsers = existings.filter(
+      (user) => !currentParticipantUserIds.includes(user._id.toString()),
+    );
+
+    if (newUsers.length === 0) {
+      throw new BadRequestException("Selected users are already in the group");
+    }
+
+    const newParticipants = newUsers.map((u) => ({
+      chatId,
+      user: u._id,
+      role: "member",
+    }));
+
+    const inserted = await Participants.insertMany(newParticipants);
+
+    await Participants.populate(inserted, {
+      path: "user",
+      select: "_id username avatar bio",
+    });
+
+    return inserted;
+  }
+
+  async updateParticipant(userId, chatId, targetParticipantId, data) {
+    const chat = await Chat.findById(chatId);
+    if (!chat) throw new NotFoundException("Chat not found");
+
+    const myParticipant = await Participants.findOne({ chatId, user: userId });
+    if (!myParticipant)
+      throw new ForBiddenException("Not a member of this chat");
+
+    const targetParticipant = await Participants.findById(targetParticipantId);
+    if (
+      !targetParticipant ||
+      targetParticipant.chatId.toString() !== chatId.toString()
+    ) {
+      throw new NotFoundException("Participant not found in this chat");
+    }
+
+    const isAdmin = myParticipant.role === "admin";
+    const update = {};
+
+    if (data.participantName !== undefined) {
+      update.participantName =
+        data.participantName === "" ? null : data.participantName;
+    }
+
+    if (data.isMuted !== undefined) {
+      if (myParticipant._id.toString() !== targetParticipantId.toString()) {
+        throw new ForBiddenException("Դուք կարող եք Mute անել միայն Ձեր համար");
+      }
+      update.isMuted = data.isMuted;
+    }
+
+    if (data.role) {
+      if (!isAdmin)
+        throw new ForBiddenException("Only admins can change roles");
+      update.role = data.role;
+    }
+
+    const updated = await Participants.findByIdAndUpdate(
+      targetParticipantId,
+      update,
+      { new: true },
+    ).populate("user", "_id username avatar bio");
+
+    return updated;
   }
 }
 

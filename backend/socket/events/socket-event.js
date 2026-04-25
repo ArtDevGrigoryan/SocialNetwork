@@ -50,9 +50,9 @@ class SocketEvent {
       avatar: user.avatar,
       _id: user._id,
     };
-    const io = await SocketEvent.getIO();
-    io.to(`chat:${chatId}`).emit("typing", result);
+    socket.to(`chat:${chatId}`).emit("typing", result);
   }
+
   async voice(socket, data) {
     const { chatId } = data;
     const { user } = socket;
@@ -64,8 +64,12 @@ class SocketEvent {
       avatar: user.avatar,
       _id: user._id,
     };
-    const io = await SocketEvent.getIO();
-    io.to(`chat:${chatId}`).emit("voice", result);
+    socket.to(`chat:${chatId}`).emit("voice", result);
+  }
+  async leave_chat(socket, data) {
+    const { chatId } = data;
+    if (!chatId) return;
+    socket.leave(`chat:${chatId}`);
   }
 }
 

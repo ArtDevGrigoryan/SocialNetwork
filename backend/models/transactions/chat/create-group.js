@@ -7,7 +7,9 @@ module.exports = async function createGroupTx(userIdsWithRole, data) {
   try {
     const result = { chat: null };
     await session.withTransaction(async () => {
-      const chat = await Chat.create({ type: "group", ...data }, { session });
+      const [chat] = await Chat.create([{ type: "group", ...data }], {
+        session,
+      });
       await Participants.insertMany(
         userIdsWithRole.map((obj) => ({ ...obj, chatId: chat._id })),
         { session },

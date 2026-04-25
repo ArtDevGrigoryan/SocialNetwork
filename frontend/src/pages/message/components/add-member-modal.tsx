@@ -1,17 +1,9 @@
 import { useState, useEffect } from "react";
 import { X, Search, Loader2, Check } from "lucide-react";
-import { api } from "../../lib/axios.config";
-import type { IUser } from "../../types/user.types";
-import { useUIStore } from "../../store/ui.store";
-import type { IParticipant } from "./types";
-
-interface Props {
-  isOpen: boolean;
-  onClose: () => void;
-  chatId: string;
-  existingParticipants: string[];
-  onMemberAdded: (newParticipants: IParticipant[]) => void;
-}
+import { api } from "../../../lib/axios.config";
+import type { IUser } from "../../../types/user.types";
+import { useUIStore } from "../../../store/ui.store";
+import type { AddMemberModalProps } from "../types";
 
 export default function AddMemberModal({
   isOpen,
@@ -19,7 +11,7 @@ export default function AddMemberModal({
   chatId,
   existingParticipants,
   onMemberAdded,
-}: Props) {
+}: AddMemberModalProps) {
   const { addToast } = useUIStore();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<IUser[]>([]);
@@ -79,11 +71,11 @@ export default function AddMemberModal({
       });
 
       onMemberAdded(data.payload);
-      addToast("Մասնակիցները հաջողությամբ ավելացվեցին");
+      addToast("Members added successfully");
       onClose();
     } catch (err) {
       console.error(err);
-      addToast("Չհաջողվեց ավելացնել մասնակիցներին");
+      addToast("Failed to add members");
     } finally {
       setAdding(false);
     }
@@ -151,6 +143,7 @@ export default function AddMemberModal({
                     <img
                       src={u.avatar || "/default-avatar.png"}
                       className="w-10 h-10 rounded-full object-cover border border-neutral-800"
+                      alt={u.username}
                     />
                     <p className="text-white text-[15px] font-medium">
                       {u.username}

@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import type { IReaction, MessageBubbleProps } from "../types";
-import { Reply, MoreHorizontal, ExternalLink } from "lucide-react";
+import { Reply, MoreHorizontal, Pin } from "lucide-react";
 import { api } from "../../../lib/axios.config";
 import { useAuthStore } from "../../../store/auth.store";
 import VoicePlayer from "./voice-player";
@@ -23,9 +23,11 @@ export const formatTimeAgo = (dateInput?: string) => {
   return date.toLocaleDateString();
 };
 
-export default function MessageBubble({
+function MessageBubble({
   msg,
   isMine,
+  showAvatar,
+  showName,
   isSequenceMatch,
   participantId,
   chatParticipants,
@@ -35,6 +37,7 @@ export default function MessageBubble({
   isSeen,
   activeMenuId,
   setActiveMenuId,
+  isPinned,
 }: MessageBubbleProps) {
   const showMenu = activeMenuId === msg._id;
   const { user } = useAuthStore();
@@ -42,6 +45,7 @@ export default function MessageBubble({
     msg.reactions || [],
   );
   const [isReactionModalOpen, setIsReactionModalOpen] = useState(false);
+
   const touchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const replyTriggeredRef = useRef(false);
@@ -56,16 +60,21 @@ export default function MessageBubble({
     setLocalReactions(msg.reactions || []);
   }, [msg.reactions]);
 
+  // Նիկնեյմի կամ յուզերնեյմի ընտրությունը
+  const senderParticipant = chatParticipants.find(
+    (p) => p.user._id === msg.sender?._id,
+  );
+  const displayName =
+    senderParticipant?.participantName || msg.sender?.username || "User";
+
   const handleReplyClick = (replyId?: string) => {
     if (!replyId) return;
     const element = document.getElementById(`message-${replyId}`);
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "center" });
-
       const originalBg = element.style.backgroundColor;
       element.style.transition = "background-color 0.5s ease";
       element.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
-
       setTimeout(() => {
         element.style.backgroundColor = originalBg;
       }, 1000);
@@ -140,6 +149,7 @@ export default function MessageBubble({
       existingReaction &&
       (existingReaction.type === emoji || existingReaction.reaction === emoji);
     isRequestPending.current = true;
+
     try {
       if (isRemoving) {
         setLocalReactions((prev) =>
@@ -166,11 +176,10 @@ export default function MessageBubble({
           type: emoji,
           participantId: participantId,
         });
-        if (data?.payload?._id) {
+        if (data?.payload?._id)
           setLocalReactions((prev) =>
             prev.map((r) => (r._id === tempId ? data.payload : r)),
           );
-        }
       }
     } catch (error) {
       console.error("Failed to toggle reaction", error);
@@ -200,14 +209,12 @@ export default function MessageBubble({
         typeof window !== "undefined" &&
         window.navigator &&
         window.navigator.vibrate
-      ) {
+      )
         window.navigator.vibrate(30);
-      }
       lastClickTime.current = 0;
     } else {
-      if (window.innerWidth < 768) {
+      if (window.innerWidth < 768)
         setActiveMenuId(showMenu ? null : msg._id || null);
-      }
       lastClickTime.current = now;
     }
   };
@@ -221,16 +228,13 @@ export default function MessageBubble({
         typeof window !== "undefined" &&
         window.navigator &&
         window.navigator.vibrate
-      ) {
+      )
         window.navigator.vibrate(50);
-      }
     }, 500);
   };
 
   const handleBadgeTouchEnd = () => {
-    if (badgePressTimer.current) {
-      clearTimeout(badgePressTimer.current);
-    }
+    if (badgePressTimer.current) clearTimeout(badgePressTimer.current);
   };
 
   const handleBadgeClick = (e: React.MouseEvent) => {
@@ -243,9 +247,8 @@ export default function MessageBubble({
       const myReactionObj = localReactions.find(
         (r) => r.participant === participantId,
       );
-      if (myReactionObj) {
+      if (myReactionObj)
         handleToggleReaction(myReactionObj.type || myReactionObj.reaction!);
-      }
     }
   };
 
@@ -256,6 +259,7 @@ export default function MessageBubble({
     : msg.type === "IMAGE" || msg.type === "MEDIA"
       ? ""
       : "bg-[#262626] text-neutral-100 shadow-sm border border-neutral-800/50";
+
   const radiusClass = isMine
     ? isSequenceMatch
       ? "rounded-[22px] rounded-tr-[5px] rounded-br-[5px]"
@@ -263,6 +267,7 @@ export default function MessageBubble({
     : isSequenceMatch
       ? "rounded-[22px] rounded-tl-[5px] rounded-bl-[5px]"
       : "rounded-[22px] rounded-bl-[5px]";
+
   const uniqueReactions = Array.from(
     new Set(
       localReactions
@@ -270,222 +275,231 @@ export default function MessageBubble({
         .filter(Boolean),
     ),
   );
+
   const hasMyReaction = localReactions.some(
     (r) => r.participant === participantId,
   );
+
+  const hasReactions = localReactions.length > 0;
+  let marginClass = "mb-[2px]";
+  if (isSequenceMatch) {
+    marginClass = hasReactions ? "mb-[18px]" : "mb-[2px]";
+  } else {
+    marginClass = hasReactions ? "mb-7" : "mb-4";
+  }
 
   return (
     <>
       <div
         id={`message-${msg._id}`}
-        className={`flex flex-col w-full ${isMine ? "items-end" : "items-start"} mb-[2px] relative`}
-        style={{ WebkitTouchCallout: "none" }}
+        className={`flex w-full ${isMine ? "justify-end" : "justify-start"} ${marginClass} relative`}
+        style={{ WebkitTouchCallout: "none", zIndex: showMenu ? 9999 : "auto" }}
       >
-        {msg.replyTo && (
-          <div
-            onClick={() => handleReplyClick(msg.replyTo?._id)}
-            className={`flex flex-col mb-1 max-w-[280px] md:max-w-[360px] cursor-pointer hover:opacity-80 transition-opacity ${isMine ? "items-end" : "items-start"}`}
-          >
-            <div className="flex items-center gap-1.5 text-xs text-neutral-500 mb-0.5 px-2">
-              <Reply size={12} className={isMine ? "rotate-180" : ""} />
-              <span>Replied to {msg.replyTo.sender?.username || "user"}</span>
-            </div>
-            <div
-              className={`text-xs px-3 py-1.5 rounded-xl opacity-70 truncate max-w-full ${isMine ? "bg-neutral-800 text-neutral-300 mr-2" : "bg-neutral-800 text-neutral-300 ml-2 border border-neutral-700/50"}`}
-            >
-              {msg.replyTo.text || `Sent a ${msg.replyTo.type?.toLowerCase()}`}
-            </div>
+        {/* Նկարի (Avatar) բլոկը */}
+        {!isMine && (
+          <div className="w-8 shrink-0 mr-2 flex items-end pb-1">
+            {showAvatar &&
+              (msg.sender?.avatar ? (
+                <img
+                  src={msg.sender.avatar}
+                  className="w-7 h-7 rounded-full object-cover bg-neutral-800"
+                  alt="avatar"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-neutral-800 flex items-center justify-center text-[11px] font-bold text-neutral-400">
+                  {msg.sender?.username?.charAt(0).toUpperCase()}
+                </div>
+              ))}
           </div>
         )}
-        {isSwiping && (
+
+        <div
+          className={`flex flex-col ${isMine ? "items-end" : "items-start"} max-w-[calc(100%-2.5rem)]`}
+        >
+          {/* ԱՆՈՒՆԸ (միայն խմբերի դեպքում) */}
+          {showName && (
+            <span className="text-[12px] text-neutral-400 ml-1 mb-1 font-medium select-none">
+              {displayName}
+            </span>
+          )}
+
+          {msg.replyTo && (
+            <div
+              onClick={() => handleReplyClick(msg.replyTo?._id)}
+              className={`flex flex-col mb-1 max-w-[280px] md:max-w-[360px] cursor-pointer hover:opacity-80 transition-opacity ${isMine ? "items-end" : "items-start"}`}
+            >
+              <div className="flex items-center gap-1.5 text-xs text-neutral-500 mb-0.5 px-2">
+                <Reply size={12} className={isMine ? "rotate-180" : ""} />
+                <span>Replied to {msg.replyTo.sender?.username || "user"}</span>
+              </div>
+              <div
+                className={`text-xs px-3 py-1.5 rounded-xl opacity-70 truncate max-w-full ${isMine ? "bg-neutral-800 text-neutral-300 mr-2" : "bg-neutral-800 text-neutral-300 ml-2 border border-neutral-700/50"}`}
+              >
+                {msg.replyTo.text ||
+                  `Sent a ${msg.replyTo.type?.toLowerCase()}`}
+              </div>
+            </div>
+          )}
+
           <div
-            className={`absolute top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full bg-neutral-800 transition-all duration-150 ${translateX ? "opacity-100" : "opacity-0"} ${isMine ? "right-4" : "left-4"}`}
+            className={`flex w-full ${isMine ? "justify-end" : "justify-start"} group relative items-center transition-transform ${isSwiping ? "duration-0" : "duration-200 ease-out"}`}
             style={{
-              zIndex: 0,
-              transform: `scale(${Math.min(Math.abs(translateX) / 40, 1.1)})`,
+              transform: `translateX(${translateX}px)`,
+              zIndex: 10,
+              WebkitTouchCallout: "none",
+            }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
             }}
           >
-            <Reply
-              size={16}
-              className={`text-white ${isMine ? "rotate-180" : ""}`}
-            />
-          </div>
-        )}
-        <div
-          className={`flex w-full ${isMine ? "justify-end" : "justify-start"} group relative items-center transition-transform ${isSwiping ? "duration-0" : "duration-200 ease-out"}`}
-          style={{
-            transform: `translateX(${translateX}px)`,
-            zIndex: 10,
-            WebkitTouchCallout: "none",
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-        >
-          <div
-            onClick={handleSmartClick}
-            className={`relative max-w-[320px] md:max-w-[400px] ${msg.type === "IMAGE" || msg.type === "MEDIA" ? "bg-transparent p-0" : "px-4 py-[10px]"} text-[15px] leading-5 break-words select-none transition-transform active:scale-[0.98] ${bgColor} text-white ${radiusClass}`}
-          >
-            <MessageMedia msg={msg} />
-            {msg.type === "VOICE" && (
-              <VoicePlayer url={msg.voice?.url || ""} isMine={isMine} />
+            {isSwiping && (
+              <div
+                className={`absolute top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full bg-neutral-800 transition-all duration-150 ${translateX ? "opacity-100" : "opacity-0"} ${isMine ? "-left-12" : "-right-12"}`}
+                style={{
+                  zIndex: 0,
+                  transform: `scale(${Math.min(Math.abs(translateX) / 40, 1.1)})`,
+                }}
+              >
+                <Reply
+                  size={16}
+                  className={`text-white ${isMine ? "rotate-180" : ""}`}
+                />
+              </div>
             )}
-            {msg.type === "TEXT" && (
-              <div className="flex flex-col">
-                <span className="whitespace-pre-wrap">{msg.text}</span>
-                {msg.media &&
-                  msg.media[0]?.mediaType === "LINK" &&
-                  (() => {
-                    const linkMedia = msg.media[0];
 
-                    const extractValidLink = (text: string) => {
-                      if (!text) return "";
-                      const match = text.match(
-                        /(https?:\/\/[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9-]+\.[a-zA-Z]{2,})/,
-                      );
-                      return match ? match[0] : "";
-                    };
+            <div
+              onClick={handleSmartClick}
+              className={`relative max-w-[320px] md:max-w-[400px] ${msg.type === "IMAGE" || msg.type === "MEDIA" ? "bg-transparent p-0" : "px-3.5 py-2"} text-[15px] leading-5 break-words select-none transition-transform active:scale-[0.98] ${bgColor} text-white ${radiusClass}`}
+            >
+              {isPinned && (
+                <div
+                  className={`absolute ${isMine ? "-left-5" : "-right-5"} top-1/2 -translate-y-1/2 text-neutral-500`}
+                >
+                  <Pin size={14} className="fill-current text-[#3797F0]" />
+                </div>
+              )}
 
-                    const targetUrl = extractValidLink(msg.text || "");
-                    if (!targetUrl) return null;
-
-                    const validHref = targetUrl.startsWith("http")
-                      ? targetUrl
-                      : `https://${targetUrl}`;
-                    const domainName = validHref
-                      .replace(/^https?:\/\//, "")
-                      .split("/")[0];
-
-                    return (
-                      <div
-                        className={`mt-2 flex flex-col overflow-hidden rounded-xl border ${
-                          isMine
-                            ? "border-white/10 bg-black/10 hover:bg-black/20"
-                            : "border-neutral-700/50 bg-neutral-900 hover:bg-neutral-800"
-                        } max-w-[260px] md:max-w-[300px] select-none group/link relative transition-colors`}
-                      >
-                        {linkMedia.url && (
-                          <div className="relative w-full h-[140px] bg-black overflow-hidden shrink-0 border-b border-white/5">
-                            <img
-                              src={linkMedia.url}
-                              alt="Link preview"
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                            />
-                            <a
-                              href={validHref}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              onTouchStart={(e) => e.stopPropagation()}
-                              onTouchEnd={(e) => e.stopPropagation()}
-                              onPointerDown={(e) => e.stopPropagation()}
-                              className="absolute top-2 right-2 flex items-center justify-center w-8 h-8 bg-black/40 hover:bg-black/70 backdrop-blur-md text-white rounded-full transition-all duration-200 opacity-80 hover:opacity-100 hover:scale-105 shadow-lg z-50 cursor-pointer"
-                              title="Open link"
-                            >
-                              <ExternalLink size={16} />
-                            </a>
-                          </div>
-                        )}
-                        <div className="p-3 flex flex-col gap-1 relative">
-                          <div className="text-[13px] font-semibold text-white line-clamp-1 pr-6">
-                            {linkMedia.title || domainName}
-                          </div>
-                          {linkMedia.description && (
-                            <div className="text-[11px] text-neutral-300 line-clamp-2 opacity-80 leading-tight">
-                              {linkMedia.description}
+              <MessageMedia msg={msg} />
+              {msg.type === "VOICE" && (
+                <VoicePlayer url={msg.voice?.url || ""} isMine={isMine} />
+              )}
+              {msg.type === "TEXT" && (
+                <div className="flex flex-col">
+                  <span className="whitespace-pre-wrap">{msg.text}</span>
+                  {msg.media &&
+                    msg.media[0]?.mediaType === "LINK" &&
+                    (() => {
+                      const linkMedia = msg.media[0];
+                      const extractValidLink = (text: string) => {
+                        const match = text.match(
+                          /(https?:\/\/[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9-]+\.[a-zA-Z]{2,})/,
+                        );
+                        return match ? match[0] : "";
+                      };
+                      const targetUrl = extractValidLink(msg.text || "");
+                      if (!targetUrl) return null;
+                      const validHref = targetUrl.startsWith("http")
+                        ? targetUrl
+                        : `https://${targetUrl}`;
+                      const domainName = validHref
+                        .replace(/^https?:\/\//, "")
+                        .split("/")[0];
+                      return (
+                        <div
+                          className={`mt-2 flex flex-col overflow-hidden rounded-xl border ${isMine ? "border-white/10 bg-black/10 hover:bg-black/20" : "border-neutral-700/50 bg-neutral-900 hover:bg-neutral-800"} max-w-[260px] md:max-w-[300px] select-none group/link relative transition-colors`}
+                        >
+                          {linkMedia.url && (
+                            <div className="relative w-full h-[140px] bg-black overflow-hidden shrink-0 border-b border-white/5">
+                              <img
+                                src={linkMedia.url}
+                                alt="Link preview"
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
                             </div>
                           )}
-                          <div className="text-[10px] text-neutral-400 mt-1 flex items-center justify-between opacity-70 uppercase tracking-wider font-semibold">
-                            <span className="truncate">{domainName}</span>
-
-                            {/* Եթե հանկարծ նկար չկա, կոճակը կհայտնվի ներքևում */}
-                            {!linkMedia.url && (
-                              <a
-                                href={validHref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                onTouchStart={(e) => e.stopPropagation()}
-                                onTouchEnd={(e) => e.stopPropagation()}
-                                onPointerDown={(e) => e.stopPropagation()}
-                                className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-white z-50 cursor-pointer"
-                                title="Open link"
-                              >
-                                <ExternalLink size={14} />
-                              </a>
+                          <div className="p-3 flex flex-col gap-1 relative">
+                            <div className="text-[13px] font-semibold text-white line-clamp-1 pr-6">
+                              {linkMedia.title || domainName}
+                            </div>
+                            {linkMedia.description && (
+                              <div className="text-[11px] text-neutral-300 line-clamp-2 opacity-80 leading-tight">
+                                {linkMedia.description}
+                              </div>
                             )}
                           </div>
                         </div>
-                      </div>
-                    );
-                  })()}
-              </div>
-            )}
-
-            {uniqueReactions.length > 0 && (
-              <div
-                onTouchStart={handleBadgeTouchStart}
-                onTouchEnd={handleBadgeTouchEnd}
-                onClick={handleBadgeClick}
-                className={`absolute -bottom-3.5 ${isMine ? "left-2" : "right-2"} bg-[#1a1a1a] border ${hasMyReaction ? "border-neutral-600 ring-1 ring-neutral-700/50" : "border-neutral-800"} rounded-full px-2 py-0.5 shadow-xl z-10 flex items-center justify-center text-[13px] gap-1 animate-in slide-in-from-bottom-2 zoom-in-95 duration-200 cursor-pointer hover:bg-neutral-800 transition-colors select-none`}
-              >
-                <div className="flex items-center gap-0.5 pointer-events-none">
-                  {uniqueReactions.map((emoji, idx) => (
-                    <span key={idx} className="drop-shadow-md">
-                      {emoji}
-                    </span>
-                  ))}
+                      );
+                    })()}
                 </div>
-                {localReactions.length > 1 && (
-                  <span className="text-neutral-300 font-semibold text-[11px] px-0.5 pointer-events-none">
-                    {localReactions.length}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-          <div
-            className={`flex items-center ml-2 relative transition-opacity ${showMenu ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100"}`}
-          >
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveMenuId(showMenu ? null : msg._id || null);
-              }}
-              className="p-1.5 text-neutral-500 hover:text-white transition-colors rounded-full hover:bg-neutral-800 hidden md:flex"
+              )}
+
+              {uniqueReactions.length > 0 && (
+                <div
+                  onTouchStart={handleBadgeTouchStart}
+                  onTouchEnd={handleBadgeTouchEnd}
+                  onClick={handleBadgeClick}
+                  className={`absolute -bottom-3.5 ${isMine ? "left-2" : "right-2"} bg-[#1a1a1a] border ${hasMyReaction ? "border-neutral-600 ring-1 ring-neutral-700/50" : "border-neutral-800"} rounded-full px-2 py-0.5 shadow-xl z-40 flex items-center justify-center text-[13px] gap-1 animate-in slide-in-from-bottom-2 zoom-in-95 duration-200 cursor-pointer hover:bg-neutral-800 transition-colors select-none`}
+                >
+                  <div className="flex items-center gap-0.5 pointer-events-none">
+                    {uniqueReactions.map((emoji, idx) => (
+                      <span key={idx} className="drop-shadow-md">
+                        {emoji}
+                      </span>
+                    ))}
+                  </div>
+                  {localReactions.length > 1 && (
+                    <span className="text-neutral-300 font-semibold text-[11px] px-0.5 pointer-events-none">
+                      {localReactions.length}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div
+              className={`flex items-center ml-2 relative transition-opacity ${showMenu ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100"}`}
             >
-              <MoreHorizontal size={18} />
-            </button>
-            {showMenu && (
-              <MessageMenu
-                msg={msg}
-                isMine={isMine}
-                onReaction={handleToggleReaction}
-                onSetReply={onSetReply}
-                onSetEdit={onSetEdit}
-                onUnsend={handleUnsend}
-                setActiveMenuId={setActiveMenuId}
-              />
-            )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveMenuId(showMenu ? null : msg._id || null);
+                }}
+                className="p-1.5 text-neutral-500 hover:text-white transition-colors rounded-full hover:bg-neutral-800 hidden md:flex"
+              >
+                <MoreHorizontal size={18} />
+              </button>
+              {showMenu && (
+                <MessageMenu
+                  msg={msg}
+                  isMine={isMine}
+                  isPinned={isPinned}
+                  onReaction={handleToggleReaction}
+                  onSetReply={onSetReply}
+                  onSetEdit={onSetEdit}
+                  onUnsend={handleUnsend}
+                  setActiveMenuId={setActiveMenuId}
+                />
+              )}
+            </div>
           </div>
+
+          {isLastMessage && (
+            <div
+              className={`text-[11px] text-neutral-500 mt-2 animate-in fade-in select-none ${isMine ? "text-right pr-1" : "text-left pl-1"}`}
+            >
+              {isMine
+                ? isSeen
+                  ? `Seen ${formatTimeAgo(msg.createdAt)}`
+                  : `Sent ${formatTimeAgo(msg.createdAt)}`
+                : formatTimeAgo(msg.createdAt)}
+            </div>
+          )}
         </div>
-        {isLastMessage && isMine && (
-          <div className="text-[11px] text-neutral-500 mt-2 text-right animate-in fade-in select-none pr-1">
-            {isSeen
-              ? `Seen ${formatTimeAgo(msg.createdAt)}`
-              : `Sent ${formatTimeAgo(msg.createdAt)}`}
-          </div>
-        )}
-        {isLastMessage && !isMine && (
-          <div className="text-[11px] text-neutral-500 mt-2 text-left animate-in fade-in select-none pl-1">
-            {formatTimeAgo(msg.createdAt)}
-          </div>
-        )}
       </div>
 
       <ReactionModal
@@ -499,3 +513,13 @@ export default function MessageBubble({
     </>
   );
 }
+
+export default React.memo(MessageBubble, (prev, next) => {
+  return (
+    prev.msg._id === next.msg._id &&
+    prev.msg.text === next.msg.text &&
+    prev.msg.reactions?.length === next.msg.reactions?.length &&
+    prev.isPinned === next.isPinned &&
+    prev.activeMenuId === next.activeMenuId
+  );
+});

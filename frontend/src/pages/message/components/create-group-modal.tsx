@@ -1,16 +1,15 @@
 import { useState, useEffect } from "react";
-import { X, Search, Loader2, Users, Check } from "lucide-react";
+import { X, Search, Loader2, Check } from "lucide-react";
 import { api } from "../../../lib/axios.config";
 import { useNavigate } from "react-router-dom";
 import type { IUser } from "../../../types/user.types";
 import { useAuthStore } from "../../../store/auth.store";
+import type { CreateGroupModalProps } from "../types";
 
-interface Props {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export default function CreateGroupModal({ isOpen, onClose }: Props) {
+export default function CreateGroupModal({
+  isOpen,
+  onClose,
+}: CreateGroupModalProps) {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -89,7 +88,7 @@ export default function CreateGroupModal({ isOpen, onClose }: Props) {
       >
         <div className="flex items-center justify-between p-4 border-b border-neutral-800">
           <div className="w-8" />
-          <h2 className="text-lg font-bold text-white">Նոր Խումբ</h2>
+          <h2 className="text-lg font-bold text-white">New Group</h2>
           <button
             onClick={onClose}
             className="p-2 text-neutral-400 hover:text-white transition rounded-full hover:bg-neutral-800"
@@ -101,7 +100,7 @@ export default function CreateGroupModal({ isOpen, onClose }: Props) {
         <div className="p-4 border-b border-neutral-800">
           <input
             type="text"
-            placeholder="Խմբի անունը (ոչ պարտադիր)"
+            placeholder="Group name (optional)"
             value={groupName}
             onChange={(e) => setGroupName(e.target.value)}
             className="w-full bg-black border border-neutral-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-neutral-500 mb-3"
@@ -113,7 +112,7 @@ export default function CreateGroupModal({ isOpen, onClose }: Props) {
             />
             <input
               type="text"
-              placeholder="Փնտրել մարդկանց..."
+              placeholder="Search people..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full bg-black border border-neutral-700 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm outline-none focus:border-neutral-500"
@@ -141,6 +140,7 @@ export default function CreateGroupModal({ isOpen, onClose }: Props) {
                     <img
                       src={u.avatar || "/default-avatar.png"}
                       className="w-10 h-10 rounded-full object-cover border border-neutral-800"
+                      alt={u.username}
                     />
                     <p className="text-white text-[15px] font-medium">
                       {u.username}
@@ -168,7 +168,7 @@ export default function CreateGroupModal({ isOpen, onClose }: Props) {
             {creating ? (
               <Loader2 className="animate-spin" size={20} />
             ) : (
-              `Ստեղծել խումբ (${selectedUsers.length})`
+              `Create Group (${selectedUsers.length})`
             )}
           </button>
         </div>
