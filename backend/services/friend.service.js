@@ -26,10 +26,17 @@ class FriendService {
     );
 
     const { message } = await followTx(sender, receiver, profileVisibility);
-    await notificationService.followNotification({
-      fromUser: sender,
-      toUser: receiver,
-    });
+    if (message == "FOLLOW_REQUEST") {
+      await notificationService.followRequestNotification({
+        fromUser: sender,
+        toUser: receiver,
+      });
+    } else {
+      await notificationService.followNotification({
+        fromUser: sender,
+        toUser: receiver,
+      });
+    }
     return message;
   }
   async accept(receiver, requestId) {
@@ -52,7 +59,8 @@ class FriendService {
     return true;
   }
   async cancel(sender, requestId) {
-    const receiver = await PolicyService.canRequestReaction(sender, requestId);
+    const receiver = await PolicyService.canCancelRequest(sender, requestId);
+
     await cancelRequestTx(requestId);
     await notificationService.cancelRequestNotification({
       fromUser: sender,

@@ -19,7 +19,7 @@ const followSchema = z.object({
 });
 
 const requestSchema = z.object({
-  receiver: idSchema,
+  requestId: idSchema,
 });
 
 const blockSchema = z.object({

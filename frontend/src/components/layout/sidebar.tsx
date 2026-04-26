@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/auth.store";
 import { useSocketStore } from "../../store/socket.store";
+import { useNotificationStore } from "../../store/notification.store";
 import { api } from "../../lib/axios.config";
 import {
   Home,
@@ -18,10 +19,11 @@ export default function Sidebar() {
   const { pathname } = useLocation();
   const { user } = useAuthStore();
   const socket = useSocketStore((state) => state.socket);
+  const { unreadCount, incomingRequests, fetchData } = useNotificationStore();
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [incomingRequestsCount, setIncomingRequestsCount] = useState(0);
   const [messageUnreadCount, setMessageUnreadCount] = useState(0);
+
+  const totalNotifsCount = unreadCount + incomingRequests.length;
 
   const navItems = useMemo(
     () => [
@@ -42,18 +44,15 @@ export default function Sidebar() {
   );
 
   useEffect(() => {
-    // [Պահպանված է քո օրիգինալ logic-ը]
     if (!user?._id) return;
-    const fetchCounters = async () => {
+
+    // Բերում է notification-ների քանակը հենց որ մտնում է համակարգ
+    fetchData();
+
+    // Միայն չատերի համար ենք թողել local հարցումը այստեղ, կամ կարող ես դա էլ հետագայում store տանել
+    const fetchChats = async () => {
       try {
-        const [notificationsRes, requestsRes, chatsRes] = await Promise.all([
-          api.get("/notifications/unread-count"),
-          api.get("/friends/requests?type=incoming&limit=50"),
-          api.get("/chats?limit=50"),
-        ]);
-        setNotificationCount(notificationsRes.data?.payload?.count || 0);
-        const totalIncoming = requestsRes.data?.payload?.length || 0;
-        setIncomingRequestsCount(totalIncoming);
+        const chatsRes = await api.get("/chats?limit=50");
         const chats =
           chatsRes.data?.payload?.chats || chatsRes.data?.payload || [];
         const unreadTotal = chats.reduce((acc: number, chat: any) => {
@@ -64,25 +63,18 @@ export default function Sidebar() {
         }, 0);
         setMessageUnreadCount(unreadTotal);
       } catch (error) {
-        console.error("Failed to load sidebar counters", error);
+        console.error("Failed to load sidebar chat counters", error);
       }
     };
-    fetchCounters();
-    const refresh = () => fetchCounters();
-    window.addEventListener("notifications:changed", refresh);
-    window.addEventListener("requests:changed", refresh);
-    window.addEventListener("messages:changed", refresh);
-    return () => {
-      window.removeEventListener("notifications:changed", refresh);
-      window.removeEventListener("requests:changed", refresh);
-      window.removeEventListener("messages:changed", refresh);
-    };
-  }, [user?._id]);
+
+    fetchChats();
+    window.addEventListener("messages:changed", fetchChats);
+    return () => window.removeEventListener("messages:changed", fetchChats);
+  }, [user?._id, fetchData]);
 
   useEffect(() => {
-    // [Պահպանված է քո օրիգինալ logic-ը]
     if (!socket) return;
-    const onNotification = () => setNotificationCount((value) => value + 1);
+
     const onMessage = (message: any) => {
       if (!pathname.startsWith("/messages")) {
         if (message?.sender?._id && message.sender._id !== user?._id) {
@@ -90,24 +82,20 @@ export default function Sidebar() {
         }
       }
     };
-    socket.on("notification", onNotification);
     socket.on("receive_message", onMessage);
+
     return () => {
-      socket.off("notification", onNotification);
       socket.off("receive_message", onMessage);
     };
   }, [pathname, socket, user?._id]);
 
   return (
     <>
-      {/* Փոփոխված է Sidebar-ի UI-ը՝ hover էֆեկտի համար */}
       <aside className="group/sidebar hidden md:flex fixed left-0 top-0 h-screen border-r border-neutral-800 flex-col px-3 py-6 w-[76px] hover:w-[244px] bg-black z-50 transition-all duration-300 overflow-hidden">
         <div className="px-3 mb-8 h-8 flex items-center">
-          {/* Լրիվ լոգոն՝ երևում է միայն hover-ի ժամանակ */}
           <h1 className="text-xl font-semibold font-serif italic tracking-tight opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-300 absolute whitespace-nowrap">
             Bardiner
           </h1>
-          {/* Կարճ լոգոն՝ անհետանում է hover-ի ժամանակ */}
           <div className="text-2xl font-bold italic opacity-100 group-hover/sidebar:opacity-0 transition-opacity duration-300 absolute">
             B
           </div>
@@ -133,10 +121,9 @@ export default function Sidebar() {
                       {Math.min(messageUnreadCount, 99)}
                     </span>
                   ) : null}
-                  {item.name === "Notifications" &&
-                  notificationCount + incomingRequestsCount > 0 ? (
+                  {item.name === "Notifications" && totalNotifsCount > 0 ? (
                     <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] leading-4 text-white text-center border border-black">
-                      {Math.min(notificationCount + incomingRequestsCount, 99)}
+                      {Math.min(totalNotifsCount, 99)}
                     </span>
                   ) : null}
                 </div>
@@ -210,13 +197,9 @@ export default function Sidebar() {
                         {Math.min(messageUnreadCount, 99)}
                       </span>
                     ) : null}
-                    {item.name === "Notifications" &&
-                    notificationCount + incomingRequestsCount > 0 ? (
+                    {item.name === "Notifications" && totalNotifsCount > 0 ? (
                       <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] leading-4 text-white text-center">
-                        {Math.min(
-                          notificationCount + incomingRequestsCount,
-                          99,
-                        )}
+                        {Math.min(totalNotifsCount, 99)}
                       </span>
                     ) : null}
                   </div>

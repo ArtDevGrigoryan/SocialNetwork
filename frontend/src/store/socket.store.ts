@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
 import { api } from "../lib/axios.config";
+import { useNotificationStore } from "./notification.store";
 
 export interface ISocketUserResult {
   _id: string;
@@ -14,18 +15,17 @@ export interface IRealtimeNotification {
   type: string;
   createdAt: string;
   isRead?: boolean;
+  meta?: any;
+  entity?: any;
 }
 
 type SocketState = {
   typingData: Record<string, { isRecording?: boolean }>;
   socket: Socket | null;
   connected: boolean;
-  notifications: IRealtimeNotification[];
-  unreadNotificationsCount: number;
 
   connect: (token: string) => void;
   disconnect: () => void;
-  markNotificationRead: (notificationId: string) => void;
 
   joinChat: (chatId: string) => void;
   leaveChat: (chatId: string) => void;
@@ -35,14 +35,11 @@ type SocketState = {
   sendVoice: (chatId: string) => void;
 };
 
-// ՊԱՀՈՒՄ ԵՆՔ ԹԱՅՄԵՐՆԵՐԸ ԱՅՍՏԵՂ
 const typingTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
 
 export const useSocketStore = create<SocketState>((set, get) => ({
   socket: null,
   connected: false,
-  notifications: [],
-  unreadNotificationsCount: 0,
   typingData: {},
 
   connect: (token: string) => {
@@ -60,7 +57,6 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     socket.on("error_event", async (err) => {
       if (err.statusCode === 401 || err.status === 401) {
         console.log("Socket token expired, attempting to refresh...");
-
         try {
           const { data } = await api.post("/auth/refresh", {
             accessToken: localStorage.getItem("accessToken"),
@@ -68,7 +64,6 @@ export const useSocketStore = create<SocketState>((set, get) => ({
           });
 
           const newToken = data.payload?.accessToken || data.accessToken;
-
           if (newToken) {
             socket.auth = { token: newToken };
             socket.connect();
@@ -84,7 +79,6 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       set({ connected: false });
     });
 
-    // ԼՍՈՒՄ ԵՆՔ TYPING ԵՎ ՄԱՔՐՈՒՄ 3 ՎԱՅՐԿՅԱՆԻՑ
     socket.on("typing", (data) => {
       set((state) => ({
         typingData: {
@@ -104,7 +98,6 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       }, 3000);
     });
 
-    // ԼՍՈՒՄ ԵՆՔ VOICE ԵՎ ՄԱՔՐՈՒՄ 3 ՎԱՅՐԿՅԱՆԻՑ
     socket.on("voice", (data) => {
       set((state) => ({
         typingData: {
@@ -124,11 +117,11 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       }, 3000);
     });
 
-    socket.on("notification", (notification: IRealtimeNotification) => {
-      set((state) => ({
-        notifications: [notification, ...state.notifications].slice(0, 100),
-        unreadNotificationsCount: state.unreadNotificationsCount + 1,
-      }));
+    // Լսում ենք backend-ի ճիշտ event-ը և փոխանցում notification.store-ին
+    socket.on("receive_notification", (notification: IRealtimeNotification) => {
+      useNotificationStore
+        .getState()
+        .addRealtimeNotification(notification as any);
     });
 
     set({ socket });
@@ -142,59 +135,30 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     set({
       socket: null,
       connected: false,
-      notifications: [],
-      unreadNotificationsCount: 0,
     });
   },
 
-  markNotificationRead: (notificationId: string) => {
-    set((state) => ({
-      notifications: state.notifications.map((item) =>
-        item._id === notificationId ? { ...item, isRead: true } : item,
-      ),
-      unreadNotificationsCount: Math.max(0, state.unreadNotificationsCount - 1),
-    }));
-  },
-
   joinChat: (chatId: string) => {
-    const socket = get().socket;
-    if (socket) {
-      socket.emit("join_chat", { chatId });
-    }
+    get().socket?.emit("join_chat", { chatId });
   },
 
   leaveChat: (chatId: string) => {
-    const socket = get().socket;
-    if (socket) {
-      socket.emit("leave_chat", { chatId });
-    }
+    get().socket?.emit("leave_chat", { chatId });
   },
 
   joinPost: (postId: string) => {
-    const socket = get().socket;
-    if (socket) {
-      socket.emit("join_post", { postId });
-    }
+    get().socket?.emit("join_post", { postId });
   },
 
   leavePost: (postId: string) => {
-    const socket = get().socket;
-    if (socket) {
-      socket.emit("leave_post", { postId });
-    }
+    get().socket?.emit("leave_post", { postId });
   },
 
   sendTyping: (chatId: string) => {
-    const socket = get().socket;
-    if (socket) {
-      socket.emit("typing", { chatId });
-    }
+    get().socket?.emit("typing", { chatId });
   },
 
   sendVoice: (chatId: string) => {
-    const socket = get().socket;
-    if (socket) {
-      socket.emit("voice", { chatId });
-    }
+    get().socket?.emit("voice", { chatId });
   },
 }));

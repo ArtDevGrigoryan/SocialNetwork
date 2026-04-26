@@ -12,15 +12,15 @@ class FriendController {
     return sendSuccess(res, data);
   }
   async accept(req, res) {
-    const data = await friendService.accept(req.user._id, req.body.receiver);
+    const data = await friendService.accept(req.user._id, req.body.requestId);
     return sendSuccess(res, data);
   }
   async cancel(req, res) {
-    const data = await friendService.cancel(req.user._id, req.body.receiver);
+    const data = await friendService.cancel(req.user._id, req.body.requestId);
     return sendSuccess(res, data);
   }
   async decline(req, res) {
-    const data = await friendService.decline(req.user._id, req.body.receiver);
+    const data = await friendService.decline(req.user._id, req.body.requestId);
     return sendSuccess(res, data);
   }
   async getFollowers(req, res) {
@@ -68,7 +68,11 @@ class FriendController {
   }
   async requests(req, res) {
     const { page, limit, type } = req.validated.query;
-    const data = await friendService.requests(req.user._id, { page, limit, type });
+    const data = await friendService.requests(req.user._id, {
+      page,
+      limit,
+      type,
+    });
     return sendSuccess(res, data);
   }
   async getBlockeds(req, res) {

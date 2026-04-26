@@ -139,110 +139,71 @@ class NotificationJobService {
   }
 
   static async "follow-request"(data) {
-    const { toUser } = data;
-    const canSend = await PrivacyPolicy.chekNotificationSetting(
-      toUser,
-      "follow_request",
-    );
-    if (!canSend) return;
+    try {
+      const { toUser } = data;
+      const canSend = await PrivacyPolicy.chekNotificationSetting(
+        toUser,
+        "follow_request",
+      );
+      if (!canSend) return;
 
-    const k = requestKey(toUser);
-    const { count, users } = await NotificationAggregator.consume(redis, {
-      countKey: k.countKey,
-      usersKey: k.usersKey,
-    });
+      const k = requestKey(toUser);
+      const { count, users } = await NotificationAggregator.consume(redis, {
+        countKey: k.countKey,
+        usersKey: k.usersKey,
+      });
 
-    if (!count) return;
+      if (!count) return;
 
-    const objectIdUsers = users
-      .slice(0, 3)
-      .map((id) => new mongoose.Types.ObjectId(id));
+      const objectIdUsers = users
+        .slice(0, 3)
+        .map((id) => new mongoose.Types.ObjectId(id));
 
-    const notification = await Notification.findOneAndUpdate(
-      { toUser, type: "REQUEST" },
-      [
-        {
-          $set: {
-            "meta.count": {
-              $cond: [
-                { $eq: ["$isRead", true] },
-                count,
-                { $add: [{ $ifNull: ["$meta.count", 0] }, count] },
-              ],
+      const notification = await Notification.findOneAndUpdate(
+        { toUser, type: "REQUEST" },
+        [
+          {
+            $set: {
+              "meta.count": {
+                $cond: [
+                  { $eq: ["$isRead", true] },
+                  count,
+                  { $add: [{ $ifNull: ["$meta.count", 0] }, count] },
+                ],
+              },
+              "meta.users": {
+                $cond: [
+                  { $eq: ["$isRead", true] },
+                  objectIdUsers,
+                  {
+                    $slice: [
+                      {
+                        $setUnion: [
+                          objectIdUsers,
+                          { $ifNull: ["$meta.users", []] },
+                        ],
+                      },
+                      3,
+                    ],
+                  },
+                ],
+              },
+              isRead: false,
             },
-            "meta.users": {
-              $cond: [
-                { $eq: ["$isRead", true] },
-                objectIdUsers,
-                {
-                  $slice: [
-                    {
-                      $setUnion: [
-                        objectIdUsers,
-                        { $ifNull: ["$meta.users", []] },
-                      ],
-                    },
-                    3,
-                  ],
-                },
-              ],
-            },
-            isRead: false,
           },
-        },
-      ],
-      { upsert: true, new: true },
-    ).populate("meta.users", "_id avatar bio username");
+        ],
+        { upsert: true, new: true, updatePipeline: true },
+      ).populate("meta.users", "_id avatar bio username");
 
-    await NotificationAggregator.clear(redis, [
-      k.countKey,
-      k.usersKey,
-      k.scheduledKey,
-    ]);
-    await socketService.notify(notification);
-  }
-
-  static async "comment-batch"(data) {
-    const { postId, toUser } = data;
-    const canSend = await PrivacyPolicy.chekNotificationSetting(
-      toUser,
-      "comment",
-    );
-    if (!canSend) return;
-
-    const k = keys({ type: "comment", entityId: postId, toUser });
-    const { count, users } = await NotificationAggregator.consume(redis, {
-      countKey: k.countKey,
-      usersKey: k.usersKey,
-    });
-    if (!count) return;
-
-    const notification = await Notification.findOneAndUpdate(
-      { type: "COMMENT", toUser, entity: postId, entityModel: "Post" },
-      [
-        {
-          $set: {
-            "meta.count": {
-              $cond: [
-                { $eq: ["$isRead", true] },
-                count,
-                { $add: ["$meta.count", count] },
-              ],
-            },
-            "meta.users": users.slice(0, 3),
-            isRead: false,
-          },
-        },
-      ],
-      { upsert: true, new: true },
-    ).populate("meta.users", "_id username avatar bio");
-
-    await NotificationAggregator.clear(redis, [
-      k.countKey,
-      k.usersKey,
-      k.scheduledKey,
-    ]);
-    await socketService.notify(notification);
+      await NotificationAggregator.clear(redis, [
+        k.countKey,
+        k.usersKey,
+        k.scheduledKey,
+      ]);
+      await socketService.notify(notification);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   static async "follow-batch"(data) {
@@ -275,49 +236,6 @@ class NotificationJobService {
       k.scheduledKey,
     ]);
     await socketService.notify(notif);
-  }
-
-  static async "follow-request"(data) {
-    const { toUser } = data;
-    const canSend = await PrivacyPolicy.chekNotificationSetting(
-      toUser,
-      "follow_request",
-    );
-    if (!canSend) return;
-
-    const k = requestKey(toUser);
-    const { count, users } = await NotificationAggregator.consume(redis, {
-      countKey: k.countKey,
-      usersKey: k.usersKey,
-    });
-    if (!count) return;
-
-    const notification = await Notification.findOneAndUpdate(
-      { toUser, type: "REQUEST" },
-      [
-        {
-          $set: {
-            "meta.count": {
-              $cond: [
-                { $eq: ["$isRead", true] },
-                count,
-                { $add: ["$meta.count", count] },
-              ],
-            },
-            "meta.users": users.slice(0, 3),
-            isRead: false,
-          },
-        },
-      ],
-      { upsert: true, new: true },
-    ).populate("meta.users", "_id avatar bio username");
-
-    await NotificationAggregator.clear(redis, [
-      k.countKey,
-      k.usersKey,
-      k.scheduledKey,
-    ]);
-    await socketService.notify(notification);
   }
 
   static async message(data) {
@@ -651,7 +569,7 @@ class NotificationJobService {
       })),
     );
 
-    const populated = notifications.map((noitf) => ({
+    const populated = notifications.map((notif) => ({
       ...notif.toObject(),
       meta: { ...notif.meta, users: user },
     }));
@@ -681,7 +599,7 @@ class NotificationJobService {
         },
       })),
     );
-    const populated = notifications.map((noitf) => ({
+    const populated = notifications.map((notif) => ({
       ...notif.toObject(),
       meta: { ...notif.meta, users: user },
     }));

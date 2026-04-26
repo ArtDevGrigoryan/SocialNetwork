@@ -13,15 +13,12 @@ export const Profile = () => {
   const { id } = useParams<{ id: string }>();
   const { user: currentUser } = useAuthStore();
 
-  // Օգտատիրոջ տվյալների վիճակ (State)
   const [targetUser, setTargetUser] = useState<IUser | null>(null);
 
-  // Ներդիրների (Tabs) վիճակ (State)
   const [activeTab, setActiveTab] = useState("posts");
   const [tabData, setTabData] = useState<IPost[]>([]);
   const [loadingTab, setLoadingTab] = useState(true);
 
-  // Մոդալների վիճակ (Modals State)
   const [selectedPost, setSelectedPost] = useState<IPost | null>(null);
   const [usersModal, setUsersModal] = useState({
     open: false,
@@ -33,7 +30,6 @@ export const Profile = () => {
 
   const isOwner = currentUser?._id === id;
 
-  // 1. Բեռնում ենք միայն պրոֆիլի սեփականատիրոջ տվյալները
   const fetchUser = useCallback(async () => {
     if (!id) return;
     try {
@@ -60,31 +56,27 @@ export const Profile = () => {
     };
   }, [fetchUser]);
 
-  // 2. Դինամիկ բեռնում ենք Գրիդի (Grid) տվյալները՝ ըստ ակտիվ ներդիրի
   useEffect(() => {
     const fetchTabData = async () => {
       if (!id) return;
 
       setLoadingTab(true);
-      setTabData([]); // Մաքրում ենք նախորդ գրիդը անիմացիայի համար
+      setTabData([]);
 
       try {
         let res;
 
-        // Հիմնված api.js-ի վրա
         if (activeTab === "posts") {
           res = await api.get(`/posts?author=${id}`);
           setTabData(res.data.payload || []);
         } else if (activeTab === "saved" && isOwner) {
           res = await api.get(`/saves`);
-          // Ենթադրելով, որ save ռոութը վերադարձնում է մոդելներ՝ populate արված post դաշտով
           const extractedPosts = (res.data.payload || []).map(
             (item: any) => item.post || item,
           );
           setTabData(extractedPosts);
         } else if (activeTab === "reposts") {
           res = await api.get(`/reposts?user=${id}`);
-          // Նույն տրամաբանությունը repost-ների համար
           const extractedPosts = (res.data.payload || []).map(
             (item: any) => item.post || item,
           );

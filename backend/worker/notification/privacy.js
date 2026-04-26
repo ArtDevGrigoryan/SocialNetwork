@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Setting = require("@models/setting");
 const Follow = require("@models/follow");
 const Participant = require("@models/participants");
@@ -8,11 +9,17 @@ class PrivacyPolicy {
     const setting = await Setting.findOne({
       user: userId,
     }).lean();
-    return !!setting.notifications[prop];
+
+    if (!setting) return false;
+    return !!setting?.notifications?.[prop];
   }
+
   static async participantsSettings(chatId, without = []) {
+    const chatIdObj = new mongoose.Types.ObjectId(chatId);
+    const withoutObjs = without.map((id) => new mongoose.Types.ObjectId(id));
+
     return await Participant.aggregate([
-      { $match: { chatId, user: { $nin: without } } },
+      { $match: { chatId: chatIdObj, user: { $nin: withoutObjs } } },
       {
         $lookup: {
           from: "settings",
@@ -39,6 +46,7 @@ class PrivacyPolicy {
       },
     ]);
   }
+
   static async checkNotificationFollowers(fromUser, action = "post") {
     const key = action === "post" ? "new_post" : "new_story";
 
@@ -88,6 +96,7 @@ class PrivacyPolicy {
 
     return finalUsers;
   }
+
   static async checkParticipantNotification(userId, chatId, prop) {
     const participant = await Participant.findOne({
       user: userId,

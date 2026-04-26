@@ -360,6 +360,21 @@ class PolicyService {
       throw new NotFoundException("Follow not found");
     }
   }
+  static async canCancelRequest(senderId, requestId, session = null) {
+    const request = await this.withSession(
+      FriendRequest.findOne({
+        _id: requestId,
+        sender: senderId,
+        status: "PENDING",
+      }),
+      session,
+    ).lean();
+
+    if (!request) {
+      throw new NotFoundException("Request not found");
+    }
+    return request.receiver;
+  }
   static async canRequestReaction(receiver, requestId, session = null) {
     const request = await this.withSession(
       FriendRequest.findOne({
