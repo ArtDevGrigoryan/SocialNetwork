@@ -130,7 +130,6 @@ export const Profile = () => {
         isOwner={isOwner}
       />
 
-      {/* Grid Բեռնման Վիճակ */}
       <div className="mt-4 px-px md:px-0 min-h-[300px]">
         {loadingTab ? (
           <div className="grid grid-cols-3 gap-1 md:gap-4">

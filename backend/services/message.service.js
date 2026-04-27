@@ -142,8 +142,10 @@ class MessageService {
   }
 
   async addImage(participantId, chatId, imageFile, text, replyTo = null) {
-    const { chat, participant, notificationTargets } =
-      await PolicyService.canSendMessage(participantId, chatId);
+    const { chat, participant } = await PolicyService.canSendMessage(
+      participantId,
+      chatId,
+    );
 
     const result = await mediaService.upload(imageFile, "messages");
     const { url, key } = result[0];
@@ -173,10 +175,14 @@ class MessageService {
       ...populatedMessage.toObject(),
       chatId,
     });
+    await notificationService.messageNotification({
+      fromUser: participant.user,
+      messageId: message._id,
+      chatId,
+    });
     return populatedMessage;
   }
 
-  // Ռեակցիաների կոդը անփոփոխ է
   async addReaction({ participantId, msgId, reaction }) {
     const msg = await Message.findById(msgId);
     if (!msg) throw new NotFoundException("Message not found");
@@ -300,6 +306,11 @@ class MessageService {
       ...populatedMessage.toObject(),
       chatId,
     });
+    await notificationService.messageNotification({
+      fromUser: participant.user,
+      messageId: message._id,
+      chatId,
+    });
     return populatedMessage;
   }
 
@@ -386,6 +397,11 @@ class MessageService {
       ...populatedMessage.toObject(),
       chatId,
     });
+    await notificationService.messageNotification({
+      fromUser: participant.user,
+      messageId: message._id,
+      chatId,
+    });
     return populatedMessage;
   }
 
@@ -416,6 +432,11 @@ class MessageService {
 
     await socketService.emitReceiveMessage(chatId, {
       ...populatedMessage.toObject(),
+      chatId,
+    });
+    await notificationService.messageNotification({
+      fromUser: participant.user,
+      messageId: message._id,
       chatId,
     });
     return populatedMessage;

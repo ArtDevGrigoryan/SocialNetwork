@@ -9,15 +9,12 @@ interface Props {
 }
 
 export default function EditProfile({ showAlert }: Props) {
-  // Օգտագործում ենք քո ունեցած patchUser-ը (կամ setUser-ը),
-  // որ էջը refresh անելու կարիք չլինի update-ից հետո
   const { user, patchUser } = useAuthStore();
 
   const [name, setName] = useState(user?.username || "");
   const [bio, setBio] = useState(user?.bio || "");
   const [loading, setLoading] = useState(false);
 
-  // Նկարի համար նախատեսված state-եր
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
 
@@ -27,7 +24,7 @@ export default function EditProfile({ showAlert }: Props) {
     const file = e.target.files?.[0];
     if (file) {
       setAvatarFile(file);
-      setAvatarPreview(URL.createObjectURL(file)); // Անմիջապես ցույց է տալիս նկարը նախքան save անելը
+      setAvatarPreview(URL.createObjectURL(file));
     }
   };
 
@@ -37,8 +34,6 @@ export default function EditProfile({ showAlert }: Props) {
     setLoading(true);
 
     try {
-      // Որպեսզի backend-ը հասկանա upload.single("avatar")-ը,
-      // պարտադիր ուղարկում ենք FormData-ով:
       const formData = new FormData();
       if (name !== user?.username) formData.append("name", name);
       if (bio !== user?.bio) formData.append("bio", bio);
@@ -116,7 +111,6 @@ export default function EditProfile({ showAlert }: Props) {
           </p>
         </div>
 
-        {/* Bio հատվածը՝ ավելացված ճիշտ քո inputs-ների ոճով */}
         <div className="flex flex-col gap-2">
           <label className="text-sm font-semibold text-white">Bio</label>
           <textarea

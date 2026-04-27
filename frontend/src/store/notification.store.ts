@@ -1,35 +1,20 @@
 import { create } from "zustand";
 import { api } from "../lib/axios.config";
-
-export interface IUserMini {
-  _id: string;
-  username: string;
-  avatar?: string;
-}
-
-export interface INotification {
-  _id: string;
-  type: string;
-  createdAt: string;
-  isRead: boolean;
-  toUser: string;
-  meta?: { count?: number; users?: IUserMini[] };
-  entity?: any;
-}
-
-export interface IRequest {
-  _id: string;
-  sender: IUserMini;
-  receiver: IUserMini;
-  createdAt: string;
-}
+import type {
+  IMessageNotification,
+  INotification,
+  IRequest,
+} from "../types/notification";
 
 interface NotificationState {
   notifications: INotification[];
   incomingRequests: IRequest[];
   unreadCount: number;
   isLoading: boolean;
-
+  activeToast: INotification | null;
+  deleteNotification: (id: string) => Promise<void>;
+  deleteAllNotifications: () => Promise<void>;
+  setActiveToast: (notification: INotification | null) => void;
   initPushNotifications: () => void;
   fetchData: () => Promise<void>;
   markAsRead: (id: string, isRead: boolean) => Promise<void>;
@@ -47,7 +32,37 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   incomingRequests: [],
   unreadCount: 0,
   isLoading: true,
+  activeToast: null,
 
+  setActiveToast: (notification) => set({ activeToast: notification }),
+  deleteNotification: async (id) => {
+    set((state) => {
+      const notifToRemove = state.notifications.find((n) => n._id === id);
+      const isUnread = notifToRemove && !notifToRemove.isRead;
+
+      return {
+        notifications: state.notifications.filter((n) => n._id !== id),
+        unreadCount: isUnread
+          ? Math.max(0, state.unreadCount - 1)
+          : state.unreadCount,
+      };
+    });
+
+    try {
+      await api.delete(`/notifications/${id}`);
+    } catch (error) {
+      console.error("Failed to delete notification", error);
+    }
+  },
+  deleteAllNotifications: async () => {
+    set({ notifications: [], unreadCount: 0 });
+
+    try {
+      await api.delete("/notifications");
+    } catch (error) {
+      console.error("Failed to delete all notifications", error);
+    }
+  },
   initPushNotifications: () => {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
@@ -70,19 +85,21 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         isLoading: false,
       });
     } catch (error) {
-      console.error("Failed to fetch notifications data", error);
+      console.error("Failed to fetch notifications", error);
       set({ isLoading: false });
     }
   },
 
   markAsRead: async (id, isRead) => {
     if (isRead) return;
+
     set((state) => ({
       notifications: state.notifications.map((n) =>
         n._id === id ? { ...n, isRead: true } : n,
       ),
       unreadCount: Math.max(0, state.unreadCount - 1),
     }));
+
     try {
       await api.patch(`/notifications/${id}/read`);
     } catch (error) {
@@ -103,6 +120,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   handleRequestAction: async (request, action) => {
+    const previousRequests = get().incomingRequests;
     set((state) => ({
       incomingRequests: state.incomingRequests.filter(
         (req) => req.sender?._id !== request.sender?._id,
@@ -113,14 +131,24 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       await api.patch(`/friends/${action}`, { requestId: request._id });
     } catch (error) {
       console.error(`Failed to ${action} request`, error);
-      get().fetchData();
+      set({ incomingRequests: previousRequests });
       throw error;
     }
   },
 
   addRealtimeNotification: (notification) => {
+    if (notification.type === "MESSAGE") {
+      const notif = notification as IMessageNotification;
+      const currentPath = window.location.pathname;
+      const id = notif.entity.chat;
+      const isInChat = currentPath.includes(id);
+
+      if (isInChat) {
+        return;
+      }
+    }
+
     set((state) => {
-      // Կանխում ենք նույն notification-ի կրկնակի ավելացումը
       const exists = state.notifications.some(
         (n) => n._id === notification._id,
       );
@@ -129,10 +157,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       return {
         notifications: [notification, ...state.notifications],
         unreadCount: state.unreadCount + 1,
+        activeToast: notification,
       };
     });
 
-    // Native Push: ցույց տալ միայն, եթե էջը տեսանելի չէ
     if (
       "Notification" in window &&
       Notification.permission === "granted" &&
@@ -154,6 +182,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         case "MESSAGE":
           body = `sent you a message.`;
           break;
+        case "ACCEPTED":
+          body = `accepted your follow request.`;
+          break;
       }
 
       const notif = new Notification("Bardiner-Social", {
@@ -171,9 +202,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   addRealtimeRequest: (request) => {
-    set((state) => ({
-      incomingRequests: [request, ...state.incomingRequests],
-    }));
+    set((state) => {
+      if (state.incomingRequests.some((r) => r._id === request._id))
+        return state;
+      return { incomingRequests: [request, ...state.incomingRequests] };
+    });
 
     if (
       "Notification" in window &&

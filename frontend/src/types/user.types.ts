@@ -64,7 +64,7 @@ export interface IComment {
   _id: string;
   post: string;
   author: IUser;
-  content: string;
+  text: string;
   createdAt: string;
 }
 
@@ -76,7 +76,7 @@ export interface IChat {
 
 export interface IMessage {
   _id: string;
-  chatId: string;
+  chat: string;
   senderId: string;
   text: string;
   createdAt: string;

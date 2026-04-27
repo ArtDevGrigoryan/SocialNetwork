@@ -18,6 +18,11 @@ class PostService {
   async create(user, files, content) {
     const result = await mediaService.upload(files, "post");
     const post = await Post.create({ author: user, images: result, content });
+    await notificationService.newPostNotification({
+      postId: post._id,
+      fromUser: user,
+    });
+
     return post;
   }
   async update(user, postId, data) {

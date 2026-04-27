@@ -116,14 +116,13 @@ export default function CreateStoryModal({
       const formData = new FormData();
       formData.append("story", file);
       formData.append("type", type);
-      // Zod schema requires non-empty string, so we send "none" if no music is selected
       formData.append("musicUrl", selectedMusic ? selectedMusic.url : "none");
 
       await api.post("/stories", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      window.dispatchEvent(new Event("story:created")); // Refresh stories
+      window.dispatchEvent(new Event("story:created"));
       onClose();
     } catch (error) {
       console.error("Error uploading story:", error);
@@ -171,7 +170,6 @@ export default function CreateStoryModal({
           </div>
         ) : (
           <div className="relative w-full h-full flex flex-col bg-black">
-            {/* Top Controls Overlay */}
             <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/60 to-transparent">
               <button
                 onClick={() => setFile(null)}
@@ -190,7 +188,6 @@ export default function CreateStoryModal({
               </button>
             </div>
 
-            {/* Media Preview */}
             <div className="flex-1 flex items-center justify-center overflow-hidden">
               {type === "image" ? (
                 <img
@@ -210,7 +207,6 @@ export default function CreateStoryModal({
               )}
             </div>
 
-            {/* Music Selection Bottom Sheet */}
             {showMusicList && (
               <div className="absolute inset-x-0 bottom-16 bg-neutral-900 rounded-t-2xl p-4 shadow-xl border-t border-neutral-800 animate-in slide-in-from-bottom-10 z-20">
                 <div className="w-12 h-1 bg-neutral-700 rounded-full mx-auto mb-4" />
@@ -250,7 +246,6 @@ export default function CreateStoryModal({
                     </div>
                   ))}
 
-                  {/* Remove Music Option */}
                   <div
                     onClick={() => {
                       setSelectedMusic(null);
@@ -269,7 +264,6 @@ export default function CreateStoryModal({
               </div>
             )}
 
-            {/* Submit Button Overlay */}
             <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
               <button
                 onClick={handleSubmit}

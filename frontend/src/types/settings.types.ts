@@ -1,5 +1,3 @@
-// src/types/settings.types.ts
-
 export interface ISettings {
   notifications: {
     accept_request: boolean;

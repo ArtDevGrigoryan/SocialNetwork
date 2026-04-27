@@ -453,7 +453,10 @@ class ChatService {
 
     const populatedChat = await this.find(myId, chat._id);
     await socketService.emitNewChat(uniqueIds, populatedChat);
-
+    await notificationService.newGroupNotification({
+      chatId: chat._id,
+      fromUser: myId,
+    });
     return populatedChat;
   }
 

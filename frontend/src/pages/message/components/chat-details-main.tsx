@@ -55,7 +55,6 @@ export default function ChatDetailsMain({
   const handleUnpin = async (msgId: string) => {
     if (!chatId || !myParticipant?._id) return;
 
-    // Optimistic UI update: Immediately remove only this specific message
     setChats(
       chats.map((c) => {
         if (c._id === chatId) {

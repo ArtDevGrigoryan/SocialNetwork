@@ -60,7 +60,6 @@ export default function MessageMenu({
       ref={menuRef}
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
-      // isMine-ից կախված մենյուն բացվում է աջ կամ ձախ, որ էկրանից դուրս չգնա
       className={`absolute ${isMine ? "right-0" : "left-0"} top-full mt-1 bg-[#1a1a1a] border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden z-[9999] min-w-[200px] flex flex-col py-1.5 animate-in zoom-in-95`}
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-800/50 bg-neutral-900/50">

@@ -11,7 +11,6 @@ interface Props {
 export default function VerifyEmail({ showAlert }: Props) {
   const { user } = useAuthStore();
 
-  // States
   const [code, setCode] = useState("");
   const [loadingVerify, setLoadingVerify] = useState(false);
   const [loadingResend, setLoadingResend] = useState(false);
@@ -58,7 +57,6 @@ export default function VerifyEmail({ showAlert }: Props) {
       await api.post("/auth/verify-email", { code });
       showAlert("success", "Email verified successfully.");
 
-      // Backend-ում հաստատվելուց հետո թարմացնում ենք local state-ը
       setIsVerified(true);
       setCode("");
       setStep("idle");
@@ -72,7 +70,6 @@ export default function VerifyEmail({ showAlert }: Props) {
     }
   };
 
-  // Քանի դեռ backend-ից ստուգում է config-ը, ցույց ենք տալիս loader
   if (fetchingConfig) {
     return (
       <div className="max-w-lg space-y-8 animate-in fade-in flex justify-center py-20">
@@ -81,7 +78,6 @@ export default function VerifyEmail({ showAlert }: Props) {
     );
   }
 
-  // Եթե backend-ի userConfig-ն ասում է, որ արդեն հաստատված է
   if (isVerified) {
     return (
       <div className="max-w-lg space-y-8 animate-in fade-in zoom-in-95 duration-300">
@@ -105,7 +101,6 @@ export default function VerifyEmail({ showAlert }: Props) {
     );
   }
 
-  // Եթե դեռ հաստատված չէ՝ ցույց ենք տալիս ստանդարտ հաստատման flow-ն
   return (
     <div className="max-w-lg space-y-8 animate-in fade-in duration-300">
       <h2 className="text-2xl font-bold text-white hidden md:block">

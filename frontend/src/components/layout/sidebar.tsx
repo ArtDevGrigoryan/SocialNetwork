@@ -46,10 +46,8 @@ export default function Sidebar() {
   useEffect(() => {
     if (!user?._id) return;
 
-    // Բերում է notification-ների քանակը հենց որ մտնում է համակարգ
     fetchData();
 
-    // Միայն չատերի համար ենք թողել local հարցումը այստեղ, կամ կարող ես դա էլ հետագայում store տանել
     const fetchChats = async () => {
       try {
         const chatsRes = await api.get("/chats?limit=50");

@@ -12,7 +12,7 @@ interface StoryUser {
 }
 
 interface StoryGroup {
-  _id: string; // userId
+  _id: string;
   user: StoryUser;
   hasUnseen: boolean;
 }
@@ -34,12 +34,10 @@ export default function StoryBar() {
     try {
       setLoading(true);
 
-      // 1. Քաշում ենք ընկերների սթորիները (Feed)
       const { data } = await api.get("/stories");
       const allGroups: StoryGroup[] = data.payload || [];
-      setOtherStories(allGroups.filter((g) => g._id !== user?._id)); // Ապահովագրում ենք, որ մենք կրկնակի չլինենք
+      setOtherStories(allGroups.filter((g) => g._id !== user?._id));
 
-      // 2. ԱՌԱՆՁԻՆ քաշում ենք ՀԵՆՑ ՄԵՐ սթորիները, որ կարողանանք նայել դրանք
       if (user?._id) {
         const { data: myData } = await api.get(`/stories/user/${user._id}`);
         const myStories = myData.payload || [];
@@ -66,7 +64,6 @@ export default function StoryBar() {
     }
   };
 
-  // Next/Prev User տրամաբանություն Viewer-ի համար
   const handleNextUser = () => {
     const userIds = [];
     if (myStoriesCount > 0 && user) userIds.push(user._id);
@@ -104,7 +101,6 @@ export default function StoryBar() {
           className="flex items-center gap-4 overflow-x-auto story-scroll snap-x"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-          {/* 1. ԻՄ ՍԹՈՐԻՆԵՐԸ (Current User) */}
           <div className="flex flex-col items-center gap-1 shrink-0 snap-start">
             <div
               className={`relative rounded-full cursor-pointer transition-transform hover:scale-[1.02] ${
@@ -115,7 +111,6 @@ export default function StoryBar() {
                     : "p-[2px] border border-neutral-800"
               }`}
               onClick={() => {
-                // Եթե ունենք սթորի, ԱՎԱՏԱՐԻՆ սեղմելիս բացում է դիտելու պատուհանը
                 if (myStoriesCount > 0) {
                   setViewingUserId(user?._id || null);
                 } else {
@@ -133,10 +128,9 @@ export default function StoryBar() {
                 />
               </div>
 
-              {/* + (Plus) Կոճակը միշտ առկա է. Սեղմելիս բացում է Create Story-ն */}
               <div
                 onClick={(e) => {
-                  e.stopPropagation(); // Որպեսզի ավատարի click-ը չաշխատի
+                  e.stopPropagation();
                   setIsCreateModalOpen(true);
                 }}
                 className="absolute bottom-0 right-0 bg-blue-500 rounded-full border-2 border-black p-0.5 flex items-center justify-center cursor-pointer hover:scale-110 transition z-10"
@@ -149,7 +143,6 @@ export default function StoryBar() {
             </span>
           </div>
 
-          {/* 2. ԸՆԿԵՐՆԵՐԻ ՍԹՈՐԻՆԵՐԸ (Other Users) */}
           {loading
             ? Array.from({ length: 6 }).map((_, i) => (
                 <div
@@ -170,7 +163,7 @@ export default function StoryBar() {
                     className={`rounded-full p-[2.5px] ${
                       group.hasUnseen
                         ? "bg-gradient-to-tr from-yellow-400 via-rose-500 to-fuchsia-600"
-                        : "bg-neutral-700" // Եթե նայել ես, մնում է, բայց մոխրագույն գույնով
+                        : "bg-neutral-700"
                     }`}
                   >
                     <div className="bg-black rounded-full p-[2px] w-[60px] h-[60px]">

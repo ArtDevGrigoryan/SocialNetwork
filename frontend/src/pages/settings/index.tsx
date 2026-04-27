@@ -84,7 +84,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* DESKTOP VIEW */}
       <div className="hidden md:flex fixed top-0 bottom-0 left-[80px] xl:left-[244px] right-0 bg-black z-20 overflow-hidden">
         <div className="w-[315px] border-r border-neutral-800 bg-black shrink-0 flex flex-col pt-10 pb-6">
           <h2 className="text-xl font-bold text-white px-8 mb-6">Settings</h2>
@@ -120,7 +119,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* MOBILE VIEW */}
       <div className="md:hidden flex flex-col w-full min-h-screen bg-black pb-20">
         {mobileView === "menu" ? (
           <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-200 pt-4">

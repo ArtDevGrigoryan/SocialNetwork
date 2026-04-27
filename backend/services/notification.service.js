@@ -42,7 +42,7 @@ class NotificationService {
     });
   }
 
-  async commentNotification({ postId, fromUser, toUser }) {
+  async commentNotification({ postId, fromUser, toUser, commentId }) {
     if (fromUser === toUser) return;
     const { scheduledKey, usersKey, countKey } = keys({
       type: "comment",
@@ -53,7 +53,7 @@ class NotificationService {
     await NotificationService.#enqueueOnce({
       scheduledKey,
       jobName: JOBS.COMMENT,
-      payload: { postId, toUser },
+      payload: { postId, toUser, commentId },
     });
   }
 
@@ -135,11 +135,10 @@ class NotificationService {
     );
   }
 
-  async messageNotification({ fromUser, toUser, messageId }) {
-    if (fromUser === toUser) return;
+  async messageNotification({ fromUser, messageId, chatId }) {
     await notificationQueue.add(
       JOBS.MESSAGE,
-      { fromUser, toUser, messageId },
+      { fromUser, messageId, chatId },
       {
         removeOnComplete: true,
         attempts: 3,

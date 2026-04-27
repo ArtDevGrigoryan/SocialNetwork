@@ -6,8 +6,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js",
     "back": "nodemon index.js",
-    "notif": "node ./worker/notification/index.js",
-    "story": "node ./worker/story/index.js",
+    "notif": "nodemon ./worker/notification/index.js",
+    "story": "nodemon ./worker/story/index.js",
     "test:notif": "node ./tests/bullMq.test.js"
   },
   "keywords": [],

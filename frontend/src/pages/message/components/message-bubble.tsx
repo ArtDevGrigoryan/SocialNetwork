@@ -60,7 +60,6 @@ function MessageBubble({
     setLocalReactions(msg.reactions || []);
   }, [msg.reactions]);
 
-  // Նիկնեյմի կամ յուզերնեյմի ընտրությունը
   const senderParticipant = chatParticipants.find(
     (p) => p.user._id === msg.sender?._id,
   );
@@ -295,7 +294,6 @@ function MessageBubble({
         className={`flex w-full ${isMine ? "justify-end" : "justify-start"} ${marginClass} relative`}
         style={{ WebkitTouchCallout: "none", zIndex: showMenu ? 9999 : "auto" }}
       >
-        {/* Նկարի (Avatar) բլոկը */}
         {!isMine && (
           <div className="w-8 shrink-0 mr-2 flex items-end pb-1">
             {showAvatar &&
@@ -316,7 +314,6 @@ function MessageBubble({
         <div
           className={`flex flex-col ${isMine ? "items-end" : "items-start"} max-w-[calc(100%-2.5rem)]`}
         >
-          {/* ԱՆՈՒՆԸ (միայն խմբերի դեպքում) */}
           {showName && (
             <span className="text-[12px] text-neutral-400 ml-1 mb-1 font-medium select-none">
               {displayName}

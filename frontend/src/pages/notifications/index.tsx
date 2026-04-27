@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Loader2, Heart, ChevronRight } from "lucide-react";
+import { Loader2, Heart, ChevronRight, Trash2 } from "lucide-react";
 import { useNotificationStore } from "../../store/notification.store";
 import { cn } from "../../lib/utils";
 import { RequestsBanner } from "./components/request-banner";
 import { FollowRequestItem } from "./components/request-item";
 import { NotificationItem } from "./components/notif-item";
+import type { StrictNotification } from "../../types/notification";
 
 export default function NotificationsPage() {
   const {
@@ -13,8 +14,8 @@ export default function NotificationsPage() {
     isLoading,
     fetchData,
     initPushNotifications,
+    deleteAllNotifications,
   } = useNotificationStore();
-
   const [showRequests, setShowRequests] = useState(false);
 
   useEffect(() => {
@@ -42,7 +43,6 @@ export default function NotificationsPage() {
         </h1>
       </div>
 
-      {/* Follow Requests Section */}
       {!showRequests && (
         <RequestsBanner
           requests={incomingRequests}
@@ -50,7 +50,6 @@ export default function NotificationsPage() {
         />
       )}
 
-      {/* Expanded Follow Requests View */}
       {showRequests && (
         <div className="mb-4">
           <div
@@ -66,11 +65,21 @@ export default function NotificationsPage() {
         </div>
       )}
 
-      {/* Main Notifications Feed */}
       <div className={cn("flex flex-col", showRequests && "hidden")}>
-        <h2 className="px-4 py-2 text-sm font-bold text-white border-t border-neutral-900 mt-2 pt-4">
-          New
-        </h2>
+        <div className="flex items-center justify-between px-4 py-2 border-t border-neutral-900 mt-2 pt-4">
+          <h2 className="text-sm font-bold text-white">New</h2>
+
+          {notifications.length > 0 && (
+            <button
+              onClick={deleteAllNotifications}
+              className="flex items-center gap-1.5 text-xs font-semibold text-neutral-400 hover:text-red-500 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Remove All
+            </button>
+          )}
+        </div>
+
         {notifications.length === 0 ? (
           <div className="p-10 flex flex-col items-center justify-center text-center">
             <div className="w-16 h-16 rounded-full border border-neutral-800 flex items-center justify-center mb-4">
@@ -82,7 +91,10 @@ export default function NotificationsPage() {
           </div>
         ) : (
           notifications.map((item) => (
-            <NotificationItem key={item._id} item={item} />
+            <NotificationItem
+              key={item._id}
+              item={item as StrictNotification}
+            />
           ))
         )}
       </div>

@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { api } from "../../lib/axios.config";
 
-// Խիստ տիպավորում՝ հիմնված backend-ի ռեալ response-ի վրա
 export interface IStoryData {
   _id: string;
   createdAt: string;
@@ -50,18 +49,15 @@ export default function StoryViewer({
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
 
-  // Interaction states
   const [isPaused, setIsPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
-  // Refs for logic
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const progressRef = useRef(0);
   const animationRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
 
-  // 1. Քաշում ենք տվյալ user-ի սթորիները և գտնում ճիշտ մեկնարկային կետը
   useEffect(() => {
     const fetchUserStories = async () => {
       try {
@@ -87,7 +83,6 @@ export default function StoryViewer({
 
   const currentStory = stories[currentIndex];
 
-  // 2. Գրանցում ենք դիտումը Backend-ում (uniqueStory route)
   useEffect(() => {
     if (!currentStory) return;
 
@@ -102,7 +97,6 @@ export default function StoryViewer({
     }
   }, [currentIndex, currentStory]);
 
-  // 3. Նավիգացիոն ֆունկցիաներ
   const handleNext = useCallback(() => {
     if (currentIndex < stories.length - 1) {
       setCurrentIndex((prev) => prev + 1);
@@ -121,7 +115,6 @@ export default function StoryViewer({
     }
   }, [currentIndex, onPrevUser]);
 
-  // 4. Progress bar-ի սահուն անիմացիա (requestAnimationFrame)
   useEffect(() => {
     if (loading || !currentStory) return;
 
@@ -129,7 +122,7 @@ export default function StoryViewer({
     setProgress(0);
     lastTimeRef.current = performance.now();
 
-    const duration = 5000; // Նկարը ցուցադրվում է 5 վայրկյան
+    const duration = 5000;
 
     const animate = (time: number) => {
       if (isPaused) {
@@ -163,9 +156,7 @@ export default function StoryViewer({
     };
   }, [currentIndex, loading, currentStory, isPaused, handleNext]);
 
-  // 5. Media (Audio/Video) կառավարում
   useEffect(() => {
-    // Դադարեցնում ենք երաժշտությունը նոր սթորիի անցնելիս
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -177,12 +168,10 @@ export default function StoryViewer({
       return;
     }
 
-    // Վիդեոյի միացում
     if (currentStory.media.type === "video") {
       videoRef.current?.play().catch(console.error);
     }
 
-    // Երաժշտության միացում
     const hasValidMusic =
       currentStory.media.backgroundMusic &&
       currentStory.media.backgroundMusic !== "none" &&
@@ -195,7 +184,6 @@ export default function StoryViewer({
     }
   }, [currentIndex, currentStory, isPaused, isMuted]);
 
-  // Ժամանակի ֆորմատավորում (օրինակ՝ "3h")
   const getRelativeTime = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -224,7 +212,6 @@ export default function StoryViewer({
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95">
       <audio ref={audioRef} loop muted={isMuted} />
 
-      {/* Desktop Controls */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -253,7 +240,6 @@ export default function StoryViewer({
       </button>
 
       <div className="relative w-full h-full sm:w-[400px] sm:h-[90vh] bg-neutral-900 sm:rounded-xl overflow-hidden flex flex-col shadow-2xl">
-        {/* Progress Bars (Instagram style) */}
         <div className="absolute top-0 left-0 right-0 z-20 flex gap-1 p-2 bg-gradient-to-b from-black/60 to-transparent">
           {stories.map((_, idx) => (
             <div
@@ -275,7 +261,6 @@ export default function StoryViewer({
           ))}
         </div>
 
-        {/* User Info Header */}
         <div className="absolute top-4 left-0 right-0 z-20 flex items-center justify-between px-4 pt-2">
           <div className="flex items-center gap-2 drop-shadow-md">
             <img
@@ -312,7 +297,6 @@ export default function StoryViewer({
           </div>
         </div>
 
-        {/* Media Container */}
         <div
           className="relative flex-1 flex items-center justify-center bg-black cursor-pointer select-none"
           onMouseDown={() => setIsPaused(true)}
@@ -338,7 +322,6 @@ export default function StoryViewer({
             />
           )}
 
-          {/* Touch/Click zones for Prev/Next */}
           <div
             className="absolute inset-y-0 left-0 w-1/3 z-10"
             onClick={(e) => {

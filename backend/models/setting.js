@@ -24,6 +24,7 @@ const settingsSchema = new mongoose.Schema(
       new_group: { type: Boolean, default: true },
       new_post: { type: Boolean, default: true },
       new_story: { type: Boolean, default: false },
+      comment: { type: Boolean, default: true },
     },
 
     privacy: {

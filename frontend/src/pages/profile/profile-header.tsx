@@ -56,7 +56,9 @@ export const ProfileHeader = ({
       if (prev === "FOLLOWING") {
         await api.post(`/friends/unfollow/${user._id}`);
       } else if (prev === "REQUESTED" && user.pendingRequestId) {
-        await api.patch("/friends/cancel", { receiver: user.pendingRequestId });
+        await api.patch("/friends/cancel", {
+          requestId: user.pendingRequestId,
+        });
         setFollowState("NOT_FOLLOWING");
       } else {
         const { data } = await api.post(`/friends/follow/${user._id}`);

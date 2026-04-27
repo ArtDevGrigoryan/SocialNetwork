@@ -9,10 +9,13 @@ import { useUIStore } from "../../store/ui.store";
 import { api } from "../../lib/axios.config";
 import type { IResponse } from "../../types/api.types";
 import type { IUser } from "../../types/user.types";
+import { useNotificationSocket } from "../../hooks/useNotification";
+import { InAppToast } from "../../components/message-popup/toast";
 
 export default function MainLayout() {
   const { pathname } = useLocation();
   const pathnameRef = useRef(pathname);
+  useNotificationSocket();
 
   const { isAuthenticated, accessToken, user, setUser } = useAuthStore();
   const { connect, disconnect, socket } = useSocketStore();
@@ -118,6 +121,7 @@ export default function MainLayout() {
           )}
         </div>
       </div>
+      <InAppToast />
     </div>
   );
 }

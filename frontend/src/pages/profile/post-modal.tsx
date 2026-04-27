@@ -110,7 +110,6 @@ export const PostModal = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-8">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/90 backdrop-blur-sm"
         onClick={onClose}
@@ -123,7 +122,6 @@ export const PostModal = ({
         <X size={30} />
       </button>
 
-      {/* Modal Container */}
       <div className="relative bg-black w-full max-w-[1200px] h-full max-h-[90vh] flex flex-col md:flex-row overflow-hidden rounded-sm shadow-2xl animate-in zoom-in-95 duration-300">
         <div className="basis-0 md:basis-[60%] grow bg-black flex items-center justify-center relative border-r border-neutral-900">
           <img

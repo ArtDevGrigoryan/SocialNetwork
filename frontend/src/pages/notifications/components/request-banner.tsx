@@ -1,6 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { cn } from "../../../lib/utils";
-import { type IRequest } from "../../../store/notification.store";
+import type { IRequest } from "../../../types/notification";
 
 interface RequestsBannerProps {
   requests: IRequest[];

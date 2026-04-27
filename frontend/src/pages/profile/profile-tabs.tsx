@@ -3,7 +3,7 @@ import { Grid, Bookmark, Repeat } from "lucide-react";
 interface ProfileTabsProps {
   activeTab: string;
   onTabChange: (id: string) => void;
-  isOwner?: boolean; // Ավելացված է
+  isOwner?: boolean;
 }
 
 export const ProfileTabs = ({
@@ -18,11 +18,10 @@ export const ProfileTabs = ({
       icon: <Bookmark size={16} />,
       label: "Saved",
       isPrivate: true,
-    }, // Ավելացված է isPrivate
+    },
     { id: "reposts", icon: <Repeat size={16} />, label: "Reposts" },
   ];
 
-  // Զտում ենք (filter), որպեսզի թաքցնենք "Saved" բաժինը այլ օգտատերերի պրոֆիլներում
   const visibleTabs = tabs.filter((tab) => !(tab.isPrivate && !isOwner));
 
   return (

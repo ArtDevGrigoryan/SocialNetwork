@@ -9,7 +9,6 @@ import { useNavigate } from "react-router-dom";
 
 import { Eye, EyeOff, Mail, KeyRound } from "lucide-react";
 
-/** SAME RULES AS BACKEND ZOD */
 const passwordRules = {
   upper: /[A-Z]/,
   lower: /[a-z]/,
@@ -139,7 +138,6 @@ export const ForgotPassword = () => {
             Bardiner-Social
           </h1>
 
-          {/* STEP 1 */}
           {step === 1 && (
             <form
               onSubmit={handleSubmitStep1(onSendEmail)}
@@ -170,13 +168,11 @@ export const ForgotPassword = () => {
             </form>
           )}
 
-          {/* STEP 2 */}
           {step === 2 && (
             <form
               onSubmit={handleSubmitStep2(onResetPassword)}
               className="flex flex-col gap-3"
             >
-              {/* PASSWORD */}
               <div className="relative">
                 <KeyRound className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
 
@@ -199,7 +195,6 @@ export const ForgotPassword = () => {
                 </button>
               </div>
 
-              {/* STRENGTH BAR */}
               <div className="h-1 bg-neutral-700 rounded overflow-hidden">
                 <div
                   className={`h-full transition-all duration-300 ${strength?.color}`}
@@ -218,7 +213,6 @@ export const ForgotPassword = () => {
                 <span>{score}/5</span>
               </div>
 
-              {/* CODE */}
               <input
                 placeholder="Verification code"
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-neutral-500"
@@ -231,7 +225,6 @@ export const ForgotPassword = () => {
                 <p className="text-xs text-red-400">{errors2.code.message}</p>
               )}
 
-              {/* CONFIRM PASSWORD */}
               <div className="relative">
                 <input
                   type={showConfirmPassword ? "text" : "password"}

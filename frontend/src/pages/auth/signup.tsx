@@ -110,7 +110,6 @@ export const Signup = () => {
               <p className="text-xs text-red-400">{errors.email.message}</p>
             )}
 
-            {/* USERNAME */}
             <div className="relative">
               <User className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
               <input
@@ -125,7 +124,6 @@ export const Signup = () => {
               <p className="text-xs text-red-400">{errors.name.message}</p>
             )}
 
-            {/* PASSWORD */}
             <div className="relative">
               <KeyRound className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
 
@@ -149,7 +147,6 @@ export const Signup = () => {
               </button>
             </div>
 
-            {/* STRENGTH BAR */}
             <div className="h-1 w-full bg-neutral-700 rounded overflow-hidden">
               <div
                 className={`h-full transition-all duration-300 ${strength?.color}`}
@@ -157,7 +154,6 @@ export const Signup = () => {
               />
             </div>
 
-            {/* STRENGTH TEXT */}
             <div className="text-[11px] flex justify-between text-neutral-400">
               <span>
                 {score <= 1 && "Weak"}
@@ -169,7 +165,6 @@ export const Signup = () => {
               <span>{score}/5</span>
             </div>
 
-            {/* CHECKLIST */}
             <div className="text-[11px] grid grid-cols-2 gap-1 text-neutral-500">
               <p className={checks.length ? "text-green-400" : ""}>
                 • 8-128 chars
@@ -186,7 +181,6 @@ export const Signup = () => {
               </p>
             </div>
 
-            {/* CONFIRM PASSWORD */}
             <div className="relative">
               <input
                 type={showConfirmPassword ? "text" : "password"}
@@ -212,7 +206,6 @@ export const Signup = () => {
               <p className="text-xs text-red-400">Passwords do not match</p>
             )}
 
-            {/* SUBMIT */}
             <button
               type="submit"
               disabled={isSubmitting || score !== 5}
@@ -222,7 +215,6 @@ export const Signup = () => {
             </button>
           </form>
 
-          {/* FOOTER */}
           <div className="text-center text-sm text-neutral-400 mt-4">
             Already have an account?{" "}
             <span

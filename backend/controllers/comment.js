@@ -12,10 +12,6 @@ class CommentController {
       postId,
       text,
     );
-    getIO().to(`post:${postId}`).emit("comment:new", {
-      ...comment.toObject(),
-      postId,
-    });
     return sendSuccess(res, comment);
   }
   async update(req, res) {

@@ -33,7 +33,6 @@ export const PostGrid = ({ posts, onPostClick }: PostGridProps) => {
             loading="lazy"
           />
 
-          {/* Instagram style overlay */}
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 md:gap-8">
             <div className="flex items-center text-white font-bold gap-2">
               <Heart fill="white" size={22} />

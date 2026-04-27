@@ -1,14 +1,21 @@
 const Comment = require("@models/comment");
 const PolicyService = require("@services/policy.service");
 const { NotFoundException, ForBiddenException } = require("@helpers/errors");
+const notificationService = require("./notification.service");
 
 class CommentService {
   async add(author, postId, text) {
-    await PolicyService.canAccessPost(author, postId);
-    return (await Comment.create({ author, post: postId, text })).populate(
-      "author",
-      "_id username avatar bio",
-    );
+    const post = await PolicyService.canAccessPost(author, postId);
+    const comm = await Comment.create({ author, post: postId, text });
+    if (author.toString() != post.author.toString()) {
+      await notificationService.commentNotification({
+        postId,
+        toUser: post.author._id,
+        fromUser: author,
+        commentId: comm._id,
+      });
+    }
+    return await comm.populate("author", "_id username avatar bio");
   }
   async update(user, commentId, text) {
     const comment = await Comment.findById(commentId);

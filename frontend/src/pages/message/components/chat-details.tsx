@@ -76,7 +76,6 @@ export default function ChatDetails({
   const handleDeleteChat = async () => {
     try {
       await api.delete(`/chats/${chatId}`);
-      // ՖԻՔՍ: Անմիջապես ջնջում ենք ֆրոնտի state-ից
       setChats(chats.filter((c) => c._id !== chatId));
       navigate("/messages");
     } catch (error) {
@@ -90,7 +89,6 @@ export default function ChatDetails({
       await api.delete(`/chats/${chatId}/disjoin`, {
         data: { participantId: myParticipant._id },
       });
-      // ՖԻՔՍ: Խմբից դուրս գալուց հետո նույնպես հանում ենք լիստից
       setChats(chats.filter((c) => c._id !== chatId));
       navigate("/messages");
     } catch (error) {

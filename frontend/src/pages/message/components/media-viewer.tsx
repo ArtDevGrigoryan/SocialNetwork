@@ -231,7 +231,6 @@ export default function MediaViewer({
         </div>
       </div>
 
-      {/* THUMBNAILS PREVIEW BAR */}
       {media.length > 1 && (
         <div
           className="absolute bottom-6 md:bottom-8 left-0 w-full px-4 flex justify-center z-[1000000] transition-opacity"

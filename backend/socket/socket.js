@@ -17,10 +17,10 @@ module.exports.initSocket = (server) => {
   Promise.all([pubClient.connect(), subClient.connect()])
     .then(() => {
       io.adapter(createAdapter(pubClient, subClient));
-      console.log("✅ Socket.io Redis adapter-ը հաջողությամբ միացավ");
+      console.log("✅ Socket.io Redis adapter connected");
     })
     .catch((err) => {
-      console.error("❌ Redis adapter-ին միանալու սխալ:", err);
+      console.error("❌ Redis adapter connection failed", err);
     });
 
   return io;

@@ -61,7 +61,6 @@ export default function ChangeUsername({ showAlert }: Props) {
     }
   };
 
-  // Ստուգում ենք, որ գոնե մի բան փոխված լինի
   const hasChanges =
     name !== user?.username || bio !== (user?.bio || "") || avatarFile !== null;
 

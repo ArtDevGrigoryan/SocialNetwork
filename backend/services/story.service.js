@@ -6,6 +6,7 @@ const mediaService = require("@lib/media.service");
 const { NotFoundException, BadRequestException } = require("@helpers/errors");
 const { feedStoryKey } = require("@utilities/create-cache-key");
 const redis = require("@helpers/db/redis");
+const notificationService = require("./notification.service");
 
 class StoryService {
   static STORY_TTL = 24 * 60 * 60 * 1000;
@@ -178,6 +179,10 @@ class StoryService {
     }
 
     await pipeline.exec();
+    await notificationService.newStoryNotification({
+      storyId: story._id,
+      fromUser: user,
+    });
 
     return story;
   }

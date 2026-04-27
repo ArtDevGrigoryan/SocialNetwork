@@ -42,7 +42,7 @@ export default function CommentModal({
 
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = "hidden"; // Կանխում է հետին պլանի սքրոլը
+      document.body.style.overflow = "hidden";
       fetchComments();
     } else {
       document.body.style.overflow = "unset";
@@ -85,7 +85,6 @@ export default function CommentModal({
   const fetchComments = async () => {
     try {
       setLoading(true);
-      // Հիմնված schemas/comment.schema.js-ի վրա (getCommentsSchema)
       const { data } = await api.get(`/comments/${post._id}`);
       const list = data.payload || [];
       setComments(list);
@@ -102,9 +101,8 @@ export default function CommentModal({
     if (!newComment.trim() || submitting) return;
 
     const commentText = newComment.trim();
-    setNewComment(""); // Մաքրում ենք input-ը անմիջապես
+    setNewComment("");
 
-    // 1. Optimistic UI - Ավելացնում ենք էկրանին միանգամից
     const tempId = `temp_${Date.now()}`;
     const optimisticComment: IComment = {
       _id: tempId,
@@ -117,13 +115,10 @@ export default function CommentModal({
 
     try {
       setSubmitting(true);
-      // 2. Ուղարկում ենք backend
-      // Նշում: Ըստ schema-ի params-ում պետք է լինի postId, իսկ body-ում' text
       const { data } = await api.post(`/comments/${post._id}`, {
         text: commentText,
       });
 
-      // 3. Փոխարինում ենք temp մեկնաբանությունը իրականով (որն ունի ճիշտ _id բազայից)
       if (data.payload) {
         setComments((prev) => {
           const next = prev.map((c) => (c._id === tempId ? data.payload : c));
@@ -133,7 +128,6 @@ export default function CommentModal({
       }
     } catch (error) {
       console.error("Error posting comment:", error);
-      // Սխալի դեպքում ջնջում ենք optimistic մեկնաբանությունը
       setComments((prev) => prev.filter((c) => c._id !== tempId));
       onCommentsCountChange?.(Math.max(0, comments.length - 1));
     } finally {
@@ -165,9 +159,8 @@ export default function CommentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-neutral-900 w-full max-w-md h-[80vh] md:h-[600px] md:rounded-xl flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
-          <div className="w-8" /> {/* Բալանսավորման համար */}
+          <div className="w-8" /> 
           <h2 className="font-semibold text-white">Մեկնաբանություններ</h2>
           <button
             onClick={onClose}
@@ -198,7 +191,6 @@ export default function CommentModal({
           </button>
         </div>
 
-        {/* Comments List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
           {loading ? (
             <div className="flex justify-center mt-10">
@@ -259,7 +251,6 @@ export default function CommentModal({
           )}
         </div>
 
-        {/* Comment Input */}
         <div className="p-3 border-t border-neutral-800 bg-neutral-900">
           <form
             onSubmit={handleSubmit}

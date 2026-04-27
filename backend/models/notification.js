@@ -26,10 +26,12 @@ const notificationSchema = new mongoose.Schema(
         "MESSAGE",
         "NEW_GROUP",
         "GROUP_REMOVED",
+        "GROUP_DISJOIN",
         "PARTICIPANT_REMOVED",
         "PARTICIPANT_REMOVED_NOTICE",
         "NEW_POST",
         "NEW_STORY",
+        "CANCELLED",
         "SYSTEM",
       ],
       required: true,
@@ -42,7 +44,7 @@ const notificationSchema = new mongoose.Schema(
 
     entityModel: {
       type: String,
-      enum: ["User", "Post", "Comment", "Message", "Chat"],
+      enum: ["User", "Posts", "Comments", "Message", "Chat", "Story"],
     },
 
     meta: {

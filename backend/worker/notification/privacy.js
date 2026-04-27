@@ -9,7 +9,6 @@ class PrivacyPolicy {
     const setting = await Setting.findOne({
       user: userId,
     }).lean();
-
     if (!setting) return false;
     return !!setting?.notifications?.[prop];
   }

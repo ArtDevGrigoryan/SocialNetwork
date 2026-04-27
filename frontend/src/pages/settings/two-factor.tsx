@@ -21,7 +21,6 @@ interface ITwoFactorProps {
 export default function TwoFactorAuth({ showAlert, onBack }: ITwoFactorProps) {
   const { user, patchUser } = useAuthStore();
 
-  // Որոշում ենք սկզբնական վիճակը
   const [step, setStep] = useState<"idle" | "setup" | "enabled">(
     user?.twoFactorEnabled ? "enabled" : "idle",
   );
@@ -66,7 +65,6 @@ export default function TwoFactorAuth({ showAlert, onBack }: ITwoFactorProps) {
       const { data } = await api.post("/auth/2fa/backup-codes");
       setBackupCodes(data.payload || []);
 
-      // Ճիշտ ենք թարմացնում global state-ը՝ առանց (user as any) գրելու
       patchUser({ twoFactorEnabled: true });
       setStep("enabled");
       setToken("");
@@ -123,7 +121,6 @@ export default function TwoFactorAuth({ showAlert, onBack }: ITwoFactorProps) {
 
   return (
     <div className="flex flex-col h-full bg-black text-white w-full mx-auto md:border-x md:border-neutral-900 min-h-[100dvh] md:min-h-[auto] relative animate-in fade-in duration-300">
-      {/* Header */}
       <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-black/90 backdrop-blur-md border-b border-neutral-900">
         <div className="flex items-center gap-3">
           {onBack && (
@@ -141,7 +138,6 @@ export default function TwoFactorAuth({ showAlert, onBack }: ITwoFactorProps) {
       </div>
 
       <div className="flex-1 p-4 overflow-y-auto pb-10 custom-scrollbar">
-        {/* IDLE STEP */}
         {step === "idle" && (
           <div className="flex flex-col h-full mt-6 animate-in slide-in-from-bottom-4 duration-300">
             <div className="flex flex-col items-center text-center mb-8">
@@ -170,7 +166,6 @@ export default function TwoFactorAuth({ showAlert, onBack }: ITwoFactorProps) {
           </div>
         )}
 
-        {/* SETUP STEP */}
         {step === "setup" && (
           <div className="flex flex-col h-full animate-in slide-in-from-right-4 duration-300">
             <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl mb-6 shadow-sm">
@@ -245,7 +240,6 @@ export default function TwoFactorAuth({ showAlert, onBack }: ITwoFactorProps) {
           </div>
         )}
 
-        {/* ENABLED STEP */}
         {step === "enabled" && !showDisableModal && (
           <div className="flex flex-col gap-6 mt-4 animate-in fade-in duration-300">
             <div className="flex items-center justify-between p-5 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-sm">
@@ -352,7 +346,6 @@ export default function TwoFactorAuth({ showAlert, onBack }: ITwoFactorProps) {
           </div>
         )}
 
-        {/* DISABLE CONFIRMATION MODAL */}
         {showDisableModal && (
           <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
             <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 w-full max-w-sm flex flex-col items-center animate-in zoom-in-95 duration-200 shadow-2xl">

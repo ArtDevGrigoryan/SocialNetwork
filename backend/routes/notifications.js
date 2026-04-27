@@ -11,5 +11,6 @@ router.get("/", validate(pagination), notificationsController.list);
 router.get("/unread-count", notificationsController.unread);
 router.patch("/mark-all-read", notificationsController.markAllRead);
 router.patch("/:id/read", validate(notificationIdParams), notificationsController.markRead);
-
+router.delete("/:id", validate(notificationIdParams), notificationsController.deleteOne);
+router.delete("/", notificationsController.deleteAll);
 module.exports = router;

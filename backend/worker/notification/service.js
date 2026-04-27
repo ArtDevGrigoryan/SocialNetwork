@@ -4,8 +4,10 @@ const PrivacyPolicy = require("./privacy");
 const NotificationAggregator = require("@worker/notification/aggregator");
 const socketService = require("@services/socket.service");
 const Notification = require("@models/notification");
+const Story = require("@models/story");
 const { keys } = require("@helpers/utilities/create-cache-key");
 const userService = require("@services/user.service");
+const Participants = require("@models/participants");
 
 const followKey = (toUser) =>
   keys({ type: "follow", entityId: toUser, toUser });
@@ -14,128 +16,152 @@ const requestKey = (toUser) =>
 
 class NotificationJobService {
   static async like(data) {
-    const { postId, toUser } = data;
-    const canSend = await PrivacyPolicy.chekNotificationSetting(toUser, "like");
-    if (!canSend) return;
+    try {
+      const { postId, toUser, storyId } = data;
+      const canSend = await PrivacyPolicy.chekNotificationSetting(
+        toUser,
+        "like",
+      );
+      if (!canSend) return;
 
-    const k = keys({ type: "like", entityId: postId, toUser });
-    const { count, users } = await NotificationAggregator.consume(redis, {
-      countKey: k.countKey,
-      usersKey: k.usersKey,
-    });
+      const entityId = postId || storyId;
+      if (!entityId) {
+        return;
+      }
+      const entityModel = postId ? "Posts" : "Story";
+      const k = keys({ type: "like", entityId: postId, toUser });
+      const { count, users } = await NotificationAggregator.consume(redis, {
+        countKey: k.countKey,
+        usersKey: k.usersKey,
+      });
 
-    if (!count) return;
+      if (!count) return;
+      const select = postId
+        ? "_id content images likes comments author"
+        : "_id media viewsCount user";
+      const objectIdUsers = users
+        .slice(0, 3)
+        .map((id) => new mongoose.Types.ObjectId(id));
 
-    const objectIdUsers = users
-      .slice(0, 3)
-      .map((id) => new mongoose.Types.ObjectId(id));
-
-    const notification = await Notification.findOneAndUpdate(
-      { type: "LIKE", toUser, entity: postId, entityModel: "Post" },
-      [
-        {
-          $set: {
-            "meta.count": {
-              $cond: [
-                { $eq: ["$isRead", true] },
-                count,
-                { $add: [{ $ifNull: ["$meta.count", 0] }, count] },
-              ],
+      const notification = await Notification.findOneAndUpdate(
+        { type: "LIKE", toUser, entity: entityId, entityModel },
+        [
+          {
+            $set: {
+              "meta.count": {
+                $cond: [
+                  { $eq: ["$isRead", true] },
+                  count,
+                  { $add: [{ $ifNull: ["$meta.count", 0] }, count] },
+                ],
+              },
+              "meta.users": {
+                $cond: [
+                  { $eq: ["$isRead", true] },
+                  objectIdUsers,
+                  {
+                    $slice: [
+                      {
+                        $setUnion: [
+                          objectIdUsers,
+                          { $ifNull: ["$meta.users", []] },
+                        ],
+                      },
+                      3,
+                    ],
+                  },
+                ],
+              },
+              isRead: false,
             },
-            "meta.users": {
-              $cond: [
-                { $eq: ["$isRead", true] },
-                objectIdUsers,
-                {
-                  $slice: [
-                    {
-                      $setUnion: [
-                        objectIdUsers,
-                        { $ifNull: ["$meta.users", []] },
-                      ],
-                    },
-                    3,
-                  ],
-                },
-              ],
-            },
-            isRead: false,
           },
-        },
-      ],
-      { upsert: true, new: true },
-    ).populate("meta.users", "_id username bio avatar");
+        ],
+        { upsert: true, new: true, updatePipeline: true },
+      ).populate([
+        { path: "meta.users", select: "_id username bio avatar" },
+        { path: "entity", select },
+      ]);
 
-    await NotificationAggregator.clear(redis, [
-      k.countKey,
-      k.usersKey,
-      k.scheduledKey,
-    ]);
-    await socketService.notify(notification);
+      await NotificationAggregator.clear(redis, [
+        k.countKey,
+        k.usersKey,
+        k.scheduledKey,
+      ]);
+      await socketService.notify(notification);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   static async "comment-batch"(data) {
-    const { postId, toUser } = data;
-    const canSend = await PrivacyPolicy.chekNotificationSetting(
-      toUser,
-      "comment",
-    );
-    if (!canSend) return;
+    try {
+      const { postId, toUser, commentId } = data;
+      const canSend = await PrivacyPolicy.chekNotificationSetting(
+        toUser,
+        "comment",
+      );
+      if (!canSend) return;
 
-    const k = keys({ type: "comment", entityId: postId, toUser });
-    const { count, users } = await NotificationAggregator.consume(redis, {
-      countKey: k.countKey,
-      usersKey: k.usersKey,
-    });
+      const k = keys({ type: "comment", entityId: postId, toUser });
+      const { count, users } = await NotificationAggregator.consume(redis, {
+        countKey: k.countKey,
+        usersKey: k.usersKey,
+      });
 
-    if (!count) return;
+      if (!count) return;
 
-    const objectIdUsers = users
-      .slice(0, 3)
-      .map((id) => new mongoose.Types.ObjectId(id));
+      const objectIdUsers = users
+        .slice(0, 3)
+        .map((id) => new mongoose.Types.ObjectId(id));
 
-    const notification = await Notification.findOneAndUpdate(
-      { type: "COMMENT", toUser, entity: postId, entityModel: "Post" },
-      [
-        {
-          $set: {
-            "meta.count": {
-              $cond: [
-                { $eq: ["$isRead", true] },
-                count,
-                { $add: [{ $ifNull: ["$meta.count", 0] }, count] },
-              ],
+      const notification = await Notification.findOneAndUpdate(
+        { type: "COMMENT", toUser, entity: commentId, entityModel: "Comments" },
+        [
+          {
+            $set: {
+              "meta.count": {
+                $cond: [
+                  { $eq: ["$isRead", true] },
+                  count,
+                  { $add: [{ $ifNull: ["$meta.count", 0] }, count] },
+                ],
+              },
+              "meta.users": {
+                $cond: [
+                  { $eq: ["$isRead", true] },
+                  objectIdUsers,
+                  {
+                    $slice: [
+                      {
+                        $setUnion: [
+                          objectIdUsers,
+                          { $ifNull: ["$meta.users", []] },
+                        ],
+                      },
+                      3,
+                    ],
+                  },
+                ],
+              },
+              isRead: false,
             },
-            "meta.users": {
-              $cond: [
-                { $eq: ["$isRead", true] },
-                objectIdUsers,
-                {
-                  $slice: [
-                    {
-                      $setUnion: [
-                        objectIdUsers,
-                        { $ifNull: ["$meta.users", []] },
-                      ],
-                    },
-                    3,
-                  ],
-                },
-              ],
-            },
-            isRead: false,
           },
-        },
-      ],
-      { upsert: true, new: true },
-    ).populate("meta.users", "_id username avatar bio");
+        ],
+        { upsert: true, new: true, updatePipeline: true },
+      ).populate([
+        { path: "meta.users", select: "_id username avatar bio" },
+        { path: "entity" },
+      ]);
 
-    await NotificationAggregator.clear(redis, [
-      k.countKey,
-      k.usersKey,
-      k.scheduledKey,
-    ]);
-    await socketService.notify(notification);
+      await NotificationAggregator.clear(redis, [
+        k.countKey,
+        k.usersKey,
+        k.scheduledKey,
+      ]);
+      await socketService.notify(notification);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   static async "follow-request"(data) {
@@ -239,252 +265,308 @@ class NotificationJobService {
   }
 
   static async message(data) {
-    const { toUser, fromUser, messageId } = data;
-    const canSend = await PrivacyPolicy.chekNotificationSetting(
-      toUser,
-      "message",
-    );
-    if (!canSend) return;
+    try {
+      const { fromUser, messageId, chatId } = data;
 
-    const notification = await Notification.create({
-      toUser,
-      fromUser,
-      type: "MESSAGE",
-      entity: messageId,
-      entityModel: "Message",
-      meta: { count: 1, users: [fromUser] },
-    }).populate("meta.users", "_id avatar bio username");
+      const participants = await Participants.find({
+        chatId,
+        user: { $ne: fromUser },
+      }).lean();
 
-    await socketService.notify(notification);
+      const filtered = [];
+      for (const participant of participants) {
+        const canSend = await PrivacyPolicy.chekNotificationSetting(
+          participant.user,
+          "message",
+        );
+        if (canSend) {
+          filtered.push(participant.user);
+        }
+      }
+
+      if (filtered.length <= 0) {
+        return;
+      }
+
+      const notifications = await Notification.insertMany(
+        filtered.map((user) => ({
+          toUser: user,
+          fromUser,
+          type: "MESSAGE",
+          entity: messageId,
+          entityModel: "Message",
+          meta: { count: 1, users: [fromUser] },
+        })),
+      );
+
+      const populatedNotifications = await Notification.populate(
+        notifications,
+        [
+          {
+            path: "entity",
+            select: "chat text createdAt",
+          },
+          {
+            path: "meta.users",
+            select: "_id username avatar bio",
+          },
+        ],
+      );
+
+      await socketService.notifyMany(populatedNotifications);
+    } catch (error) {
+      console.error("Error in message notification job:", error);
+    }
   }
-
   static async "accept-request"(data) {
-    const { toUser, fromUser } = data;
-    const canSend = await PrivacyPolicy.chekNotificationSetting(
-      toUser,
-      "accept_request",
-    );
-    if (!canSend) return;
+    try {
+      const { toUser, fromUser } = data;
+      const canSend = await PrivacyPolicy.chekNotificationSetting(
+        toUser,
+        "accept_request",
+      );
+      if (!canSend) return;
 
-    const notification = await Notification.create({
-      toUser,
-      fromUser,
-      type: "ACCEPTED",
-      meta: { count: 1, users: [fromUser] },
-    }).populate("meta.users", "_id avatar bio username");
-    await socketService.notify(notification);
+      const notification = await Notification.create({
+        toUser,
+        fromUser,
+        type: "ACCEPTED",
+        meta: { count: 1, users: [fromUser] },
+      });
+      const populated = await notification.populate(
+        "meta.users",
+        "_id avatar bio username",
+      );
+      await socketService.notify(populated);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   static async "decline-request"(data) {
-    const { toUser, fromUser } = data;
-    const canSend = await PrivacyPolicy.chekNotificationSetting(
-      toUser,
-      "decline_request",
-    );
-    if (!canSend) return;
+    try {
+      const { toUser, fromUser } = data;
+      const canSend = await PrivacyPolicy.chekNotificationSetting(
+        toUser,
+        "decline_request",
+      );
+      if (!canSend) return;
 
-    const k = requestKey(toUser);
-    const { count, users } = await NotificationAggregator.consume(redis, {
-      countKey: k.countKey,
-      usersKey: k.usersKey,
-    });
-    if (!count) return;
+      const k = requestKey(toUser);
+      const { count, users } = await NotificationAggregator.consume(redis, {
+        countKey: k.countKey,
+        usersKey: k.usersKey,
+      });
+      if (!count) return;
 
-    const notification = await Notification.create({
-      toUser,
-      fromUser,
-      type: "DECLINED",
-      meta: { count, users: users.slice(0, 3) },
-    });
-    const notif = await notification.populate(
-      "meta.users",
-      "_id avatar bio username",
-    );
-    await NotificationAggregator.clear(redis, [k.countKey, k.usersKey]);
-    await socketService.notify(notif);
+      const notification = await Notification.create({
+        toUser,
+        fromUser,
+        type: "DECLINED",
+        meta: { count, users: users.slice(0, 3) },
+      });
+      const notif = await notification.populate(
+        "meta.users",
+        "_id avatar bio username",
+      );
+      await NotificationAggregator.clear(redis, [k.countKey, k.usersKey]);
+      await socketService.notify(notif);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   static async "cancel-request"(data) {
-    const { toUser, fromUser } = data;
-    const canSend = await PrivacyPolicy.chekNotificationSetting(
-      toUser,
-      "cancel_request",
-    );
-    if (!canSend) return;
+    try {
+      const { toUser, fromUser } = data;
+      const canSend = await PrivacyPolicy.chekNotificationSetting(
+        toUser,
+        "cancel_request",
+      );
+      if (!canSend) return;
 
-    const k = requestKey(toUser);
-    const { count, users } = await NotificationAggregator.consume(redis, {
-      countKey: k.countKey,
-      usersKey: k.usersKey,
-    });
-    if (!count) return;
+      const k = requestKey(toUser);
+      const { count, users } = await NotificationAggregator.consume(redis, {
+        countKey: k.countKey,
+        usersKey: k.usersKey,
+      });
+      if (!count) return;
 
-    const notification = await Notification.create({
-      toUser,
-      fromUser,
-      type: "REQUEST",
-      meta: { count, users: users.slice(0, 3) },
-    });
-    const notif = await notification.populate(
-      "meta.users",
-      "_id username avatar bio",
-    );
-    await NotificationAggregator.clear(redis, [k.countKey, k.usersKey]);
-    await socketService.notify(notification);
+      const notification = await Notification.create({
+        toUser,
+        fromUser,
+        type: "CANCELLED",
+        meta: { count, users: users.slice(0, 3) },
+      });
+      const notif = await notification.populate(
+        "meta.users",
+        "_id username avatar bio",
+      );
+      await NotificationAggregator.clear(redis, [k.countKey, k.usersKey]);
+      await socketService.notify(notification);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   static async system(data) {
-    const { toUser, message } = data;
-    const notification = await Notification.create({
-      toUser,
-      type: "SYSTEM",
-      meta: { count: 1, users: [], message },
-    });
-    await socketService.notify(notification);
+    try {
+      const { toUser, message } = data;
+      const notification = await Notification.create({
+        toUser,
+        type: "SYSTEM",
+        meta: { count: 1, users: [], message },
+      });
+      await socketService.notify(notification);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   static async unfollow(data) {
-    const { toUser, fromUser } = data;
-    const canSend = await PrivacyPolicy.chekNotificationSetting(
-      toUser,
-      "unfollow",
-    );
-    if (!canSend) return;
-    await Notification.deleteOne({ toUser, fromUser, type: "FOLLOW" });
-  }
+    try {
+      const { toUser, fromUser } = data;
+      const canSend = await PrivacyPolicy.chekNotificationSetting(
+        toUser,
+        "unfollow",
+      );
+      if (!canSend) return;
 
-  static async "group-message"(data) {
-    const { chatId, fromUser, messageId } = data;
-    const participantsWithSettings = await PrivacyPolicy.participantsSettings(
-      chatId,
-      [fromUser],
-    );
-    const filtered = participantsWithSettings
-      .filter((p) => !p.isMuted && p.notificationSettings.message)
-      .map((p) => p.user);
-
-    const user = await userService
-      .findById(fromUser)
-      .select("_id avatar bio username");
-
-    const notifications = await Notification.insertMany(
-      filtered.map((toUser) => ({
+      const notif = await Notification.findOne({
         toUser,
         fromUser,
-        entity: messageId,
-        entityModel: "Message",
-        meta: {
-          count: 1,
-          users: [fromUser],
-        },
-      })),
-    );
-    const populated = notifications.map((notif) => ({
-      ...notif.toObject(),
-      meta: { ...notif.meta, users: user },
-    }));
+        type: "FOLLOW",
+      }).populate("meta.users", "_id username avatar bio");
 
-    await socketService.notifyMany(populated);
+      if (!notif) return;
+
+      await socketService.notify({
+        ...notif.toObject(),
+        type: "UNFOLLOW",
+      });
+      await notif.deleteOne();
+    } catch (error) {
+      console.log(error);
+    }
   }
-
   static async "group-removed"(data) {
-    const { chatId, fromUser } = data;
-    const participantsWithSettings = await PrivacyPolicy.participantsSettings(
-      chatId,
-      [fromUser],
-    );
-    const filtered = participantsWithSettings
-      .filter((p) => !p.isMuted && p.notificationSettings.group_removed)
-      .map((p) => p.user);
+    try {
+      const { chatId, fromUser } = data;
+      const participantsWithSettings = await PrivacyPolicy.participantsSettings(
+        chatId,
+        [fromUser],
+      );
+      const filtered = participantsWithSettings
+        .filter((p) => !p.isMuted && p.notificationSettings.group_removed)
+        .map((p) => p.user);
 
-    const user = await userService
-      .findById(fromUser)
-      .select("_id avatar bio username");
+      const user = await userService
+        .findById(fromUser)
+        .select("_id avatar bio username");
 
-    const notifications = await Notification.insertMany(
-      filtered.map((toUser) => ({
-        toUser,
-        fromUser,
-        type: "GROUP_REMOVED",
-        entity: chatId,
-        entityModel: "Chat",
-      })),
-    );
-    const populated = notifications.map((notif) => ({
-      ...notif.toObject(),
-      meta: { ...notif.meta, users: user },
-    }));
-    await socketService.notifyMany(populated);
+      const notifications = await Notification.insertMany(
+        filtered.map((toUser) => ({
+          toUser,
+          fromUser,
+          type: "GROUP_REMOVED",
+          entity: chatId,
+          entityModel: "Chat",
+        })),
+      );
+      const populated = notifications.map((notif) => ({
+        ...notif.toObject(),
+        meta: { ...notif.meta, users: [user] },
+      }));
+      await socketService.notifyMany(populated);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   static async "member-removed-notice"(data) {
-    const { chatId, fromUser, removedUserId } = data;
-    const participantsWithSettings = await PrivacyPolicy.participantsSettings(
-      chatId,
-      [fromUser, removedUserId],
-    );
-    const settingKey = "group_member_removed_notice";
+    try {
+      const { chatId, fromUser, removedUserId } = data;
+      const participantsWithSettings = await PrivacyPolicy.participantsSettings(
+        chatId,
+        [fromUser, removedUserId],
+      );
+      const settingKey = "group_member_removed_notice";
 
-    const filtered = participantsWithSettings
-      .filter((p) => !p.isMuted && p.notificationSettings[settingKey])
-      .map((p) => p.user);
+      const filtered = participantsWithSettings
+        .filter((p) => !p.isMuted && p.notificationSettings[settingKey])
+        .map((p) => p.user);
 
-    const user = await userService
-      .findById(fromUser)
-      .select("_id avatar bio username");
+      const [user, removedUser] = await Promise.all([
+        userService.findById(fromUser).select("_id avatar bio username"),
+        userService.findById(removedUserId).select("_id avatar bio username"),
+      ]);
 
-    const notifications = await Notification.insertMany(
-      filtered.map((toUser) => ({
-        toUser,
+      const notifications = await Notification.insertMany(
+        filtered.map((toUser) => ({
+          toUser,
+          fromUser,
+          type: "PARTICIPANT_REMOVED_NOTICE",
+          entity: chatId,
+          entityModel: "Chat",
+          meta: { count: 1, users: [removedUserId] },
+        })),
+      );
+      const populated = notifications.map((notif) => ({
+        ...notif.toObject(),
+        meta: { ...notif.meta, users: [removedUser] },
+      }));
+      await socketService.notifyMany(populated);
+
+      await NotificationJobService.#memberRemoved({
+        toUser: removedUserId,
+        chatId,
         fromUser,
-        type: "PARTICIPANT_REMOVED_NOTICE",
-        entity: chatId,
-        entityModel: "Chat",
-        meta: { count: 1, users: [fromUser] },
-      })),
-    );
-    const populated = notifications.map((notif) => ({
-      ...notif.toObject(),
-      meta: { ...notif.meta, users: user },
-    }));
-    await socketService.notifyMany(populated);
-
-    // Private member removed notice for the removed user
-    await NotificationJobService.#memberRemoved({
-      toUser: removedUserId,
-      chatId,
-      fromUser,
-    });
+      });
+    } catch (error) {
+      console.log(error);
+    }
   }
   static async "disjoin-group"(data) {
-    const { chatId, fromUser, removedUserId } = data;
+    try {
+      const { chatId, fromUser } = data;
+      const participantsWitSettings = await PrivacyPolicy.participantsSettings(
+        chatId,
+        [fromUser],
+      );
+      const filtered = participantsWitSettings
+        .filter((p) => !p.isMuted && p.notificationSettings.group_disjoin)
+        .map((p) => p.user);
 
-    const canSend = await PrivacyPolicy.checkParticipantNotification(
-      removedUserId,
-      chatId,
-      "group_disjoin",
-    );
+      if (!filtered.length) return;
 
-    if (!canSend) return;
+      const user = await userService
+        .findById(fromUser)
+        .select("_id avatar bio username");
 
-    const notification = await Notification.create({
-      toUser: removedUserId,
-      fromUser,
-      type: "GROUP_DISJOIN",
-      entity: chatId,
-      entityModel: "Chat",
-      meta: {
-        count: 1,
-        users: [fromUser],
-      },
-    });
+      if (!user) return;
 
-    const populated = await notification.populate(
-      "meta.users",
-      "_id avatar username bio",
-    );
+      const notifications = await Notification.insertMany(
+        filtered.map((toUser) => ({
+          toUser,
+          fromUser,
+          type: "GROUP_DISJOIN",
+          entity: chatId,
+          entityModel: "Chat",
+          meta: { count: 1, users: [fromUser] },
+        })),
+      );
 
-    await socketService.notify(populated);
+      const populated = [
+        ...notifications.map((n) => ({
+          ...n.toObject(),
+          meta: { ...n.meta, users: [user] },
+        })),
+      ];
+
+      await socketService.notifyMany(populated);
+    } catch (error) {
+      console.log(error);
+    }
   }
   static async #memberRemoved(data) {
     const { toUser, chatId, fromUser } = data;
@@ -511,99 +593,111 @@ class NotificationJobService {
   }
 
   static async "new-group"(data) {
-    const { fromUser, chatId } = data;
-    const participantsWithSettings = await PrivacyPolicy.participantsSettings(
-      chatId,
-      [fromUser],
-    );
-    const filtered = participantsWithSettings
-      .filter((p) => !p.isMuted && p.notificationSettings.new_group)
-      .map((p) => p.user);
+    try {
+      const { fromUser, chatId } = data;
+      const participantsWithSettings = await PrivacyPolicy.participantsSettings(
+        chatId,
+        [fromUser],
+      );
+      const filtered = participantsWithSettings
+        .filter((p) => !p.isMuted && p.notificationSettings.new_group)
+        .map((p) => p.user);
 
-    const user = await userService
-      .findById(fromUser)
-      .select("_id avatar bio username");
+      const user = await userService
+        .findById(fromUser)
+        .select("_id avatar bio username");
 
-    const notifications = await Notification.insertMany(
-      filtered.map((toUser) => ({
-        toUser,
-        fromUser,
-        entity: chatId,
-        entityModel: "Chat",
-        type: "NEW_GROUP",
-        meta: {
-          count: 1,
-          users: [fromUser],
-        },
-      })),
-    );
-    const populated = notifications.map((notif) => ({
-      ...notif.toObject(),
-      meta: { ...notif.meta, users: user },
-    }));
-    await socketService.notifyMany(populated);
+      const notifications = await Notification.insertMany(
+        filtered.map((toUser) => ({
+          toUser,
+          fromUser,
+          entity: chatId,
+          entityModel: "Chat",
+          type: "NEW_GROUP",
+          meta: {
+            count: 1,
+            users: [fromUser],
+          },
+        })),
+      );
+      const populated = notifications.map((notif) => ({
+        ...notif.toObject(),
+        meta: { ...notif.meta, users: [user] },
+      }));
+      await socketService.notifyMany(populated);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   static async "new-story"(data) {
-    const { fromUser, storyId } = data;
-    const notificationUsers = await PrivacyPolicy.checkNotificationFollowers(
-      fromUser,
-      "story",
-    );
-
-    const user = await userService
-      .findById(fromUser)
-      .select("_id username avatar bio");
-
-    const notifications = await Notification.insertMany(
-      notificationUsers.map((toUser) => ({
-        toUser,
+    try {
+      const { fromUser, storyId } = data;
+      const notificationUsers = await PrivacyPolicy.checkNotificationFollowers(
         fromUser,
-        entity: storyId,
-        entityModel: "Story",
-        type: "NEW_STORY",
-        meta: {
-          count: 1,
-          users: [fromUser],
-        },
-      })),
-    );
+        "story",
+      );
 
-    const populated = notifications.map((notif) => ({
-      ...notif.toObject(),
-      meta: { ...notif.meta, users: user },
-    }));
+      const user = await userService
+        .findById(fromUser)
+        .select("_id username avatar bio");
 
-    await socketService.notifyMany(populated);
+      const notifications = await Notification.insertMany(
+        notificationUsers.map((toUser) => ({
+          toUser,
+          fromUser,
+          entity: storyId,
+          entityModel: "Story",
+          type: "NEW_STORY",
+          meta: {
+            count: 1,
+            users: [fromUser],
+          },
+        })),
+      );
+
+      const populated = notifications.map((notif) => ({
+        ...notif.toObject(),
+        meta: { ...notif.meta, users: [user] },
+      }));
+
+      await socketService.notifyMany(populated);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   static async "new-post"(data) {
-    const { fromUser, postId } = data;
-    const notificationUsers =
-      await PrivacyPolicy.checkNotificationFollowers(fromUser);
+    try {
+      const { fromUser, postId } = data;
+      const notificationUsers =
+        await PrivacyPolicy.checkNotificationFollowers(fromUser);
 
-    const user = await userService
-      .findById(fromUser)
-      .select("_id username avatar bio");
+      const user = await userService
+        .findById(fromUser)
+        .select("_id username avatar bio");
 
-    const notifications = await Notification.insertMany(
-      notificationUsers.map((toUser) => ({
-        toUser,
-        fromUser,
-        entity: postId,
-        entityModel: "Post",
-        type: "NEW_POST",
-        meta: {
-          count: 1,
-          users: [fromUser],
-        },
-      })),
-    );
-    const populated = notifications.map((notif) => ({
-      ...notif.toObject(),
-      meta: { ...notif.meta, users: user },
-    }));
-    await socketService.notifyMany(populated);
+      const notifications = await Notification.insertMany(
+        notificationUsers.map((toUser) => ({
+          toUser,
+          fromUser,
+          entity: postId,
+          entityModel: "Posts",
+          type: "NEW_POST",
+          meta: {
+            count: 1,
+            users: [fromUser],
+          },
+        })),
+      );
+      const populated = notifications.map((notif) => ({
+        ...notif.toObject(),
+        meta: { ...notif.meta, users: [user] },
+      }));
+      await socketService.notifyMany(populated);
+    } catch (error) {
+      console.log(error);
+    }
   }
 }
 

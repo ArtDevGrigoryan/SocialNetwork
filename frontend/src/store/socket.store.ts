@@ -117,7 +117,6 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       }, 3000);
     });
 
-    // Լսում ենք backend-ի ճիշտ event-ը և փոխանցում notification.store-ին
     socket.on("receive_notification", (notification: IRealtimeNotification) => {
       useNotificationStore
         .getState()

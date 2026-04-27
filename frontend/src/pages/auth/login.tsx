@@ -8,7 +8,6 @@ import {
   KeyRound,
   ShieldCheck,
   Loader2,
-  Key,
 } from "lucide-react";
 import axios from "axios";
 
@@ -101,7 +100,6 @@ export const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white px-4">
       <div className="w-full max-w-sm flex flex-col gap-4 relative overflow-hidden">
-        {/* LOGIN STEP */}
         {step === "login" && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 animate-in fade-in duration-300 shadow-xl">
             <h1
@@ -115,7 +113,6 @@ export const Login = () => {
               onSubmit={handleSubmit(onSubmit)}
               className="flex flex-col gap-3"
             >
-              {/* EMAIL */}
               <div className="relative">
                 <Mail className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
                 <input
@@ -128,7 +125,6 @@ export const Login = () => {
                 <p className="text-xs text-red-400">{errors.email.message}</p>
               )}
 
-              {/* PASSWORD */}
               <div className="relative">
                 <KeyRound className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
                 <input
@@ -159,7 +155,6 @@ export const Login = () => {
                 </p>
               )}
 
-              {/* BUTTON */}
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -173,7 +168,6 @@ export const Login = () => {
               </button>
             </form>
 
-            {/* DIVIDER */}
             <div className="flex items-center gap-3 my-5 text-neutral-500 text-xs">
               <div className="flex-1 h-px bg-neutral-700" />
               OR
@@ -189,7 +183,6 @@ export const Login = () => {
           </div>
         )}
 
-        {/* 2FA VERIFICATION STEP */}
         {step === "2fa" && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 animate-in slide-in-from-right-8 duration-300 shadow-xl">
             <div className="flex flex-col items-center text-center mb-6">
@@ -216,11 +209,10 @@ export const Login = () => {
                 value={twoFaToken}
                 onChange={(e) => {
                   if (useBackupCode) {
-                    setTwoFaToken(e.target.value.slice(0, 8)); // Backup code: usually 8 chars
-                  } else {
+                    setTwoFaToken(e.target.value.slice(0, 8));
                     setTwoFaToken(
                       e.target.value.replace(/\D/g, "").slice(0, 6),
-                    ); // Authenticator: 6 numbers
+                    );
                   }
                 }}
                 placeholder={useBackupCode ? "Backup Code" : "000000"}
@@ -277,7 +269,6 @@ export const Login = () => {
           </div>
         )}
 
-        {/* SIGNUP LINK - Only show in login step */}
         {step === "login" && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 text-center text-sm">
             Don’t have an account?{" "}

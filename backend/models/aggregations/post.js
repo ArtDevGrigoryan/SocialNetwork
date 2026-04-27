@@ -86,7 +86,6 @@ class AggregationHelperPost {
 
   static findPostsWithViewerLikes(viewer, author, page = 1, limit = 20) {
     const authorId = new ObjectId(author);
-    // Ստեղծում ենք builder և $match-ը դնում սկզբում
     const builder = new AggregationBuilder(Post).match({
       author: authorId,
       isArchived: false,
@@ -101,7 +100,6 @@ class AggregationHelperPost {
 
   static findFeedPostsWithViewerLikes(viewer, authorIds, page = 1, limit = 20) {
     const validAuthorIds = authorIds.map((id) => new ObjectId(id));
-    // Ստեղծում ենք builder և $match-ը դնում սկզբում
     const builder = new AggregationBuilder(Post).match({
       author: { $in: validAuthorIds },
       isArchived: false,

@@ -34,7 +34,7 @@ module.exports = async function disjoinChatTx(participantId, chatId) {
             _id: participants[0]._id,
             role: "admin",
           }).session(session);
-        } // [cite: 187]
+        }
       }
     });
   } finally {
