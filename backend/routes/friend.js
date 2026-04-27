@@ -1,20 +1,20 @@
 const router = require("express").Router();
 const friendController = require("@controllers/friend");
-const isAuth = require("@middlewares/is-auth");
 const validate = require("@middlewares/validate");
 const { getSchema, requestSchema, blockSchema, followSchema, requestsSchema } = require("@schemas/friend.schema");
 
-router.get("/followers/:id", isAuth, validate(getSchema), friendController.getFollowers);
-router.get("/followings/:id", isAuth, validate(getSchema), friendController.getFollowings);
-router.get("/search", isAuth, friendController.search);
-router.get("/requests", isAuth, validate(requestsSchema), friendController.requests);
-router.get("/blocks", isAuth, validate(getSchema), friendController.getBlockeds)
-router.post("/follow/:id", isAuth, validate(followSchema), friendController.follow);
-router.post("/unfollow/:id", isAuth, validate(followSchema), friendController.unfollow);
-router.patch("/accept", isAuth, validate(requestSchema), friendController.accept);
-router.patch("/cancel", isAuth, validate(requestSchema), friendController.cancel);
-router.patch("/decline", isAuth, validate(requestSchema), friendController.decline);
-router.post("/block/:userId", isAuth, validate(blockSchema), friendController.toggleBlock);
+router.get("/followers/:id",  validate(getSchema), friendController.getFollowers);
+router.get("/followings/:id",  validate(getSchema), friendController.getFollowings);
+router.get("/suggestions",  friendController.getSuggestions);
+router.get("/search",  friendController.search);
+router.get("/requests",  validate(requestsSchema), friendController.requests);
+router.get("/blocks",  validate(getSchema), friendController.getBlockeds)
+router.post("/follow/:id",  validate(followSchema), friendController.follow);
+router.post("/unfollow/:id",  validate(followSchema), friendController.unfollow);
+router.patch("/accept",  validate(requestSchema), friendController.accept);
+router.patch("/cancel",  validate(requestSchema), friendController.cancel);
+router.patch("/decline",  validate(requestSchema), friendController.decline);
+router.post("/block/:userId",  validate(blockSchema), friendController.toggleBlock);
 
 
 module.exports = router;

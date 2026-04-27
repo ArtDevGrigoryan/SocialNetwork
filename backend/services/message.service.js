@@ -290,6 +290,7 @@ class MessageService {
     const payload = { type: data.type, text: data.text };
     if (data.type === "SHARE_PROFILE") payload.sharedProfile = data.sharedId;
     if (data.type === "SHARE_POST") payload.sharedPost = data.sharedId;
+    if (data.type === "SHARE_STORY") payload.sharedStory = data.sharedId;
 
     const { message } = await sendMessageTx(participant.user, chatId, payload);
 

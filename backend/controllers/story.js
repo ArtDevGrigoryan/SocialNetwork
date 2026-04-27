@@ -2,6 +2,13 @@ const { sendSuccess } = require("@helpers/api-response");
 const storyService = require("@services/story.service");
 
 class StoryController {
+  async getViewers(req, res) {
+    const viewers = await storyService.getStoryViewers(
+      req.user._id,
+      req.params.id,
+    );
+    return sendSuccess(res, viewers);
+  }
   async stories(req, res) {
     const stories = await storyService.stories(
       req.user._id,
@@ -26,6 +33,11 @@ class StoryController {
   }
   async remove(req, res) {
     await storyService.remove(req.user, req.params.id);
+  }
+  async reaction(req, res) {
+    const { reaction } = req.body;
+    await storyService.reaction(req.user._id, req.params.id, reaction);
+    return sendSuccess(res);
   }
 }
 

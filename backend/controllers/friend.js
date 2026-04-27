@@ -87,6 +87,13 @@ class FriendController {
     );
     return sendSuccess(res, data);
   }
+  async getSuggestions(req, res) {
+    const data = await friendService.getSuggestions(
+      req.user._id,
+      req.query?.limit || 10,
+    );
+    return sendSuccess(res, data);
+  }
 }
 
 module.exports = new FriendController();

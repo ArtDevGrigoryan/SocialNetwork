@@ -50,7 +50,7 @@ class StoryService {
       viewer: userId,
     }).lean();
 
-    const seenSet = new Set(views.map((v) => v.story.toString()));
+    const viewMap = new Map(views.map((v) => [v.story.toString(), v.reaction]));
 
     const grouped = new Map();
 
@@ -59,7 +59,10 @@ class StoryService {
 
       const story = {
         ...s,
-        viewer: { seen: seenSet.has(s._id.toString()) },
+        viewer: {
+          seen: viewMap.has(s._id.toString()),
+          reaction: viewMap.get(s._id.toString()) || null,
+        },
       };
 
       if (!grouped.has(uid)) grouped.set(uid, []);
@@ -112,8 +115,30 @@ class StoryService {
 
     return {
       ...story.toObject(),
-      viewer: { seen: true },
+      viewer: {
+        seen: true,
+        reaction: alreadyViewed ? alreadyViewed.reaction : null,
+      },
     };
+  }
+
+  async getStoryViewers(userId, storyId) {
+    const story = await Story.findById(storyId);
+
+    if (!story) throw new NotFoundException("Story not found");
+
+    if (story.user.toString() !== userId.toString()) {
+      throw new BadRequestException(
+        "You can only view viewers of your own story",
+      );
+    }
+
+    const viewers = await StoryView.find({ story: storyId })
+      .populate("viewer", "_id username avatar")
+      .sort({ viewedAt: -1 })
+      .lean();
+
+    return viewers;
   }
 
   async guestStories(viewer, target) {
@@ -138,12 +163,13 @@ class StoryService {
       viewer,
     }).lean();
 
-    const seenSet = new Set(views.map((v) => v.story.toString()));
+    const viewMap = new Map(views.map((v) => [v.story.toString(), v.reaction]));
 
     return stories.map((s) => ({
       ...s,
       viewer: {
-        seen: seenSet.has(s._id.toString()),
+        seen: viewMap.has(s._id.toString()),
+        reaction: viewMap.get(s._id.toString()) || null,
       },
     }));
   }
@@ -202,6 +228,25 @@ class StoryService {
     await story.deleteOne();
 
     return true;
+  }
+
+  async reaction(userId, storyId, reaction) {
+    await PolicyService.canViewStory(userId, storyId);
+
+    const viewer = await StoryView.findOneAndUpdate(
+      {
+        story: storyId,
+        viewer: userId,
+      },
+      {
+        reaction,
+      },
+      {
+        new: true,
+        upsert: true,
+      },
+    ).lean();
+    return viewer;
   }
 }
 

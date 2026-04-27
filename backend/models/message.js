@@ -11,7 +11,16 @@ const messageSchema = new mongoose.Schema(
     sender: { type: mongoose.Types.ObjectId, ref: "User", required: true },
     type: {
       type: String,
-      enum: ["TEXT", "VOICE", "IMAGE", "MEDIA", "MEDIA_GROUP"],
+      enum: [
+        "TEXT",
+        "VOICE",
+        "IMAGE",
+        "MEDIA",
+        "MEDIA_GROUP",
+        "SHARE_POST",
+        "SHARE_PROFILE",
+        "SHARE_STORY",
+      ],
       required: true,
     },
     text: {
@@ -72,6 +81,10 @@ const messageSchema = new mongoose.Schema(
     sharedProfile: {
       type: mongoose.Types.ObjectId,
       ref: "User",
+    },
+    sharedStory: {
+      type: mongoose.Types.ObjectId,
+      ref: "Story",
     },
     deletedAt: { type: Date, default: null },
     editedAt: { type: Date, default: null },

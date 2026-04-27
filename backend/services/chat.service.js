@@ -606,6 +606,19 @@ class ChatService {
 
     return updated;
   }
+  async getByKey(key) {
+    if (!key) throw new BadRequestException("Key is required");
+    const [user1, user2] = key.split(":");
+    const blocked = await PolicyService.isBlocked(user1, user2);
+    const chat = await Chat.findOne({ chatKey: key });
+    if (!chat || blocked) throw new NotFoundException("Chat not found");
+    const participants = await Participants.find({ chatId: chat._id }).populate(
+      "user",
+      "_id username avatar bio",
+    );
+    chat.participants = participants;
+    return chat;
+  }
 }
 
 module.exports = new ChatService();

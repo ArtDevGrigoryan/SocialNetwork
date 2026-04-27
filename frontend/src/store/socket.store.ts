@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
 import { api } from "../lib/axios.config";
 import { useNotificationStore } from "./notification.store";
+import { useRequestStore } from "./request.store";
 
 export interface ISocketUserResult {
   _id: string;
@@ -116,7 +117,9 @@ export const useSocketStore = create<SocketState>((set, get) => ({
         });
       }, 3000);
     });
-
+    socket.on("receive_request", (data) => {
+      useRequestStore.getState().addRequest(data);
+    });
     socket.on("receive_notification", (notification: IRealtimeNotification) => {
       useNotificationStore
         .getState()

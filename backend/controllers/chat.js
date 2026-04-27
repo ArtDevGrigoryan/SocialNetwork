@@ -83,6 +83,10 @@ class ChatController {
     );
     return sendSuccess(res, updated);
   }
+  async getByKey(req, res) {
+    const chat = await chatService.getByKey(req.query.key);
+    return sendSuccess(res, chat);
+  }
 }
 
 module.exports = new ChatController();

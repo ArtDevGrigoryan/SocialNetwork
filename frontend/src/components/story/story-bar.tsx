@@ -35,7 +35,11 @@ export default function StoryBar() {
       setLoading(true);
 
       const { data } = await api.get("/stories");
-      const allGroups: StoryGroup[] = data.payload || [];
+      const allGroups: StoryGroup[] = (data.payload || []).map((g: any) => ({
+        ...g,
+        _id: g.user?._id,
+      }));
+
       setOtherStories(allGroups.filter((g) => g._id !== user?._id));
 
       if (user?._id) {

@@ -17,6 +17,11 @@ class ArchiveController {
     await archiveService.remove(req.user._id, req.params.id);
     return sendSuccess(res);
   }
+  async viewers(req, res) {
+    const data = await archiveService.viewers(req.user._id, req.params.id);
+    console.log(data);
+    return sendSuccess(res, data);
+  }
 }
 
 module.exports = new ArchiveController();

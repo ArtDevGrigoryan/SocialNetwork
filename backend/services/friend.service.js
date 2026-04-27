@@ -5,8 +5,8 @@ const cancelRequestTx = require("@models/transactions/friendship/cancel-request"
 const acceptRequestTx = require("@models/transactions/friendship/accept-request");
 const declineRequestTx = require("@models/transactions/friendship/decline-request");
 const Follow = require("@models/follow");
-const { SocketConflictException } = require("@helpers/socket-errors");
 const FriendRequest = require("@models/friend-request");
+const { SocketConflictException } = require("@helpers/socket-errors");
 const {
   ConflictException,
   NotFoundException,
@@ -14,6 +14,7 @@ const {
 } = require("@helpers/errors");
 const PolicyService = require("@services/policy.service");
 const notificationService = require("./notification.service");
+const socketService = require("./socket.service");
 
 class FriendService {
   async follow(sender, receiver) {
@@ -31,6 +32,19 @@ class FriendService {
         fromUser: sender,
         toUser: receiver,
       });
+
+      const newRequest = await FriendRequest.findOne({
+        sender,
+        receiver,
+        status: "PENDING",
+      })
+        .populate("sender", "_id username avatar bio")
+        .populate("receiver", "_id username avatar bio")
+        .lean();
+
+      if (newRequest) {
+        await socketService.emitNewRequest(receiver.toString(), newRequest);
+      }
     } else {
       await notificationService.followNotification({
         fromUser: sender,
@@ -107,6 +121,71 @@ class FriendService {
       .limit(limit)
       .populate("sender", "_id username avatar bio")
       .populate("receiver", "_id username avatar bio");
+  }
+  async getSuggestions(userId, limit = 5) {
+    const User = require("@models/user");
+    const Follow = require("@models/follow");
+
+    const myFollowings = await Follow.find({ follower: userId })
+      .select("following")
+      .lean();
+    const followingIds = myFollowings.map((f) => f.following);
+
+    const excludeIds = [...followingIds, new mongoose.Types.ObjectId(userId)];
+
+    const suggestions = await User.aggregate([
+      {
+        $match: {
+          _id: { $nin: excludeIds },
+          deactived: false,
+        },
+      },
+      {
+        $lookup: {
+          from: "follows",
+          let: { potentialUserId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$following", "$$potentialUserId"] },
+                    { $in: ["$follower", followingIds] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: "mutualConnections",
+        },
+      },
+      {
+        $addFields: {
+          mutualCount: { $size: "$mutualConnections" },
+        },
+      },
+      {
+        $sort: { mutualCount: -1, followersCount: -1 },
+      },
+      {
+        $limit: 20,
+      },
+      {
+        $sample: { size: Number(limit) },
+      },
+      {
+        $project: {
+          _id: 1,
+          username: 1,
+          avatar: 1,
+          bio: 1,
+          followersCount: 1,
+          mutualCount: 1,
+        },
+      },
+    ]);
+
+    return suggestions;
   }
 }
 

@@ -4,9 +4,11 @@ import {
   Shield,
   Bell,
   Smartphone,
-  User,
+  UserRoundPlus,
   MailCheck,
   ChevronRight,
+  User,
+  Archive,
   ArrowLeft,
 } from "lucide-react";
 import { Alert, type AlertType } from "../../components/message-popup/alert";
@@ -16,6 +18,8 @@ import ChangePassword from "./change-password";
 import PrivacySettings from "./privacy";
 import NotificationSettings from "./notifications";
 import TwoFactorAuth from "./two-factor";
+import RequestsPage from "./request";
+import ArchivePage from "./archive";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("edit-profile");
@@ -53,6 +57,8 @@ export default function SettingsPage() {
     { id: "privacy", label: "Privacy and Security", icon: Shield },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "2fa", label: "Two-Factor Auth", icon: Smartphone },
+    { id: "requests", label: "Requests", icon: UserRoundPlus },
+    { id: "archive", label: "Archive", icon: Archive },
   ];
 
   const renderContent = () => {
@@ -69,6 +75,10 @@ export default function SettingsPage() {
         return <NotificationSettings showAlert={showAlert} />;
       case "2fa":
         return <TwoFactorAuth showAlert={showAlert} />;
+      case "requests":
+        return <RequestsPage />;
+      case "archive":
+        return <ArchivePage />;
       default:
         return null;
     }

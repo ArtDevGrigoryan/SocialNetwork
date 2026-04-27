@@ -91,6 +91,13 @@ class SocketService {
       userId,
     });
   }
+  async emitNewRequest(userId, requestObj) {
+    const key = `socket:${userId}`;
+    const isOnline = await redis.get(key);
+    if (isOnline) {
+      ioEmitter.to(key).emit("receive_request", requestObj);
+    }
+  }
 }
 
 module.exports = new SocketService();

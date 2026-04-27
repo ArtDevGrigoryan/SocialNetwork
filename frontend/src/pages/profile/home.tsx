@@ -23,7 +23,7 @@ export const Profile = () => {
   const [usersModal, setUsersModal] = useState({
     open: false,
     title: "",
-    type: "followers" as "followers" | "followings",
+    type: "followers",
     data: [],
     loading: false,
   });
@@ -74,12 +74,14 @@ export const Profile = () => {
           const extractedPosts = (res.data.payload || []).map(
             (item: any) => item.post || item,
           );
+          console.log(res.data.payload);
           setTabData(extractedPosts);
         } else if (activeTab === "reposts") {
           res = await api.get(`/reposts?user=${id}`);
           const extractedPosts = (res.data.payload || []).map(
             (item: any) => item.post || item,
           );
+
           setTabData(extractedPosts);
         }
       } catch (error) {

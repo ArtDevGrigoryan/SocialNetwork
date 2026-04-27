@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import {
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { api } from "../../lib/axios.config";
+import { useAuthStore } from "../../store/auth.store";
+import { StoryProgressBar } from "../story-ui/progess-bar";
+import { StoryMedia } from "../story-ui/media-renderer";
+import { ViewersDrawer } from "../story-ui/viewers-drawer";
+import { StoryReplyBox } from "../story-ui/reply-box";
+import { StoryHeader } from "../story-ui/header";
 
 export interface IStoryData {
   _id: string;
@@ -28,6 +27,7 @@ export interface IStoryData {
   };
   viewer: {
     seen: boolean;
+    reaction?: string | null;
   };
 }
 
@@ -38,19 +38,32 @@ interface StoryViewerProps {
   onPrevUser?: () => void;
 }
 
+export interface ViewerReaction {
+  viewer: {
+    _id: string;
+    username: string;
+    avatar: string;
+  };
+  reaction?: string;
+  viewedAt: string;
+}
+
 export default function StoryViewer({
   userId,
   onClose,
   onNextUser,
   onPrevUser,
 }: StoryViewerProps) {
+  const { user: authUser } = useAuthStore();
   const [stories, setStories] = useState<IStoryData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
-
   const [isPaused, setIsPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [viewers, setViewers] = useState<ViewerReaction[]>([]);
+  const [loadingViewers, setLoadingViewers] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -82,13 +95,12 @@ export default function StoryViewer({
   }, [userId]);
 
   const currentStory = stories[currentIndex];
+  const isOwner = currentStory?.user._id === authUser?._id;
 
   useEffect(() => {
     if (!currentStory) return;
-
     if (!currentStory.viewer?.seen) {
       api.get(`/stories/${currentStory._id}`).catch(console.error);
-
       setStories((prev) =>
         prev.map((s, idx) =>
           idx === currentIndex ? { ...s, viewer: { seen: true } } : s,
@@ -100,8 +112,10 @@ export default function StoryViewer({
   const handleNext = useCallback(() => {
     if (currentIndex < stories.length - 1) {
       setCurrentIndex((prev) => prev + 1);
+      setIsDrawerOpen(false);
     } else if (onNextUser) {
       onNextUser();
+      setIsDrawerOpen(false);
     } else {
       onClose();
     }
@@ -110,8 +124,10 @@ export default function StoryViewer({
   const handlePrev = useCallback(() => {
     if (currentIndex > 0) {
       setCurrentIndex((prev) => prev - 1);
+      setIsDrawerOpen(false);
     } else if (onPrevUser) {
       onPrevUser();
+      setIsDrawerOpen(false);
     }
   }, [currentIndex, onPrevUser]);
 
@@ -121,11 +137,10 @@ export default function StoryViewer({
     progressRef.current = 0;
     setProgress(0);
     lastTimeRef.current = performance.now();
-
     const duration = 5000;
 
     const animate = (time: number) => {
-      if (isPaused) {
+      if (isPaused || isDrawerOpen) {
         lastTimeRef.current = time;
         animationRef.current = requestAnimationFrame(animate);
         return;
@@ -150,11 +165,10 @@ export default function StoryViewer({
     };
 
     animationRef.current = requestAnimationFrame(animate);
-
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [currentIndex, loading, currentStory, isPaused, handleNext]);
+  }, [currentIndex, loading, currentStory, isPaused, isDrawerOpen, handleNext]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -162,7 +176,7 @@ export default function StoryViewer({
       audioRef.current.currentTime = 0;
     }
 
-    if (!currentStory || isPaused) {
+    if (!currentStory || isPaused || isDrawerOpen) {
       videoRef.current?.pause();
       audioRef.current?.pause();
       return;
@@ -182,7 +196,26 @@ export default function StoryViewer({
       audioRef.current.muted = isMuted;
       audioRef.current.play().catch((e) => console.log("Audio skipped:", e));
     }
-  }, [currentIndex, currentStory, isPaused, isMuted]);
+  }, [currentIndex, currentStory, isPaused, isMuted, isDrawerOpen]);
+
+  useEffect(() => {
+    if (isDrawerOpen && currentStory && isOwner) {
+      const fetchViewers = async () => {
+        setLoadingViewers(true);
+        try {
+          const { data } = await api.get(
+            `/stories/${currentStory._id}/viewers`,
+          );
+          setViewers(data.payload || []);
+        } catch (error) {
+          console.error("Failed to fetch viewers", error);
+        } finally {
+          setLoadingViewers(false);
+        }
+      };
+      fetchViewers();
+    }
+  }, [isDrawerOpen, currentStory, isOwner]);
 
   const getRelativeTime = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -221,7 +254,6 @@ export default function StoryViewer({
       >
         <ChevronLeft size={30} />
       </button>
-
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -231,7 +263,6 @@ export default function StoryViewer({
       >
         <ChevronRight size={30} />
       </button>
-
       <button
         onClick={onClose}
         className="absolute top-6 right-6 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition hidden sm:block"
@@ -240,103 +271,57 @@ export default function StoryViewer({
       </button>
 
       <div className="relative w-full h-full sm:w-[400px] sm:h-[90vh] bg-neutral-900 sm:rounded-xl overflow-hidden flex flex-col shadow-2xl">
-        <div className="absolute top-0 left-0 right-0 z-20 flex gap-1 p-2 bg-gradient-to-b from-black/60 to-transparent">
-          {stories.map((_, idx) => (
-            <div
-              key={idx}
-              className="h-[2px] flex-1 bg-white/30 rounded-full overflow-hidden"
-            >
-              <div
-                className="h-full bg-white transition-none"
-                style={{
-                  width:
-                    idx === currentIndex
-                      ? `${progress}%`
-                      : idx < currentIndex
-                        ? "100%"
-                        : "0%",
-                }}
-              />
-            </div>
-          ))}
-        </div>
+        <StoryProgressBar
+          total={stories.length}
+          currentIndex={currentIndex}
+          progress={progress}
+        />
 
-        <div className="absolute top-4 left-0 right-0 z-20 flex items-center justify-between px-4 pt-2">
-          <div className="flex items-center gap-2 drop-shadow-md">
-            <img
-              src={currentStory.user.avatar || "/default-avatar.png"}
-              alt={currentStory.user.username}
-              className="w-8 h-8 rounded-full object-cover border border-neutral-700"
-            />
-            <span className="text-white font-semibold text-sm drop-shadow-lg">
-              {currentStory.user.username}
-            </span>
-            <span className="text-neutral-200 text-xs drop-shadow-lg font-medium">
-              {getRelativeTime(currentStory.createdAt)}
-            </span>
-          </div>
+        <StoryHeader
+          avatar={currentStory.user.avatar}
+          username={currentStory.user.username}
+          timeText={getRelativeTime(currentStory.createdAt)}
+          hasAudio={Boolean(hasAudio)}
+          isMuted={isMuted}
+          onToggleMute={() => setIsMuted(!isMuted)}
+          onClose={onClose}
+        />
 
-          <div className="flex items-center gap-2">
-            {hasAudio && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsMuted(!isMuted);
-                }}
-                className="text-white p-1.5 drop-shadow-md hover:bg-white/20 rounded-full transition"
-              >
-                {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="text-white sm:hidden p-1 drop-shadow-md"
-            >
-              <X size={24} />
-            </button>
-          </div>
-        </div>
+        <StoryMedia
+          media={currentStory.media}
+          isMuted={isMuted}
+          videoRef={videoRef}
+          setIsPaused={setIsPaused}
+          onPrev={handlePrev}
+          onNext={handleNext}
+        />
 
-        <div
-          className="relative flex-1 flex items-center justify-center bg-black cursor-pointer select-none"
-          onMouseDown={() => setIsPaused(true)}
-          onMouseUp={() => setIsPaused(false)}
-          onMouseLeave={() => setIsPaused(false)}
-          onTouchStart={() => setIsPaused(true)}
-          onTouchEnd={() => setIsPaused(false)}
-        >
-          {currentStory.media.type === "image" ? (
-            <img
-              src={currentStory.media.url}
-              alt="Story"
-              className="w-full h-full object-cover pointer-events-none"
-            />
-          ) : (
-            <video
-              ref={videoRef}
-              src={currentStory.media.url}
-              playsInline
-              muted={isMuted}
-              className="w-full h-full object-cover pointer-events-none"
-              onEnded={handleNext}
-            />
-          )}
-
-          <div
-            className="absolute inset-y-0 left-0 w-1/3 z-10"
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePrev();
+        {isOwner ? (
+          <ViewersDrawer
+            isOpen={isDrawerOpen}
+            setIsOpen={setIsDrawerOpen}
+            viewsCount={currentStory.viewsCount}
+            viewers={viewers}
+            loadingViewers={loadingViewers}
+          />
+        ) : (
+          <StoryReplyBox
+            targetUserId={currentStory.user._id}
+            username={currentStory.user.username}
+            storyId={currentStory._id}
+            setIsPaused={setIsPaused}
+            initialReaction={currentStory.viewer?.reaction}
+            onReactionSuccess={(storyId, newReaction) => {
+              setStories((prev) =>
+                prev.map((s) =>
+                  s._id === storyId
+                    ? { ...s, viewer: { ...s.viewer, reaction: newReaction } }
+                    : s,
+                ),
+              );
             }}
           />
-          <div
-            className="absolute inset-y-0 right-0 w-1/3 z-10"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleNext();
-            }}
-          />
-        </div>
+        )}
       </div>
     </div>
   );

@@ -29,7 +29,8 @@ class SaveService {
     return Saves.find({ user: userId })
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .populate("post");
   }
 }
 
