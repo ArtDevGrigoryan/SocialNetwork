@@ -28,6 +28,7 @@ router.post(
   storyController.add,
 );
 router.patch("/:id", validate(updateSchema), storyController.reaction);
+router.patch("/:id/like", validate(getStorySchema), storyController.like);
 router.delete("/:id", validate(getStorySchema), storyController.remove);
 
 module.exports = router;

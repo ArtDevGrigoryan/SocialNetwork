@@ -39,6 +39,10 @@ class StoryController {
     await storyService.reaction(req.user._id, req.params.id, reaction);
     return sendSuccess(res);
   }
+  async like(req, res) {
+    await storyService.like(req.user._id, req.params.id);
+    return sendSuccess(res);
+  }
 }
 
 module.exports = new StoryController();

@@ -1,23 +1,6 @@
 import { ChevronUp, Eye, Heart, Loader2, X } from "lucide-react";
 import { cn } from "../../lib/utils";
-
-export interface ViewerReaction {
-  viewer: {
-    _id: string;
-    username: string;
-    avatar: string;
-  };
-  reaction?: string;
-  viewedAt: string;
-}
-
-interface ViewersDrawerProps {
-  isOpen: boolean;
-  setIsOpen: (val: boolean) => void;
-  viewsCount: number;
-  viewers: ViewerReaction[];
-  loadingViewers: boolean;
-}
+import type { ViewersDrawerProps } from "../../types/story.types";
 
 export const ViewersDrawer = ({
   isOpen,
@@ -88,13 +71,12 @@ export const ViewersDrawer = ({
                     {v.viewer.username}
                   </span>
                 </div>
-                {v.reaction && (
-                  <div className="text-lg">
-                    {v.reaction === "like" ? (
+                {(v.reaction || v.liked) && (
+                  <div className="flex items-center gap-1.5 text-xl">
+                    {v.liked && (
                       <Heart className="text-red-500 fill-red-500" size={20} />
-                    ) : (
-                      v.reaction
                     )}
+                    {v.reaction && <span>{v.reaction}</span>}
                   </div>
                 )}
               </div>

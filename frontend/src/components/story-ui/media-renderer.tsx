@@ -1,13 +1,4 @@
-import type { RefObject } from "react";
-
-interface StoryMediaProps {
-  media: { type: "image" | "video"; url: string };
-  isMuted?: boolean;
-  videoRef?: RefObject<HTMLVideoElement | null>;
-  setIsPaused: (val: boolean) => void;
-  onPrev: () => void;
-  onNext: () => void;
-}
+import type { StoryMediaProps } from "../../types/story.types";
 
 export const StoryMedia = ({
   media,

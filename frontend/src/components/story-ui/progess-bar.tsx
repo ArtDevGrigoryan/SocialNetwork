@@ -1,8 +1,4 @@
-interface StoryProgressBarProps {
-  total: number;
-  currentIndex: number;
-  progress: number;
-}
+import type { StoryProgressBarProps } from "../../types/story.types";
 
 export const StoryProgressBar = ({
   total,

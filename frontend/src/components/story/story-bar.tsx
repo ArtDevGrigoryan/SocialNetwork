@@ -1,65 +1,28 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Plus } from "lucide-react";
-import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
+import { useStoryStore } from "../../store/story.store";
 import CreateStoryModal from "./add-story-modal";
 import StoryViewer from "./story-viewer";
 
-interface StoryUser {
-  _id: string;
-  username: string;
-  avatar?: string;
-}
-
-interface StoryGroup {
-  _id: string;
-  user: StoryUser;
-  hasUnseen: boolean;
-}
-
 export default function StoryBar() {
-  const [otherStories, setOtherStories] = useState<StoryGroup[]>([]);
-  const [loading, setLoading] = useState(true);
-
   const { user } = useAuthStore();
-
-  const [myStoriesCount, setMyStoriesCount] = useState(0);
-  const [hasUnseenMyStory, setHasUnseenMyStory] = useState(false);
-
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-
-      const { data } = await api.get("/stories");
-      const allGroups: StoryGroup[] = (data.payload || []).map((g: any) => ({
-        ...g,
-        _id: g.user?._id,
-      }));
-
-      setOtherStories(allGroups.filter((g) => g._id !== user?._id));
-
-      if (user?._id) {
-        const { data: myData } = await api.get(`/stories/user/${user._id}`);
-        const myStories = myData.payload || [];
-        setMyStoriesCount(myStories.length);
-        setHasUnseenMyStory(myStories.some((s: any) => !s.viewer?.seen));
-      }
-    } catch (error) {
-      console.error("Error fetching stories:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    otherStories,
+    loadingFeed,
+    myStoriesCount,
+    hasUnseenMyStory,
+    fetchFeed,
+    setCreateModalOpen,
+    viewingUserId,
+    setViewingUserId,
+  } = useStoryStore();
 
   useEffect(() => {
-    fetchData();
-    window.addEventListener("story:created", fetchData);
-    return () => window.removeEventListener("story:created", fetchData);
-  }, [user?._id]);
+    fetchFeed(user?._id);
+  }, [user?._id, fetchFeed]);
 
   const handleScroll = (e: React.WheelEvent<HTMLDivElement>) => {
     if (scrollRef.current) {
@@ -118,7 +81,7 @@ export default function StoryBar() {
                 if (myStoriesCount > 0) {
                   setViewingUserId(user?._id || null);
                 } else {
-                  setIsCreateModalOpen(true);
+                  setCreateModalOpen(true);
                 }
               }}
             >
@@ -135,7 +98,7 @@ export default function StoryBar() {
               <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsCreateModalOpen(true);
+                  setCreateModalOpen(true);
                 }}
                 className="absolute bottom-0 right-0 bg-blue-500 rounded-full border-2 border-black p-0.5 flex items-center justify-center cursor-pointer hover:scale-110 transition z-10"
               >
@@ -147,7 +110,7 @@ export default function StoryBar() {
             </span>
           </div>
 
-          {loading
+          {loadingFeed
             ? Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
@@ -186,10 +149,7 @@ export default function StoryBar() {
         </div>
       </div>
 
-      <CreateStoryModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-      />
+      <CreateStoryModal />
 
       {viewingUserId && (
         <StoryViewer

@@ -7,7 +7,7 @@ const storyViewerSchema = new mongoose.Schema(
       ref: "Story",
       required: true,
     },
-
+    liked: { type: Boolean, default: false },
     viewer: {
       type: mongoose.Types.ObjectId,
       ref: "User",

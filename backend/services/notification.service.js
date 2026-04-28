@@ -27,18 +27,20 @@ class NotificationService {
     });
   }
 
-  async likeNotification({ postId, fromUser, toUser }) {
-    if (fromUser === toUser) return;
+  async likeNotification({ postId, storyId, fromUser, toUser }) {
+    const entityId = postId || storyId;
+    if (fromUser === toUser || !entityId) return;
+
     const { scheduledKey, usersKey, countKey } = keys({
       type: "like",
-      entityId: postId,
+      entityId,
       toUser,
     });
     await Promise.all([redis.sadd(usersKey, fromUser), redis.incr(countKey)]);
     await NotificationService.#enqueueOnce({
       scheduledKey,
       jobName: JOBS.LIKE,
-      payload: { postId, toUser },
+      payload: { postId, toUser, storyId },
     });
   }
 

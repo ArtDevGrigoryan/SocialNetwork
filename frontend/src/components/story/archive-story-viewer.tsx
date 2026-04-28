@@ -11,24 +11,11 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { api } from "../../lib/axios.config";
-import type { ArchiveItem } from "../../store/archive.store";
 import { cn } from "../../lib/utils";
-
-interface ArchiveStoryViewerProps {
-  archives: ArchiveItem[];
-  initialIndex: number;
-  onClose: () => void;
-}
-
-interface ViewerReaction {
-  viewer: {
-    _id: string;
-    username: string;
-    avatar: string;
-  };
-  reaction?: string;
-  viewedAt: string;
-}
+import type {
+  ArchiveStoryViewerProps,
+  ViewerReaction,
+} from "../../types/story.types";
 
 export default function ArchiveStoryViewer({
   archives,
@@ -300,7 +287,6 @@ export default function ArchiveStoryViewer({
           />
         </div>
 
-        {/* Ներքևի Swipe Up / Viewers Section */}
         <div className="absolute bottom-0 left-0 right-0 z-30">
           <div className="bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-10 pb-4 px-4 flex justify-center">
             <button
@@ -319,14 +305,12 @@ export default function ArchiveStoryViewer({
           </div>
         </div>
 
-        {/* Viewers & Reactions Drawer (Ներքևից բացվող) */}
         <div
           className={cn(
             "absolute bottom-0 left-0 right-0 bg-neutral-900 rounded-t-2xl transition-transform duration-300 z-40 flex flex-col",
             isDrawerOpen ? "translate-y-0 h-[60%]" : "translate-y-full h-[60%]",
           )}
         >
-          {/* Drawer Header */}
           <div className="flex items-center justify-between p-4 border-b border-neutral-800">
             <div className="flex items-center gap-2 text-white font-semibold">
               <Eye size={18} />
@@ -343,7 +327,6 @@ export default function ArchiveStoryViewer({
             </button>
           </div>
 
-          {/* Viewers List */}
           <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
             {loadingViewers ? (
               <div className="flex justify-center items-center h-full">
@@ -368,17 +351,15 @@ export default function ArchiveStoryViewer({
                       </span>
                     </div>
 
-                    {/* Եթե Reaction է դրել, ցույց ենք տալիս */}
-                    {v.reaction && (
-                      <div className="text-lg">
-                        {v.reaction === "like" ? (
+                    {(v.reaction || v.liked) && (
+                      <div className="flex items-center gap-1.5 text-xl">
+                        {v.liked && (
                           <Heart
                             className="text-red-500 fill-red-500"
                             size={20}
                           />
-                        ) : (
-                          v.reaction
                         )}
+                        {v.reaction && <span>{v.reaction}</span>}
                       </div>
                     )}
                   </div>

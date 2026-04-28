@@ -1,14 +1,5 @@
 import { X, Volume2, VolumeX } from "lucide-react";
-
-interface StoryHeaderProps {
-  avatar?: string;
-  username: string;
-  timeText: string;
-  hasAudio?: boolean;
-  isMuted?: boolean;
-  onToggleMute?: () => void;
-  onClose: () => void;
-}
+import type { StoryHeaderProps } from "../../types/story.types";
 
 export const StoryHeader = ({
   avatar,

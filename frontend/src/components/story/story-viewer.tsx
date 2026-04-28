@@ -7,46 +7,12 @@ import { StoryMedia } from "../story-ui/media-renderer";
 import { ViewersDrawer } from "../story-ui/viewers-drawer";
 import { StoryReplyBox } from "../story-ui/reply-box";
 import { StoryHeader } from "../story-ui/header";
-
-export interface IStoryData {
-  _id: string;
-  createdAt: string;
-  expiresAt: string;
-  updatedAt: string;
-  viewsCount: number;
-  media: {
-    url: string;
-    key: string;
-    backgroundMusic: string;
-    type: "image" | "video";
-  };
-  user: {
-    _id: string;
-    username: string;
-    avatar: string;
-  };
-  viewer: {
-    seen: boolean;
-    reaction?: string | null;
-  };
-}
-
-interface StoryViewerProps {
-  userId: string;
-  onClose: () => void;
-  onNextUser?: () => void;
-  onPrevUser?: () => void;
-}
-
-export interface ViewerReaction {
-  viewer: {
-    _id: string;
-    username: string;
-    avatar: string;
-  };
-  reaction?: string;
-  viewedAt: string;
-}
+import { FloatingReactions } from "../story-ui/floating-reactions";
+import type {
+  IStoryData,
+  StoryViewerProps,
+  ViewerReaction,
+} from "../../types/story.types";
 
 export default function StoryViewer({
   userId,
@@ -103,7 +69,9 @@ export default function StoryViewer({
       api.get(`/stories/${currentStory._id}`).catch(console.error);
       setStories((prev) =>
         prev.map((s, idx) =>
-          idx === currentIndex ? { ...s, viewer: { seen: true } } : s,
+          idx === currentIndex
+            ? { ...s, viewer: { ...s.viewer, seen: true } }
+            : s,
         ),
       );
     }
@@ -295,7 +263,11 @@ export default function StoryViewer({
           onPrev={handlePrev}
           onNext={handleNext}
         />
-
+        <FloatingReactions
+          reaction={currentStory.viewer?.reaction}
+          liked={currentStory.viewer?.liked}
+          storyId={currentStory._id}
+        />
         {isOwner ? (
           <ViewersDrawer
             isOpen={isDrawerOpen}
@@ -311,11 +283,19 @@ export default function StoryViewer({
             storyId={currentStory._id}
             setIsPaused={setIsPaused}
             initialReaction={currentStory.viewer?.reaction}
-            onReactionSuccess={(storyId, newReaction) => {
+            initialLiked={currentStory.viewer?.liked}
+            onStateUpdate={(storyId, newReaction, newLiked) => {
               setStories((prev) =>
                 prev.map((s) =>
                   s._id === storyId
-                    ? { ...s, viewer: { ...s.viewer, reaction: newReaction } }
+                    ? {
+                        ...s,
+                        viewer: {
+                          ...s.viewer,
+                          reaction: newReaction,
+                          liked: newLiked,
+                        },
+                      }
                     : s,
                 ),
               );

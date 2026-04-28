@@ -2,15 +2,7 @@ import { useState, useEffect } from "react";
 import { Heart, Send } from "lucide-react";
 import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
-
-interface StoryReplyBoxProps {
-  username: string;
-  storyId: string;
-  targetUserId: string;
-  setIsPaused: (val: boolean) => void;
-  initialReaction?: string | null;
-  onReactionSuccess?: (storyId: string, reaction: string | null) => void;
-}
+import type { StoryReplyBoxProps } from "../../types/story.types";
 
 const QUICK_REACTIONS = ["😂", "😮", "😍", "😢", "👏", "🔥"];
 
@@ -20,19 +12,22 @@ export const StoryReplyBox = ({
   targetUserId,
   setIsPaused,
   initialReaction = null,
-  onReactionSuccess,
+  initialLiked = false,
+  onStateUpdate,
 }: StoryReplyBoxProps) => {
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [currentReaction, setCurrentReaction] = useState<string | null>(
     initialReaction,
   );
+  const [isLiked, setIsLiked] = useState<boolean>(initialLiked);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const { user } = useAuthStore();
 
   useEffect(() => {
     setCurrentReaction(initialReaction);
-  }, [initialReaction]);
+    setIsLiked(initialLiked);
+  }, [initialReaction, initialLiked]);
 
   const handleSendReply = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -70,33 +65,47 @@ export const StoryReplyBox = ({
     e.preventDefault();
     e.stopPropagation();
 
-    // Եթե նույն բանի վրա ենք սեղմում, ապա ջնջում ենք reaction-ը (unlike)
     const isRemoving = currentReaction === reactionValue;
-    const newReaction = isRemoving ? null : reactionValue;
+    if (isRemoving) return;
 
-    // Optimistic UI Update
+    const newReaction = reactionValue;
+
     setCurrentReaction(newReaction);
-    setIsInputFocused(false); // Թաքցնում ենք էմոջիները ընտրելուց հետո
+    setIsInputFocused(false);
     setIsPaused(false);
 
     try {
       await api.patch(`/stories/${storyId}`, { reaction: newReaction });
-      if (onReactionSuccess) {
-        onReactionSuccess(storyId, newReaction);
+      if (onStateUpdate) {
+        onStateUpdate(storyId, newReaction, isLiked);
       }
     } catch (err) {
       console.error(err);
-      // Եթե API-ը fail եղավ, հետ ենք բերում հին վիճակը
       setCurrentReaction(currentReaction);
     }
   };
 
-  const isLiked = currentReaction === "like";
+  const handleLike = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (isLiked) return;
+
+    setIsLiked(true);
+    try {
+      await api.patch(`/stories/${storyId}/like`);
+      if (onStateUpdate) {
+        onStateUpdate(storyId, currentReaction, true);
+      }
+    } catch (err) {
+      console.error(err);
+      setIsLiked(false);
+    }
+  };
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none">
       <div className="bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-24 pb-4 px-4 flex flex-col justify-end gap-3 pointer-events-auto">
-        {/* Quick Reactions Emojis */}
         <div
           className={`flex justify-center items-center gap-3 sm:gap-5 transition-all duration-300 ease-out origin-bottom
             ${
@@ -120,7 +129,6 @@ export const StoryReplyBox = ({
           ))}
         </div>
 
-        {/* Input & Actions */}
         <div className="flex items-center gap-3 w-full">
           <div
             className="flex-1 border border-neutral-500/80 rounded-full px-4 py-2.5 flex items-center bg-black/40 backdrop-blur-md cursor-text transition-colors focus-within:border-neutral-300 focus-within:bg-black/60"
@@ -140,7 +148,6 @@ export const StoryReplyBox = ({
                 setIsPaused(true);
               }}
               onBlur={() => {
-                // Փոքր delay, որպեսզի click-ը հասցնի գրանցվի էմոջիի վրա
                 setTimeout(() => setIsInputFocused(false), 150);
                 if (!text.trim()) {
                   setIsPaused(false);
@@ -159,9 +166,12 @@ export const StoryReplyBox = ({
             </button>
           ) : (
             <button
-              onClick={(e) => handleReaction(e, "like")}
-              className={`p-2 transition hover:scale-110 drop-shadow-lg ${
-                isLiked ? "text-red-500" : "text-white hover:text-red-500"
+              onClick={handleLike}
+              disabled={isLiked}
+              className={`p-2 transition drop-shadow-lg ${
+                isLiked
+                  ? "text-red-500 scale-110"
+                  : "text-white hover:text-red-500 hover:scale-110"
               }`}
             >
               <Heart

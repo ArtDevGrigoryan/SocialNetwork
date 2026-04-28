@@ -51,17 +51,18 @@ class StoryService {
     }).lean();
 
     const viewMap = new Map(views.map((v) => [v.story.toString(), v.reaction]));
-
     const grouped = new Map();
 
     for (const s of stories) {
       const uid = s.user._id.toString();
+      const viewData = viewMap.get(s._id.toString());
 
       const story = {
         ...s,
         viewer: {
-          seen: viewMap.has(s._id.toString()),
-          reaction: viewMap.get(s._id.toString()) || null,
+          seen: !!viewData,
+          liked: viewData?.liked || false,
+          reaction: viewData?.reaction || null,
         },
       };
 
@@ -157,21 +158,25 @@ class StoryService {
     if (!stories.length) return [];
 
     const storyIds = stories.map((s) => s._id);
-
     const views = await StoryView.find({
       story: { $in: storyIds },
       viewer,
     }).lean();
 
-    const viewMap = new Map(views.map((v) => [v.story.toString(), v.reaction]));
+    const viewMap = new Map(views.map((v) => [v.story.toString(), v]));
 
-    return stories.map((s) => ({
-      ...s,
-      viewer: {
-        seen: viewMap.has(s._id.toString()),
-        reaction: viewMap.get(s._id.toString()) || null,
-      },
-    }));
+    return stories.map((s) => {
+      const viewData = viewMap.get(s._id.toString());
+
+      return {
+        ...s,
+        viewer: {
+          seen: !!viewData,
+          liked: viewData?.liked || false,
+          reaction: viewData?.reaction || null,
+        },
+      };
+    });
   }
 
   async add(user, data, file) {
@@ -247,6 +252,31 @@ class StoryService {
       },
     ).lean();
     return viewer;
+  }
+  async like(userId, storyId) {
+    await PolicyService.canViewStory(userId, storyId);
+
+    const story = await Story.findById(storyId);
+
+    if (!story) throw new NotFoundException("Story not found");
+
+    const storyView = await StoryView.findOneAndUpdate(
+      {
+        story: storyId,
+        viewer: userId,
+      },
+      { liked: true },
+      {
+        new: true,
+        upsert: true,
+      },
+    );
+    await notificationService.likeNotification({
+      storyId,
+      fromUser: userId,
+      toUser: story.user,
+    });
+    return storyView;
   }
 }
 
