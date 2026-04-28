@@ -55,13 +55,19 @@ class MessageService {
     const sharedMessages = await Message.find({
       chat: chatId,
       deletedAt: null,
-      type: { $in: ["SHARE_POST", "SHARE_PROFILE"] },
+      type: { $in: ["SHARE_POST", "SHARE_PROFILE", "SHARE_STORY"] }, // Ավելացվել է SHARE_STORY
     })
-      .populate({
-        path: "sharedPost",
-        populate: { path: "author", select: "_id username avatar" },
-      })
-      .populate("sharedProfile", "_id username avatar bio")
+      .populate([
+        { path: "sharedProfile", select: "_id username avatar bio" },
+        {
+          path: "sharedPost",
+          populate: { path: "author", select: "_id username avatar bio" },
+        },
+        {
+          path: "sharedStory",
+          populate: { path: "user", select: "_id username avatar bio" },
+        },
+      ])
       .sort({ createdAt: -1 })
       .lean();
 
@@ -93,6 +99,7 @@ class MessageService {
 
     return { media, shared: sharedMessages, links };
   }
+
   async getMessages({ userId, chatId, cursor, limit = 20 }) {
     const participant = await participantsService.findOne(userId, chatId);
     if (!participant) {
@@ -121,11 +128,22 @@ class MessageService {
     const messages = await Message.find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate("sender", "_id username bio avatar")
-      .populate({
-        path: "replyTo",
-        populate: { path: "sender", select: "_id username avatar" },
-      })
+      .populate([
+        { path: "sender", select: "_id username bio avatar" },
+        {
+          path: "replyTo",
+          populate: { path: "sender", select: "_id username avatar" },
+        },
+        { path: "sharedProfile", select: "_id username avatar bio" },
+        {
+          path: "sharedPost",
+          populate: { path: "author", select: "_id username avatar bio" },
+        },
+        {
+          path: "sharedStory",
+          populate: { path: "user", select: "_id username avatar bio" },
+        },
+      ])
       .lean();
 
     const messageIds = messages.map((m) => m._id);
@@ -294,17 +312,23 @@ class MessageService {
 
     const { message } = await sendMessageTx(participant.user, chatId, payload);
 
-    const populatedMessage = await message.populate([
-      { path: "sender", select: "_id username avatar bio" },
-      { path: "sharedProfile", select: "_id username avatar bio fullName" },
-      {
-        path: "sharedPost",
-        populate: { path: "author", select: "_id username avatar" },
-      },
-    ]);
+    const populatedMessage = await Message.findById(message._id)
+      .populate([
+        { path: "sender", select: "_id username avatar bio" },
+        { path: "sharedProfile", select: "_id username avatar bio" },
+        {
+          path: "sharedPost",
+          populate: { path: "author", select: "_id username avatar bio" }, // Ենթադրվում է, որ post-ը ունի 'author' դաշտ
+        },
+        {
+          path: "sharedStory",
+          populate: { path: "user", select: "_id username avatar bio" }, // Ենթադրվում է, որ story-ն ունի 'user' դաշտ
+        },
+      ])
+      .lean();
 
     await socketService.emitReceiveMessage(chatId, {
-      ...populatedMessage.toObject(),
+      ...populatedMessage,
       chatId,
     });
     await notificationService.messageNotification({

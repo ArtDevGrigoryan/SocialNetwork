@@ -1,10 +1,10 @@
 const mongoose = require("mongoose");
 const cascadeDeletePost = require("@mongoose-middleware/cascade-delete-post");
-const postSchema = require("@schemas/post.schema");
 
 const imagesSchema = {
   url: { type: String, required: true },
   key: { type: String, required: true },
+  filter: { type: String, default: "none" },
   _id: false,
 };
 
@@ -13,6 +13,8 @@ const postsSchema = new mongoose.Schema(
     author: { type: mongoose.Types.ObjectId, ref: "User", index: true },
     content: String,
     images: [imagesSchema],
+    location: { type: String, default: "" },
+    mentions: [{ type: mongoose.Types.ObjectId, ref: "User" }],
     likes: { type: Number, default: 0 },
     comments: { type: Number, default: 0 },
     isArchived: { type: Boolean, default: false },
@@ -27,7 +29,10 @@ const postsSchema = new mongoose.Schema(
 
 function docTransform(doc, ret) {
   if (ret.images) {
-    ret.images = ret.images.map((img) => img.url);
+    ret.images = ret.images.map((img) => ({
+      url: img.url,
+      filter: img.filter,
+    }));
   }
   return ret;
 }

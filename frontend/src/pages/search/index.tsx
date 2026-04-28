@@ -1,125 +1,187 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Search } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Loader2, Play, Heart, MessageCircle } from "lucide-react";
 import { api } from "../../lib/axios.config";
-import type { IUser } from "../../types/user.types";
+import { useNavigate } from "react-router-dom";
+
+interface ExploreItem {
+  _id: string;
+  type: "image" | "video";
+  mediaUrl: string;
+  likesCount: number;
+  commentsCount: number;
+}
+
+interface UserResult {
+  _id: string;
+  username: string;
+  fullName?: string;
+  avatar?: string;
+}
 
 export default function SearchPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<IUser[]>([]);
-  const [startingChatId, setStartingChatId] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [users, setUsers] = useState<UserResult[]>([]);
 
-  const fetchUsers = async (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      setResults([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data } = await api.get("/friends/search", {
-        params: { search: trimmed },
-      });
-      setResults(data.payload || []);
-    } catch (error) {
-      console.error("Search failed", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [explorePosts, setExplorePosts] = useState<ExploreItem[]>([]);
+  const [loadingExplore, setLoadingExplore] = useState(true);
 
   useEffect(() => {
-    const timer = window.setTimeout(async () => {
-      await fetchUsers(query);
-    }, 250);
-
-    return () => window.clearTimeout(timer);
-  }, [query]);
+    const fetchExplore = async () => {
+      setLoadingExplore(true);
+      try {
+        const { data } = await api.get("/posts/explore");
+        setExplorePosts(data.payload || []);
+      } catch (error) {
+        console.error("Failed to fetch explore feed", error);
+      } finally {
+        setLoadingExplore(false);
+      }
+    };
+    fetchExplore();
+  }, []);
 
   useEffect(() => {
-    const refreshSearch = () => {
+    const delayDebounceFn = setTimeout(async () => {
       if (query.trim()) {
-        fetchUsers(query);
-      }
-    };
-    window.addEventListener("requests:changed", refreshSearch);
-    window.addEventListener("focus", refreshSearch);
-    return () => {
-      window.removeEventListener("requests:changed", refreshSearch);
-      window.removeEventListener("focus", refreshSearch);
-    };
-  }, [query]);
-
-  const handleStartChat = async (userId: string) => {
-    setStartingChatId(userId);
-    try {
-      const { data } = await api.post("/chats/dm", { userId });
-      if (data?.payload?._id) {
-        navigate(`/messages/${data.payload._id}`);
+        setIsSearching(true);
+        try {
+          const { data } = await api.get(
+            `/users/search?q=${encodeURIComponent(query)}`,
+          );
+          setUsers(data.payload || []);
+        } catch (error) {
+          console.error("Search error", error);
+        } finally {
+          setIsSearching(false);
+        }
       } else {
-        navigate("/messages");
+        setUsers([]);
       }
-    } catch (error) {
-      console.error("Failed to start chat", error);
-    } finally {
-      setStartingChatId(null);
-    }
-  };
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [query]);
 
   return (
-    <div className="max-w-[600px] mx-auto px-4 md:px-0 py-6">
-      <div className="relative">
-        <Search
-          size={18}
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500"
-        />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search users..."
-          className="w-full pl-11 pr-4 py-3 rounded-xl bg-neutral-900 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-700"
-        />
+    <div className="max-w-[935px] mx-auto pt-6 pb-20 w-full h-full flex flex-col">
+      {/* Search Input */}
+      <div className="px-4 mb-6">
+        <div className="relative w-full max-w-[400px] mx-auto md:mx-0">
+          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+            <Search size={18} className="text-neutral-500" />
+          </div>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search users..."
+            className="w-full bg-[#262626] text-white text-sm rounded-lg py-2.5 pl-10 pr-4 outline-none border border-transparent focus:border-neutral-600 transition"
+          />
+          {isSearching && (
+            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+              <Loader2 size={16} className="text-neutral-400 animate-spin" />
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="mt-5 border border-neutral-800 rounded-2xl overflow-hidden">
-        {loading ? (
-          <div className="p-4 text-sm text-neutral-400">Searching...</div>
-        ) : results.length ? (
-          results.map((user) => (
-            <div
-              key={user._id}
-              className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-neutral-900 transition-colors border-b border-neutral-800 last:border-b-0"
-            >
-              <Link to={`/profile/${user._id}`} className="flex items-center gap-3 min-w-0">
-                <img
-                  src={user.avatar || "/default-avatar.png"}
-                  className="w-10 h-10 rounded-full object-cover"
-                  alt={user.username}
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{user.username}</p>
-                  <p className="text-xs text-neutral-400 truncate">
-                    {user.bio || "No bio yet"}
-                  </p>
+      {/* Results or Explore Grid */}
+      {query.trim().length > 0 ? (
+        <div className="flex-1 px-4 overflow-y-auto custom-scrollbar">
+          {users.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {users.map((u) => (
+                <div
+                  key={u._id}
+                  onClick={() => navigate(`/profile/${u._id}`)}
+                  className="flex items-center gap-3 p-2 hover:bg-neutral-900 rounded-lg cursor-pointer transition"
+                >
+                  <img
+                    src={u.avatar || "/default-avatar.png"}
+                    alt="avatar"
+                    className="w-12 h-12 rounded-full object-cover border border-neutral-800"
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-white text-sm font-semibold">
+                      {u.username}
+                    </span>
+                    {u.fullName && (
+                      <span className="text-neutral-500 text-sm">
+                        {u.fullName}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </Link>
-              <button
-                onClick={() => handleStartChat(user._id)}
-                disabled={startingChatId === user._id}
-                className="shrink-0 px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 text-xs font-semibold text-white"
-              >
-                Message
-              </button>
+              ))}
             </div>
-          ))
-        ) : (
-          <div className="p-4 text-sm text-neutral-500">
-            Start typing to search for users.
-          </div>
-        )}
-      </div>
+          ) : (
+            !isSearching && (
+              <div className="text-center text-neutral-500 mt-10">
+                No users found.
+              </div>
+            )
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 px-2 md:px-0">
+          {loadingExplore ? (
+            <div className="flex justify-center items-center h-40">
+              <Loader2 size={32} className="text-neutral-500 animate-spin" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-1 md:gap-2 auto-rows-[120px] md:auto-rows-[300px]">
+              {explorePosts.map((post, index) => {
+                // Ամեն 5-րդ element-ը դարձնում ենք մեծ (2x2 grid span) եթե վիդեո է
+                const isLarge = post.type === "video" && index % 5 === 0;
+
+                return (
+                  <div
+                    key={post._id}
+                    onClick={() => navigate(`/post/${post._id}`)}
+                    className={`relative bg-neutral-900 group cursor-pointer overflow-hidden ${isLarge ? "col-span-2 row-span-2" : "col-span-1 row-span-1"}`}
+                  >
+                    {post.type === "video" ? (
+                      <>
+                        <video
+                          src={post.mediaUrl}
+                          className="w-full h-full object-cover"
+                          loop
+                          muted
+                          playsInline
+                        />
+                        <div className="absolute top-2 right-2 bg-black/40 rounded-full p-1 backdrop-blur-sm">
+                          <Play size={16} className="text-white fill-current" />
+                        </div>
+                      </>
+                    ) : (
+                      <img
+                        src={post.mediaUrl}
+                        alt="Explore"
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
+
+                    {/* Hover Overlay */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-6">
+                      <div className="flex items-center gap-2 text-white font-semibold">
+                        <Heart size={20} className="fill-current" />
+                        <span>{post.likesCount}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-white font-semibold">
+                        <MessageCircle size={20} className="fill-current" />
+                        <span>{post.commentsCount}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

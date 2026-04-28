@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
 import { StoryProgressBar } from "../story-ui/progess-bar";
@@ -30,6 +36,9 @@ export default function StoryViewer({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [viewers, setViewers] = useState<ViewerReaction[]>([]);
   const [loadingViewers, setLoadingViewers] = useState(false);
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -99,16 +108,66 @@ export default function StoryViewer({
     }
   }, [currentIndex, onPrevUser]);
 
+  // Handle Delete Modal Logic
+  const handleDeleteClick = useCallback(() => {
+    setIsPaused(true);
+    setShowDeleteConfirm(true);
+  }, []);
+
+  const cancelDelete = useCallback(() => {
+    setShowDeleteConfirm(false);
+    setIsPaused(false);
+  }, []);
+
+  const confirmDelete = async () => {
+    if (!currentStory) return;
+
+    setIsDeleting(true);
+    try {
+      await api.delete(`/stories/${currentStory._id}`);
+
+      const updatedStories = stories.filter((s) => s._id !== currentStory._id);
+
+      setShowDeleteConfirm(false);
+      setIsDeleting(false);
+
+      if (updatedStories.length === 0) {
+        onClose();
+      } else {
+        setStories(updatedStories);
+        setIsDrawerOpen(false);
+        setIsPaused(false);
+        if (currentIndex >= updatedStories.length) {
+          setCurrentIndex(updatedStories.length - 1);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to delete story:", error);
+      setIsDeleting(false);
+      setIsPaused(false);
+    }
+  };
+
+  // Story Progress Animation
   useEffect(() => {
     if (loading || !currentStory) return;
 
     progressRef.current = 0;
     setProgress(0);
     lastTimeRef.current = performance.now();
-    const duration = 5000;
+
+    const hasValidMusic =
+      currentStory.media.musicUrl && currentStory.media.musicUrl !== "none";
+
+    const mediaDuration =
+      currentStory.media.type === "image" &&
+      hasValidMusic &&
+      currentStory.media.musicDuration
+        ? currentStory.media.musicDuration * 1000
+        : 5000;
 
     const animate = (time: number) => {
-      if (isPaused || isDrawerOpen) {
+      if (isPaused || isDrawerOpen || showDeleteConfirm) {
         lastTimeRef.current = time;
         animationRef.current = requestAnimationFrame(animate);
         return;
@@ -118,7 +177,7 @@ export default function StoryViewer({
       lastTimeRef.current = time;
 
       if (currentStory.media.type === "image") {
-        progressRef.current += (deltaTime / duration) * 100;
+        progressRef.current += (deltaTime / mediaDuration) * 100;
       } else if (videoRef.current && videoRef.current.duration) {
         progressRef.current =
           (videoRef.current.currentTime / videoRef.current.duration) * 100;
@@ -136,15 +195,24 @@ export default function StoryViewer({
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [currentIndex, loading, currentStory, isPaused, isDrawerOpen, handleNext]);
+  }, [
+    currentIndex,
+    loading,
+    currentStory,
+    isPaused,
+    isDrawerOpen,
+    showDeleteConfirm,
+    handleNext,
+  ]);
 
+  // Audio / Video Setup
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
 
-    if (!currentStory || isPaused || isDrawerOpen) {
+    if (!currentStory || isPaused || isDrawerOpen || showDeleteConfirm) {
       videoRef.current?.pause();
       audioRef.current?.pause();
       return;
@@ -155,16 +223,43 @@ export default function StoryViewer({
     }
 
     const hasValidMusic =
-      currentStory.media.backgroundMusic &&
-      currentStory.media.backgroundMusic !== "none" &&
-      currentStory.media.backgroundMusic.startsWith("http");
+      currentStory.media.musicUrl &&
+      currentStory.media.musicUrl !== "none" &&
+      currentStory.media.musicUrl.startsWith("http");
 
     if (hasValidMusic && audioRef.current) {
-      audioRef.current.src = currentStory.media.backgroundMusic;
+      audioRef.current.src = String(currentStory.media.musicUrl);
+      audioRef.current.currentTime = currentStory.media.musicStartTime || 0;
       audioRef.current.muted = isMuted;
       audioRef.current.play().catch((e) => console.log("Audio skipped:", e));
     }
-  }, [currentIndex, currentStory, isPaused, isMuted, isDrawerOpen]);
+  }, [
+    currentIndex,
+    currentStory,
+    isPaused,
+    isMuted,
+    isDrawerOpen,
+    showDeleteConfirm,
+  ]);
+
+  // Audio Trimmer Loop Mechanism
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !currentStory) return;
+
+    const handleTimeUpdate = () => {
+      const startTime = currentStory.media.musicStartTime || 0;
+      const duration = currentStory.media.musicDuration || 15;
+
+      if (audio.currentTime >= startTime + duration) {
+        audio.currentTime = startTime;
+        audio.play().catch(() => {});
+      }
+    };
+
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    return () => audio.removeEventListener("timeupdate", handleTimeUpdate);
+  }, [currentStory]);
 
   useEffect(() => {
     if (isDrawerOpen && currentStory && isOwner) {
@@ -206,8 +301,7 @@ export default function StoryViewer({
 
   const hasAudio =
     currentStory.media.type === "video" ||
-    (currentStory.media.backgroundMusic &&
-      currentStory.media.backgroundMusic !== "none");
+    (currentStory.media.musicUrl && currentStory.media.musicUrl !== "none");
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95">
@@ -263,11 +357,13 @@ export default function StoryViewer({
           onPrev={handlePrev}
           onNext={handleNext}
         />
+
         <FloatingReactions
           reaction={currentStory.viewer?.reaction}
           liked={currentStory.viewer?.liked}
           storyId={currentStory._id}
         />
+
         {isOwner ? (
           <ViewersDrawer
             isOpen={isDrawerOpen}
@@ -275,6 +371,7 @@ export default function StoryViewer({
             viewsCount={currentStory.viewsCount}
             viewers={viewers}
             loadingViewers={loadingViewers}
+            onDelete={handleDeleteClick}
           />
         ) : (
           <StoryReplyBox
@@ -301,6 +398,43 @@ export default function StoryViewer({
               );
             }}
           />
+        )}
+
+        {/* Custom Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-[280px] p-5 flex flex-col items-center text-center shadow-2xl">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+                <AlertCircle className="text-red-500" size={24} />
+              </div>
+              <h3 className="text-white font-semibold text-lg mb-1">
+                Delete Story?
+              </h3>
+              <p className="text-neutral-400 text-sm mb-6">
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={cancelDelete}
+                  disabled={isDeleting}
+                  className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-white font-medium hover:bg-neutral-700 transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition flex justify-center items-center disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    "Delete"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

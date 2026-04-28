@@ -13,7 +13,10 @@ const getSpecificSchema = z.object({
 
 const updateSchema = z
   .object({
-    content: z.string().nonempty().optional(),
+    content: z.string().optional(),
+    location: z.string().optional(),
+    mentions: z.string().optional(),
+    filters: z.string().optional(),
   })
   .optional();
 
@@ -22,7 +25,10 @@ const removeImageSchema = z.object({
 });
 
 const createSchema = z.object({
-  content: z.string().nonempty(),
+  content: z.string().optional(),
+  location: z.string().optional(),
+  mentions: z.string().optional(),
+  filters: z.string().optional(),
 });
 
 module.exports = {

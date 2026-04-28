@@ -15,38 +15,97 @@ const PolicyService = require("@services/policy.service");
 const AggreagtionHelperPost = require("@models/aggregations/post");
 
 class PostService {
-  async create(user, files, content) {
-    const result = await mediaService.upload(files, "post");
-    const post = await Post.create({ author: user, images: result, content });
+  async create(user, files, { content, location, mentions, filters }) {
+    const uploadedImages = await mediaService.upload(files, "post");
+
+    let parsedFilters = [];
+    if (filters) {
+      try {
+        parsedFilters = JSON.parse(filters);
+      } catch (e) {
+        console.error("Error parsing filters", e);
+      }
+    }
+
+    let parsedMentions = [];
+    if (mentions) {
+      try {
+        parsedMentions = JSON.parse(mentions);
+      } catch (e) {
+        console.error("Error parsing mentions", e);
+      }
+    }
+
+    const imagesWithFilters = uploadedImages.map((img, idx) => ({
+      ...img,
+      filter: parsedFilters[idx] || "none",
+    }));
+
+    const post = await Post.create({
+      author: user,
+      images: imagesWithFilters,
+      content,
+      location: location || "",
+      mentions: parsedMentions,
+    });
+
     await notificationService.newPostNotification({
       postId: post._id,
       fromUser: user,
     });
 
+    for (const mentionedUser of parsedMentions) {
+      await notificationService.mentionNotification({
+        postId: post._id,
+        fromUser: user,
+        toUser: mentionedUser,
+      });
+    }
+
     return post;
   }
+
   async update(user, postId, data) {
     const isAuthor = await PolicyService.isPostAuthor(user, postId);
     if (!isAuthor) {
       throw new NotFoundException("Post not found");
     }
-    const { files, content } = data;
+    const { files, content, location, mentions, filters } = data;
     const update = {};
+
     if (files && files.length) {
-      const result = await mediaService.upload(files, "post");
+      const uploadedImages = await mediaService.upload(files, "post");
+      let parsedFilters = [];
+      if (filters) {
+        try {
+          parsedFilters = JSON.parse(filters);
+        } catch (e) {}
+      }
+      const imagesWithFilters = uploadedImages.map((img, idx) => ({
+        ...img,
+        filter: parsedFilters[idx] || "none",
+      }));
+
       update.$addToSet = {
-        images: { $each: result },
+        images: { $each: imagesWithFilters },
       };
     }
-    if (content) {
-      update.$set = {
-        content,
-      };
+
+    if (content !== undefined) update.content = content;
+    if (location !== undefined) update.location = location;
+    if (mentions !== undefined) {
+      try {
+        update.mentions = JSON.parse(mentions);
+      } catch (e) {}
     }
-    return await Post.findOneAndUpdate({ _id: postId, author: user }, update, {
-      new: true,
-    }).populate("author", "_id username bio avatar");
+
+    return await Post.findOneAndUpdate(
+      { _id: postId, author: user },
+      { $set: update },
+      { new: true },
+    ).populate("author", "_id username bio avatar");
   }
+
   async getPosts(viewer, author, page = 1, limit = 20) {
     if (author) {
       await PolicyService.canViewProfile(viewer, author);
@@ -73,6 +132,7 @@ class PostService {
       limit,
     );
   }
+
   async getArchivedPosts(author, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
     return await Post.find({ author, isArchived: true })
@@ -81,9 +141,11 @@ class PostService {
       .limit(limit)
       .populate("author", "_id avatar username bio");
   }
+
   getSpecific(user, postId) {
     return PolicyService.canAccessPost(user, postId);
   }
+
   async deletePost(user, postId) {
     const userId = user._id.toString();
     const post = await Post.findById(postId).lean();
@@ -97,6 +159,7 @@ class PostService {
     await Post.deleteOne({ _id: postId });
     return true;
   }
+
   async toggleArchivePost(user, postId) {
     const post = await Post.findOneAndUpdate(
       { _id: postId, author: user },
@@ -116,6 +179,7 @@ class PostService {
 
     return post.isArchived ? null : post.toObject();
   }
+
   async removeImage(user, postId, url) {
     const post = await Post.findOne({
       _id: postId,
@@ -139,6 +203,7 @@ class PostService {
       { new: true },
     );
   }
+
   async toggleLike(user, postId) {
     await PolicyService.canAccessPost(user, postId);
     const { liked, author } = await toggleLikeTx(user, postId);
@@ -151,6 +216,7 @@ class PostService {
       });
     return { liked };
   }
+
   async toggleAccessRepost(userId, postId) {
     const post = await Post.findOneAndUpdate(
       { _id: postId, author: userId },

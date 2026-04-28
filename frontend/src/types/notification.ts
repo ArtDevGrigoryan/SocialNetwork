@@ -32,7 +32,8 @@ export interface INotification {
     | "SYSTEM"
     | "CANCELLED"
     | "UNFOLLOW"
-    | "GROUP_DISJOIN";
+    | "GROUP_DISJOIN"
+    | "MENTION"; // Ավելացված է
   createdAt: string;
   isRead: boolean;
   toUser: string;
@@ -43,13 +44,16 @@ export interface INotification {
   entityModel?: "User" | "Post" | "Comment" | "Message" | "Chat" | "Story";
 }
 
+export interface IMentionNotification extends INotification {
+  type: "MENTION";
+  entity: IPost;
+  entityModel: "Post";
+  meta: INotificationMeta;
+}
+
 export interface ISystemNotification extends INotification {
   type: "SYSTEM";
-  meta: {
-    count: 0;
-    users: [];
-    message: string;
-  };
+  meta: { count: 0; users: []; message: string };
 }
 export interface ILikeNotification extends INotification {
   type: "LIKE";
@@ -57,7 +61,6 @@ export interface ILikeNotification extends INotification {
   entityModel: "Post" | "Story";
   meta: INotificationMeta;
 }
-
 export interface IFollowNotification extends INotification {
   type: "FOLLOW";
   entity: IUserMini;
@@ -76,42 +79,36 @@ export interface IRequestNotification extends INotification {
   entityModel: "User";
   meta: INotificationMeta;
 }
-
 export interface ICommentNotification extends INotification {
   type: "COMMENT";
   entity: IComment;
   entityModel: "Comment";
   meta: INotificationMeta;
 }
-
 export interface IMessageNotification extends INotification {
   type: "MESSAGE";
   entity: IMessage;
   entityModel: "Message";
   meta: INotificationMeta;
 }
-
 export interface ICancelRequestNotification extends INotification {
   type: "CANCELLED";
   entity: IUserMini;
   entityModel: "User";
   meta: INotificationMeta;
 }
-
 export interface IDeclinedNotification extends INotification {
   type: "DECLINED";
   entity: IUserMini;
   entityModel: "User";
   meta: INotificationMeta;
 }
-
 export interface IAcceptedNotification extends INotification {
   type: "ACCEPTED";
   entity: IUserMini;
   entityModel: "User";
   meta: INotificationMeta;
 }
-
 export interface INewGroupNotification extends INotification {
   type: "NEW_GROUP";
   entity: IChat;
@@ -124,7 +121,6 @@ export interface IGroupRemovedNotification extends INotification {
   entityModel: "Chat";
   meta: INotificationMeta;
 }
-
 export interface IParticipantRemovedNotification extends INotification {
   type: "PARTICIPANT_REMOVED";
   entity: IUserMini;
@@ -137,14 +133,12 @@ export interface IParticipantRemovedNoticeNotification extends INotification {
   entityModel: "User";
   meta: INotificationMeta;
 }
-
 export interface INewPostNotification extends INotification {
   type: "NEW_POST";
   entity: IPost;
   entityModel: "Post";
   meta: INotificationMeta;
 }
-
 export interface INewStoryNotification extends INotification {
   type: "NEW_STORY";
   entity: IStory;
@@ -182,6 +176,7 @@ export type StrictNotification =
   | IParticipantRemovedNoticeNotification
   | INewPostNotification
   | INewStoryNotification
+  | IMentionNotification
   | (INotification & { type: "GROUP_DISJOIN" });
 
 export type TabType = "notifications" | "requests" | "messages";

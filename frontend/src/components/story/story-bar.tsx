@@ -1,28 +1,55 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Plus } from "lucide-react";
+import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
 import { useStoryStore } from "../../store/story.store";
 import CreateStoryModal from "./add-story-modal";
 import StoryViewer from "./story-viewer";
+import type { StoryGroup } from "../../types/story.types";
 
 export default function StoryBar() {
+  const [otherStories, setOtherStories] = useState<StoryGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const { user } = useAuthStore();
+  const { setCreateModalOpen } = useStoryStore();
+
+  const [myStoriesCount, setMyStoriesCount] = useState(0);
+  const [hasUnseenMyStory, setHasUnseenMyStory] = useState(false);
+
+  const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const {
-    otherStories,
-    loadingFeed,
-    myStoriesCount,
-    hasUnseenMyStory,
-    fetchFeed,
-    setCreateModalOpen,
-    viewingUserId,
-    setViewingUserId,
-  } = useStoryStore();
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      const { data } = await api.get("/stories");
+      const allGroups: StoryGroup[] = (data.payload || []).map((g: any) => ({
+        ...g,
+        _id: g.user?._id,
+      }));
+
+      setOtherStories(allGroups.filter((g) => g._id !== user?._id));
+
+      if (user?._id) {
+        const { data: myData } = await api.get(`/stories/user/${user._id}`);
+        const myStories = myData.payload || [];
+        setMyStoriesCount(myStories.length);
+        setHasUnseenMyStory(myStories.some((s: any) => !s.viewer?.seen));
+      }
+    } catch (error) {
+      console.error("Error fetching stories:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetchFeed(user?._id);
-  }, [user?._id, fetchFeed]);
+    fetchData();
+    window.addEventListener("story:created", fetchData);
+    return () => window.removeEventListener("story:created", fetchData);
+  }, [user?._id]);
 
   const handleScroll = (e: React.WheelEvent<HTMLDivElement>) => {
     if (scrollRef.current) {
@@ -110,7 +137,7 @@ export default function StoryBar() {
             </span>
           </div>
 
-          {loadingFeed
+          {loading
             ? Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}

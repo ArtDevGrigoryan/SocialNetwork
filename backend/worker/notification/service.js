@@ -699,6 +699,71 @@ class NotificationJobService {
       console.log(error);
     }
   }
+  static async mention(data) {
+    try {
+      const { postId, toUser } = data;
+
+      const k = keys({ type: "mention", entityId: postId, toUser });
+      const { count, users } = await NotificationAggregator.consume(redis, {
+        countKey: k.countKey,
+        usersKey: k.usersKey,
+      });
+
+      if (!count) return;
+
+      const objectIdUsers = users
+        .slice(0, 3)
+        .map((id) => new mongoose.Types.ObjectId(id));
+
+      const notification = await Notification.findOneAndUpdate(
+        { type: "MENTION", toUser, entity: postId, entityModel: "Posts" },
+        [
+          {
+            $set: {
+              "meta.count": {
+                $cond: [
+                  { $eq: ["$isRead", true] },
+                  count,
+                  { $add: [{ $ifNull: ["$meta.count", 0] }, count] },
+                ],
+              },
+              "meta.users": {
+                $cond: [
+                  { $eq: ["$isRead", true] },
+                  objectIdUsers,
+                  {
+                    $slice: [
+                      {
+                        $setUnion: [
+                          objectIdUsers,
+                          { $ifNull: ["$meta.users", []] },
+                        ],
+                      },
+                      3,
+                    ],
+                  },
+                ],
+              },
+              isRead: false,
+            },
+          },
+        ],
+        { upsert: true, new: true, updatePipeline: true },
+      ).populate([
+        { path: "meta.users", select: "_id username avatar bio" },
+        { path: "entity", select: "_id content images author" },
+      ]);
+
+      await NotificationAggregator.clear(redis, [
+        k.countKey,
+        k.usersKey,
+        k.scheduledKey,
+      ]);
+      await socketService.notify(notification);
+    } catch (error) {
+      console.log(error);
+    }
+  }
 }
 
 module.exports = NotificationJobService;

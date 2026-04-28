@@ -109,6 +109,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     chatId,
     participantId,
     text,
+    sharedId,
     files,
     type = "TEXT",
     replyToId,
@@ -133,6 +134,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         formData.append("participantId", participantId);
         if (replyToId) formData.append("replyTo", replyToId);
         res = await api.post(`/messages/${chatId}/voice`, formData);
+      } else if (
+        ["SHARE_POST", "SHARE_PROFILE", "SHARE_STORY"].includes(type)
+      ) {
+        res = await api.post(`/messages/${chatId}/share`, {
+          participantId,
+          type,
+          sharedId,
+          text: text || undefined,
+        });
       }
 
       if (res && res.data && res.data.payload) {

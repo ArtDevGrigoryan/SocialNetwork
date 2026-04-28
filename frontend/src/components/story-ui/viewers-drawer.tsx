@@ -1,4 +1,4 @@
-import { ChevronUp, Eye, Heart, Loader2, X } from "lucide-react";
+import { ChevronUp, Eye, Heart, Loader2, X, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import type { ViewersDrawerProps } from "../../types/story.types";
 
@@ -8,6 +8,7 @@ export const ViewersDrawer = ({
   viewsCount,
   viewers,
   loadingViewers,
+  onDelete,
 }: ViewersDrawerProps) => (
   <>
     <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none">
@@ -38,15 +39,29 @@ export const ViewersDrawer = ({
           <Eye size={18} />
           <span>{viewsCount} Views</span>
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsOpen(false);
-          }}
-          className="text-neutral-400 hover:text-white p-1"
-        >
-          <X size={20} />
-        </button>
+        <div className="flex items-center gap-4">
+          {onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="text-red-500 hover:text-red-400 p-1 transition flex items-center justify-center"
+              title="Delete Story"
+            >
+              <Trash2 size={20} />
+            </button>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(false);
+            }}
+            className="text-neutral-400 hover:text-white p-1"
+          >
+            <X size={20} />
+          </button>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         {loadingViewers ? (

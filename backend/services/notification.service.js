@@ -58,7 +58,23 @@ class NotificationService {
       payload: { postId, toUser, commentId },
     });
   }
+  async mentionNotification({ postId, fromUser, toUser }) {
+    if (fromUser.toString() === toUser.toString()) return;
 
+    const { scheduledKey, usersKey, countKey } = keys({
+      type: "mention",
+      entityId: postId,
+      toUser,
+    });
+
+    await Promise.all([redis.sadd(usersKey, fromUser), redis.incr(countKey)]);
+
+    await NotificationService.#enqueueOnce({
+      scheduledKey,
+      jobName: "mention",
+      payload: { postId, toUser },
+    });
+  }
   async followNotification({ fromUser, toUser }) {
     if (fromUser === toUser) return;
     const { scheduledKey, usersKey, countKey } = keys({

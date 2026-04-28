@@ -27,6 +27,7 @@ export function NotificationItem({ item }: { item: StrictNotification }) {
     e.stopPropagation();
     deleteNotification(item._id);
   };
+
   const primaryUser =
     item.fromUser && typeof item.fromUser === "object"
       ? item.fromUser
@@ -53,7 +54,10 @@ export function NotificationItem({ item }: { item: StrictNotification }) {
         "images" in item.entity &&
         item.entity.images?.length > 0
       ) {
-        imageUrl = item.entity.images[0];
+        imageUrl =
+          typeof item.entity.images[0] === "string"
+            ? item.entity.images[0]
+            : (item.entity.images[0] as any).url;
       } else if (
         item.entityModel === "Story" &&
         "media" in item.entity &&
@@ -68,6 +72,31 @@ export function NotificationItem({ item }: { item: StrictNotification }) {
             src={imageUrl}
             className="w-11 h-11 object-cover rounded border border-neutral-800"
             alt={isStory ? "Story" : "Post"}
+          />
+        );
+      }
+      break;
+    }
+    case "MENTION": {
+      text = `mentioned you in a post${additional}.`;
+      let imageUrl = "";
+      if (
+        item.entityModel === "Post" &&
+        "images" in item.entity &&
+        item.entity.images?.length > 0
+      ) {
+        imageUrl =
+          typeof item.entity.images[0] === "string"
+            ? item.entity.images[0]
+            : (item.entity.images[0] as any).url;
+      }
+
+      if (imageUrl) {
+        rightSide = (
+          <img
+            src={imageUrl}
+            className="w-11 h-11 object-cover rounded border border-neutral-800"
+            alt="Post"
           />
         );
       }
@@ -220,7 +249,7 @@ export function NotificationItem({ item }: { item: StrictNotification }) {
         >
           <Trash2 className="w-4 h-4" />
         </button>
-      </div>{" "}
+      </div>
     </div>
   );
 }

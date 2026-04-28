@@ -28,18 +28,68 @@ export interface IMedia {
   description?: string;
 }
 
+export interface ISharedPostData {
+  _id: string;
+  images?: string[];
+  content?: string;
+  author: {
+    _id: string;
+    username: string;
+    avatar?: string;
+  };
+}
+
+export interface ISharedProfileData {
+  _id: string;
+  username: string;
+  avatar?: string;
+  bio?: string;
+}
+
+export interface ISharedStoryData {
+  _id: string;
+  media: {
+    url: string;
+    key: string;
+    type: "video" | "image";
+    musicUrl?: string;
+    musicTitle?: string;
+  };
+  user: {
+    _id: string;
+    username: string;
+    avatar?: string;
+    bio?: string;
+  };
+  createdAt?: string;
+  expiresAt?: string;
+  updatedAt?: string;
+  viewsCount?: number;
+}
+
 export interface IMessage {
   _id?: string;
   chat?: string;
   chatId?: string;
   sender: IUser;
-  type: "TEXT" | "IMAGE" | "VOICE" | "MEDIA" | "MEDIA_GROUP";
+  type:
+    | "TEXT"
+    | "IMAGE"
+    | "VOICE"
+    | "MEDIA"
+    | "MEDIA_GROUP"
+    | "SHARE_POST"
+    | "SHARE_PROFILE"
+    | "SHARE_STORY";
   text?: string;
   image?: { url: string; key?: string };
   media?: IMedia[];
   voice?: { url: string; key?: string };
   reactions?: IReaction[];
   replyTo?: IMessage | null;
+  sharedPost?: ISharedPostData;
+  sharedProfile?: ISharedProfileData;
+  sharedStory?: ISharedStoryData;
   createdAt?: string;
   editedAt?: string;
 }
@@ -144,8 +194,15 @@ export interface MessageInputProps {
   onSendMessage: (
     text: string,
     files?: File[],
-    type?: "MEDIA" | "VOICE" | "TEXT",
+    type?:
+      | "MEDIA"
+      | "VOICE"
+      | "TEXT"
+      | "SHARE_POST"
+      | "SHARE_PROFILE"
+      | "SHARE_STORY",
     replyToId?: string,
+    sharedId?: string,
   ) => void;
   replyingMessage: IMessage | null | string;
   onEditMessage?: (text: string) => void;
@@ -222,23 +279,6 @@ export interface ISharedLinkItem {
   url: string;
   text: string;
   createdAt: string;
-}
-
-export interface ISharedPostData {
-  _id: string;
-  images?: string[];
-  author: {
-    _id: string;
-    username: string;
-    avatar?: string;
-  };
-}
-
-export interface ISharedProfileData {
-  _id: string;
-  username: string;
-  avatar?: string;
-  bio?: string;
 }
 
 export interface ISharedMessageItem {

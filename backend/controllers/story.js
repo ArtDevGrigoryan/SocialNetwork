@@ -33,6 +33,7 @@ class StoryController {
   }
   async remove(req, res) {
     await storyService.remove(req.user, req.params.id);
+    return sendSuccess(res);
   }
   async reaction(req, res) {
     const { reaction } = req.body;

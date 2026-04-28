@@ -12,6 +12,28 @@ class StoryService {
   static STORY_TTL = 24 * 60 * 60 * 1000;
   static FEED_CACHE_TTL = 60 * 10;
 
+  static mapStoryForFrontend(s, viewData) {
+    return {
+      ...s,
+      mediaUrl: s.media.url,
+      type: s.media.type,
+      musicUrl: s.media.musicUrl,
+      musicTitle: s.media.musicTitle,
+      musicStartTime: s.media.musicStartTime,
+      musicDuration: s.media.musicDuration,
+      filter: s.media.filter,
+      location: s.media.location,
+      transform: s.media.transform,
+      stickers: s.media.stickers,
+      texts: s.media.texts,
+      viewer: {
+        seen: !!viewData,
+        liked: viewData?.liked || false,
+        reaction: viewData?.reaction || null,
+      },
+    };
+  }
+
   async stories(userId, { limit = 50 } = {}) {
     const now = new Date();
 
@@ -56,18 +78,10 @@ class StoryService {
     for (const s of stories) {
       const uid = s.user._id.toString();
       const viewData = viewMap.get(s._id.toString());
-
-      const story = {
-        ...s,
-        viewer: {
-          seen: !!viewData,
-          liked: viewData?.liked || false,
-          reaction: viewData?.reaction || null,
-        },
-      };
+      const mappedStory = StoryService.mapStoryForFrontend(s, viewData);
 
       if (!grouped.has(uid)) grouped.set(uid, []);
-      grouped.get(uid).push(story);
+      grouped.get(uid).push(mappedStory);
     }
 
     const result = [];
@@ -114,13 +128,7 @@ class StoryService {
       await Story.updateOne({ _id: storyId }, { $inc: { viewsCount: 1 } });
     }
 
-    return {
-      ...story.toObject(),
-      viewer: {
-        seen: true,
-        reaction: alreadyViewed ? alreadyViewed.reaction : null,
-      },
-    };
+    return StoryService.mapStoryForFrontend(story.toObject(), alreadyViewed);
   }
 
   async getStoryViewers(userId, storyId) {
@@ -167,23 +175,40 @@ class StoryService {
 
     return stories.map((s) => {
       const viewData = viewMap.get(s._id.toString());
-
-      return {
-        ...s,
-        viewer: {
-          seen: !!viewData,
-          liked: viewData?.liked || false,
-          reaction: viewData?.reaction || null,
-        },
-      };
+      return StoryService.mapStoryForFrontend(s, viewData);
     });
   }
 
   async add(user, data, file) {
-    const { type, musicUrl } = data;
+    const {
+      type,
+      musicUrl,
+      musicTitle,
+      musicStartTime,
+      musicDuration,
+      filter,
+      location,
+      transform,
+      stickers,
+      texts,
+    } = data;
 
     if (!["image", "video"].includes(type)) {
       throw new BadRequestException("Invalid media type");
+    }
+
+    let parsedTransform = { scale: 1, x: 0, y: 0 };
+    let parsedStickers = [];
+    let parsedTexts = [];
+    let parsedLocation = null;
+
+    try {
+      if (transform) parsedTransform = JSON.parse(transform);
+      if (stickers) parsedStickers = JSON.parse(stickers);
+      if (texts) parsedTexts = JSON.parse(texts);
+      if (location) parsedLocation = JSON.parse(location);
+    } catch (err) {
+      console.error("Story media parsing error:", err);
     }
 
     const [uploaded] = await mediaService.upload(file, "story");
@@ -193,8 +218,16 @@ class StoryService {
       media: {
         key: uploaded.key,
         url: uploaded.url,
-        backgroundMusic: musicUrl,
         type,
+        musicUrl: musicUrl !== "none" ? musicUrl : null,
+        musicTitle: musicTitle || null,
+        musicStartTime: musicStartTime ? Number(musicStartTime) : 0,
+        musicDuration: musicDuration ? Number(musicDuration) : 15,
+        filter: filter || "none",
+        location: parsedLocation,
+        transform: parsedTransform,
+        stickers: parsedStickers,
+        texts: parsedTexts,
       },
       expiresAt: new Date(Date.now() + StoryService.STORY_TTL),
     });
@@ -243,16 +276,12 @@ class StoryService {
         story: storyId,
         viewer: userId,
       },
-      {
-        reaction,
-      },
-      {
-        new: true,
-        upsert: true,
-      },
+      { reaction },
+      { new: true, upsert: true },
     ).lean();
     return viewer;
   }
+
   async like(userId, storyId) {
     await PolicyService.canViewStory(userId, storyId);
 
@@ -266,10 +295,7 @@ class StoryService {
         viewer: userId,
       },
       { liked: true },
-      {
-        new: true,
-        upsert: true,
-      },
+      { new: true, upsert: true },
     );
     await notificationService.likeNotification({
       storyId,

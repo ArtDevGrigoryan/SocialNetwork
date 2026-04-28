@@ -4,8 +4,13 @@ const postService = require("@services/post.service");
 class PostController {
   async create(req, res) {
     const { files } = req;
-    const { content } = req.body;
-    const post = await postService.create(req.user._id, files, content);
+    const { content, location, mentions, filters } = req.body;
+    const post = await postService.create(req.user._id, files, {
+      content,
+      location,
+      mentions,
+      filters,
+    });
     return sendSuccess(res, post);
   }
   async update(req, res) {
@@ -13,6 +18,9 @@ class PostController {
     const data = {
       files: req.files,
       content: req.body.content,
+      location: req.body.location,
+      mentions: req.body.mentions,
+      filters: req.body.filters,
     };
     const post = await postService.update(req.user._id, id, data);
     return sendSuccess(res, post);

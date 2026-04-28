@@ -31,6 +31,7 @@ export interface ChatState {
     chatId: string,
     participantId: string,
     text: string,
+    sharedId: string,
     files?: File[],
     type?: "TEXT" | "MEDIA" | "IMAGE" | "VOICE",
     replyToId?: string,

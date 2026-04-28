@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import type { IReaction, MessageBubbleProps } from "../types";
-import { Reply, MoreHorizontal, Pin } from "lucide-react";
+import { Reply, MoreHorizontal, Pin, PlayCircle } from "lucide-react";
 import { api } from "../../../lib/axios.config";
 import { useAuthStore } from "../../../store/auth.store";
 import VoicePlayer from "./voice-player";
@@ -41,6 +42,7 @@ function MessageBubble({
 }: MessageBubbleProps) {
   const showMenu = activeMenuId === msg._id;
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [localReactions, setLocalReactions] = useState<IReaction[]>(
     msg.reactions || [],
   );
@@ -251,11 +253,19 @@ function MessageBubble({
     }
   };
 
+  const isMediaOnly = msg.type === "IMAGE" || msg.type === "MEDIA";
+  const isShareType =
+    msg.type === "SHARE_POST" ||
+    msg.type === "SHARE_PROFILE" ||
+    msg.type === "SHARE_STORY";
+
   const bgColor = isMine
-    ? msg.type === "IMAGE" || msg.type === "MEDIA"
+    ? isMediaOnly
       ? ""
-      : "bg-[#3797F0] text-white shadow-md shadow-blue-900/20"
-    : msg.type === "IMAGE" || msg.type === "MEDIA"
+      : isShareType
+        ? "bg-[#3797F0]/10 text-white border border-[#3797F0]/30"
+        : "bg-[#3797F0] text-white shadow-md shadow-blue-900/20"
+    : isMediaOnly
       ? ""
       : "bg-[#262626] text-neutral-100 shadow-sm border border-neutral-800/50";
 
@@ -274,18 +284,153 @@ function MessageBubble({
         .filter(Boolean),
     ),
   );
-
   const hasMyReaction = localReactions.some(
     (r) => r.participant === participantId,
   );
-
   const hasReactions = localReactions.length > 0;
+
   let marginClass = "mb-[2px]";
   if (isSequenceMatch) {
     marginClass = hasReactions ? "mb-[18px]" : "mb-[2px]";
   } else {
     marginClass = hasReactions ? "mb-7" : "mb-4";
   }
+
+  // Renderers for Shared Content
+  const renderSharedPost = () => {
+    const post = msg.sharedPost;
+    if (!post) return null;
+    return (
+      <div
+        onClick={() => navigate(`/post/${post._id}`)}
+        className="w-[240px] flex flex-col bg-black/40 rounded-xl overflow-hidden border border-white/10 cursor-pointer hover:bg-black/60 transition-colors"
+      >
+        <div className="flex items-center gap-2 p-3 pb-2">
+          {post.author.avatar ? (
+            <img
+              src={post.author.avatar}
+              alt="author"
+              className="w-6 h-6 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-neutral-700 flex items-center justify-center text-[10px] font-bold text-white">
+              {post.author.username.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <span className="text-sm font-semibold text-white">
+            {post.author.username}
+          </span>
+        </div>
+        {post.images && post.images.length > 0 ? (
+          <div className="w-full aspect-square bg-neutral-900 relative">
+            <img
+              src={post.images[0]}
+              alt="Post preview"
+              className="w-full h-full object-cover"
+            />
+            {post.images.length > 1 && (
+              <div className="absolute top-2 right-2 bg-black/60 px-2 py-0.5 rounded-full text-xs text-white backdrop-blur-md">
+                1/{post.images.length}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="p-4 text-sm text-neutral-300 italic">
+            "{post.content?.substring(0, 50)}..."
+          </div>
+        )}
+        <div className="p-3 bg-neutral-900/50 text-center text-sm font-medium text-white border-t border-white/5">
+          View Post
+        </div>
+      </div>
+    );
+  };
+
+  const renderSharedProfile = () => {
+    const profile = msg.sharedProfile;
+    if (!profile) return null;
+    return (
+      <div
+        onClick={() => navigate(`/profile/${profile._id}`)}
+        className="w-[220px] flex flex-col items-center p-4 bg-black/40 rounded-xl border border-white/10 cursor-pointer hover:bg-black/60 transition-colors"
+      >
+        {profile.avatar ? (
+          <img
+            src={profile.avatar}
+            alt="profile"
+            className="w-16 h-16 rounded-full object-cover mb-3 ring-2 ring-neutral-800"
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center text-xl font-bold text-white mb-3">
+            {profile.username.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <span className="text-base font-semibold text-white">
+          {profile.username}
+        </span>
+        {profile.bio && (
+          <span className="text-xs text-neutral-400 mt-1 line-clamp-1">
+            {profile.bio}
+          </span>
+        )}
+        <div className="mt-3 w-full py-1.5 bg-white text-black text-center text-sm font-semibold rounded-lg">
+          View Profile
+        </div>
+      </div>
+    );
+  };
+
+  const renderSharedStory = () => {
+    const story = msg.sharedStory;
+    if (!story || !story.media) return null;
+
+    return (
+      <div
+        onClick={() => navigate(`/stories/${story.user?._id}`)}
+        className="w-[200px] h-[300px] relative rounded-xl overflow-hidden cursor-pointer group bg-neutral-900"
+      >
+        {story.media.type === "video" ? (
+          <div className="w-full h-full flex items-center justify-center bg-black">
+            <video
+              src={story.media.url}
+              className="w-full h-full object-cover opacity-80"
+            />
+            <PlayCircle
+              size={40}
+              className="absolute text-white/80 drop-shadow-lg"
+            />
+          </div>
+        ) : (
+          <img
+            src={story.media.url}
+            alt="Story"
+            className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-500"
+          />
+        )}
+        <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/50 px-2 py-1 rounded-full backdrop-blur-md">
+          {story.user?.avatar ? (
+            <img
+              src={story.user?.avatar}
+              alt="author"
+              className="w-5 h-5 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-5 h-5 rounded-full bg-neutral-700 flex items-center justify-center text-[10px] text-white">
+              {story.user?.username.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <span className="text-xs font-medium text-white">
+            {story.user?.username}
+          </span>
+        </div>
+        <div className="absolute bottom-3 left-0 right-0 flex justify-center">
+          <span className="text-xs font-medium text-white bg-black/50 px-3 py-1 rounded-full backdrop-blur-md">
+            View Story
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -370,7 +515,7 @@ function MessageBubble({
 
             <div
               onClick={handleSmartClick}
-              className={`relative max-w-[320px] md:max-w-[400px] ${msg.type === "IMAGE" || msg.type === "MEDIA" ? "bg-transparent p-0" : "px-3.5 py-2"} text-[15px] leading-5 break-words select-none transition-transform active:scale-[0.98] ${bgColor} text-white ${radiusClass}`}
+              className={`relative max-w-[320px] md:max-w-[400px] ${isMediaOnly ? "bg-transparent p-0" : isShareType ? "p-1.5" : "px-3.5 py-2"} text-[15px] leading-5 break-words select-none transition-transform active:scale-[0.98] ${bgColor} text-white ${radiusClass}`}
             >
               {isPinned && (
                 <div
@@ -381,57 +526,24 @@ function MessageBubble({
               )}
 
               <MessageMedia msg={msg} />
+
               {msg.type === "VOICE" && (
                 <VoicePlayer url={msg.voice?.url || ""} isMine={isMine} />
               )}
+
+              {msg.type === "SHARE_POST" && renderSharedPost()}
+              {msg.type === "SHARE_PROFILE" && renderSharedProfile()}
+              {msg.type === "SHARE_STORY" && renderSharedStory()}
+
               {msg.type === "TEXT" && (
                 <div className="flex flex-col">
                   <span className="whitespace-pre-wrap">{msg.text}</span>
-                  {msg.media &&
-                    msg.media[0]?.mediaType === "LINK" &&
-                    (() => {
-                      const linkMedia = msg.media[0];
-                      const extractValidLink = (text: string) => {
-                        const match = text.match(
-                          /(https?:\/\/[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9-]+\.[a-zA-Z]{2,})/,
-                        );
-                        return match ? match[0] : "";
-                      };
-                      const targetUrl = extractValidLink(msg.text || "");
-                      if (!targetUrl) return null;
-                      const validHref = targetUrl.startsWith("http")
-                        ? targetUrl
-                        : `https://${targetUrl}`;
-                      const domainName = validHref
-                        .replace(/^https?:\/\//, "")
-                        .split("/")[0];
-                      return (
-                        <div
-                          className={`mt-2 flex flex-col overflow-hidden rounded-xl border ${isMine ? "border-white/10 bg-black/10 hover:bg-black/20" : "border-neutral-700/50 bg-neutral-900 hover:bg-neutral-800"} max-w-[260px] md:max-w-[300px] select-none group/link relative transition-colors`}
-                        >
-                          {linkMedia.url && (
-                            <div className="relative w-full h-[140px] bg-black overflow-hidden shrink-0 border-b border-white/5">
-                              <img
-                                src={linkMedia.url}
-                                alt="Link preview"
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                              />
-                            </div>
-                          )}
-                          <div className="p-3 flex flex-col gap-1 relative">
-                            <div className="text-[13px] font-semibold text-white line-clamp-1 pr-6">
-                              {linkMedia.title || domainName}
-                            </div>
-                            {linkMedia.description && (
-                              <div className="text-[11px] text-neutral-300 line-clamp-2 opacity-80 leading-tight">
-                                {linkMedia.description}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })()}
+                </div>
+              )}
+
+              {isShareType && msg.text && (
+                <div className="px-3 py-2 mt-1 whitespace-pre-wrap text-[15px]">
+                  {msg.text}
                 </div>
               )}
 

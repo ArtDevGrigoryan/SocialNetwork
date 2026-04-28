@@ -1,115 +1,136 @@
-import { useRef, useEffect, useState, type ChangeEvent } from "react";
+import { useRef, useEffect, useState } from "react";
 import {
   X,
   Music,
   Image as ImageIcon,
   Loader2,
-  CheckCircle2,
-  Play,
-  Pause,
-  Search,
+  MapPin,
+  Maximize,
+  Type,
+  Smile,
+  Wand2,
+  ChevronLeft,
 } from "lucide-react";
 import { useAuthStore } from "../../store/auth.store";
 import { useStoryStore } from "../../store/story.store";
 import type { MusicTrack } from "../../types/story.types";
 
+import { DraggableOverlay } from "./draggable-overlay";
+import {
+  StoryTextEditor,
+  StoryLocationEditor,
+  StoryAdjustEditor,
+  StoryStickersEditor,
+  StoryFiltersEditor,
+} from "./story-editor";
+import { StoryMusicLibrary, StoryMusicTrimmer } from "./story-music";
+
+export type EditorMode =
+  | "none"
+  | "music"
+  | "filters"
+  | "trim"
+  | "stickers"
+  | "text"
+  | "adjust"
+  | "location";
+
 export default function CreateStoryModal() {
   const { user } = useAuthStore();
-  const {
-    isCreateModalOpen,
-    setCreateModalOpen,
-    draftFile,
-    draftPreview,
-    draftType,
-    selectedMusic,
-    showMusicList,
-    playingMusicId,
-    musicResults,
-    isSearchingMusic,
-    isUploading,
-    setDraftFile,
-    setSelectedMusic,
-    setShowMusicList,
-    setPlayingMusicId,
-    searchMusic,
-    uploadStory,
-  } = useStoryStore();
+  const store = useStoryStore();
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [editorMode, setEditorMode] = useState<EditorMode>("none");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!showMusicList) return;
+  const isDraggingBg = useRef(false);
+  const startBgPos = useRef({ x: 0, y: 0 });
 
-    const timer = setTimeout(() => {
-      if (searchQuery.trim().length > 0) {
-        searchMusic(searchQuery);
-      } else {
-        searchMusic("trending pop");
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const handleTimeUpdate = () => {
+      if (store.selectedMusic && editorMode !== "music") {
+        if (audio.currentTime >= store.musicStartTime + store.musicDuration) {
+          audio.currentTime = store.musicStartTime;
+          audio.play().catch(() => {});
+        }
       }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery, showMusicList, searchMusic]);
+    };
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    return () => audio.removeEventListener("timeupdate", handleTimeUpdate);
+  }, [
+    store.musicStartTime,
+    store.musicDuration,
+    store.selectedMusic,
+    editorMode,
+  ]);
 
   useEffect(() => {
-    if (!isCreateModalOpen) {
+    if (store.selectedMusic && audioRef.current) {
+      audioRef.current.currentTime = store.musicStartTime;
+      audioRef.current.play().catch(() => {});
+    }
+  }, [store.musicStartTime, store.selectedMusic]);
+
+  useEffect(() => {
+    if (!store.isCreateModalOpen) {
       if (audioRef.current) audioRef.current.pause();
-      setSearchQuery("");
+      setEditorMode("none");
     }
-  }, [isCreateModalOpen]);
+  }, [store.isCreateModalOpen]);
 
-  if (!isCreateModalOpen) return null;
-
-  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (selected) {
-      setDraftFile(selected);
-    }
-  };
-
-  const togglePlay = (music: MusicTrack, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (playingMusicId === music.id) {
-      audioRef.current?.pause();
-      setPlayingMusicId(null);
-    } else {
-      if (audioRef.current) {
-        audioRef.current.src = music.url;
-        audioRef.current.play();
-      }
-      setPlayingMusicId(music.id);
-    }
-  };
+  if (!store.isCreateModalOpen) return null;
 
   const handleSelectMusic = (music: MusicTrack) => {
-    setSelectedMusic(music);
-    setShowMusicList(false);
+    store.setSelectedMusic(music);
+    store.setMusicStartTime(0);
     if (audioRef.current) {
       audioRef.current.src = music.url;
       audioRef.current.play();
     }
-    setPlayingMusicId(music.id);
+    store.setPlayingMusicId(music.id);
+    setEditorMode("trim");
   };
 
-  const handleSubmit = async () => {
-    await uploadStory(user?._id);
+  const closeEditor = () => setEditorMode("none");
+
+  // Background drag logic
+  const handleBgPointerDown = (e: React.PointerEvent) => {
+    if (editorMode !== "none" && editorMode !== "adjust") return;
+    isDraggingBg.current = true;
+    startBgPos.current = {
+      x: e.clientX - store.mediaTransform.x,
+      y: e.clientY - store.mediaTransform.y,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handleBgPointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingBg.current) return;
+    const newX = e.clientX - startBgPos.current.x;
+    const newY = e.clientY - startBgPos.current.y;
+    store.setMediaTransform({ x: newX, y: newY });
+  };
+
+  const handleBgPointerUp = (e: React.PointerEvent) => {
+    isDraggingBg.current = false;
+    e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
       <button
-        onClick={() => setCreateModalOpen(false)}
+        onClick={() => store.setCreateModalOpen(false)}
         className="absolute top-4 right-4 text-white hover:scale-110 transition z-[110]"
       >
         <X size={30} />
       </button>
 
       <div className="relative bg-neutral-950 w-full max-w-[450px] aspect-[9/16] max-h-[90vh] rounded-xl overflow-hidden border border-neutral-800 flex flex-col shadow-2xl">
-        <audio ref={audioRef} loop />
+        <audio ref={audioRef} loop={editorMode !== "trim"} />
 
-        {!draftFile ? (
+        {!store.draftFile ? (
           <div className="flex flex-col items-center justify-center h-full p-6 text-center">
             <div className="w-20 h-20 bg-neutral-900 rounded-full flex items-center justify-center mb-4">
               <ImageIcon size={40} className="text-neutral-400" />
@@ -131,164 +152,191 @@ export default function CreateStoryModal() {
               ref={fileInputRef}
               className="hidden"
               accept="image/*,video/*"
-              onChange={handleFileSelect}
+              onChange={(e) => store.setDraftFile(e.target.files?.[0] || null)}
             />
           </div>
         ) : (
-          <div className="relative w-full h-full flex flex-col bg-black">
-            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/60 to-transparent">
-              <button
-                onClick={() => setDraftFile(null)}
-                className="text-white text-sm font-medium hover:text-neutral-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => setShowMusicList(!showMusicList)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md transition ${
-                  selectedMusic
-                    ? "bg-white text-black"
-                    : "bg-black/50 text-white border border-white/20"
-                }`}
-              >
-                <Music size={16} />
-                <span className="text-sm font-semibold truncate max-w-[120px]">
-                  {selectedMusic ? selectedMusic.title : "Add Music"}
-                </span>
-              </button>
-            </div>
-
-            <div className="flex-1 flex items-center justify-center overflow-hidden">
-              {draftType === "image" ? (
+          <div className="relative w-full h-full flex flex-col bg-neutral-900 overflow-hidden">
+            {/* Main Media Preview with Drag Support */}
+            <div
+              className="absolute inset-0 flex items-center justify-center overflow-hidden cursor-move touch-none"
+              onPointerDown={handleBgPointerDown}
+              onPointerMove={handleBgPointerMove}
+              onPointerUp={handleBgPointerUp}
+              onPointerCancel={handleBgPointerUp}
+            >
+              {store.draftType === "image" ? (
                 <img
-                  src={draftPreview}
+                  src={store.draftPreview || ""}
                   alt="Preview"
-                  className="w-full h-full object-cover"
+                  style={{
+                    filter:
+                      store.selectedFilter !== "none"
+                        ? store.selectedFilter
+                        : undefined,
+                    transform: `scale(${store.mediaTransform.scale}) translate(${store.mediaTransform.x}px, ${store.mediaTransform.y}px)`,
+                  }}
+                  className="w-full h-full object-cover pointer-events-none transition-transform duration-75"
                 />
               ) : (
                 <video
-                  src={draftPreview}
+                  src={store.draftPreview || ""}
                   autoPlay
                   loop
                   muted
                   playsInline
-                  className="w-full h-full object-cover"
+                  style={{
+                    filter:
+                      store.selectedFilter !== "none"
+                        ? store.selectedFilter
+                        : undefined,
+                    transform: `scale(${store.mediaTransform.scale}) translate(${store.mediaTransform.x}px, ${store.mediaTransform.y}px)`,
+                  }}
+                  className="w-full h-full object-cover pointer-events-none transition-transform duration-75"
                 />
               )}
             </div>
 
-            {/* Music Library Bottom Sheet */}
-            {showMusicList && (
-              <div className="absolute inset-x-0 bottom-16 bg-neutral-900 rounded-t-2xl p-4 shadow-xl border-t border-neutral-800 animate-in slide-in-from-bottom-10 z-20 flex flex-col max-h-[60%]">
-                <div className="w-12 h-1 bg-neutral-700 rounded-full mx-auto mb-4 shrink-0" />
-
-                {/* Search Input */}
-                <div className="relative mb-4 shrink-0">
-                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                    <Search size={18} className="text-neutral-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search music..."
-                    className="w-full bg-neutral-800 text-white text-sm rounded-xl py-2.5 pl-10 pr-4 outline-none border border-transparent focus:border-neutral-600 transition"
-                  />
+            {/* Draggable Overlays */}
+            {store.storyLocation && (
+              <DraggableOverlay
+                item={{ id: "location", ...store.storyLocation }}
+                onUpdate={(_, updates) => store.updateLocation(updates as any)}
+                onRemove={() => store.setStoryLocation(null)}
+              >
+                <div className="bg-white/90 text-black px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-1.5 shadow-xl whitespace-nowrap">
+                  <MapPin size={16} className="text-blue-500" />{" "}
+                  {store.storyLocation.name}
                 </div>
+              </DraggableOverlay>
+            )}
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
-                  {isSearchingMusic ? (
-                    <div className="flex justify-center items-center py-8">
-                      <Loader2
-                        size={24}
-                        className="text-neutral-500 animate-spin"
-                      />
-                    </div>
-                  ) : musicResults.length === 0 ? (
-                    <div className="text-center text-neutral-500 text-sm py-8">
-                      No music found.
-                    </div>
-                  ) : (
-                    musicResults.map((music) => (
-                      <div
-                        key={music.id}
-                        onClick={() => handleSelectMusic(music)}
-                        className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition ${
-                          selectedMusic?.id === music.id
-                            ? "bg-neutral-800"
-                            : "hover:bg-neutral-800/50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          <div className="relative w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-neutral-800 group">
-                            {music.coverArt && (
-                              <img
-                                src={music.coverArt}
-                                alt={music.title}
-                                className="w-full h-full object-cover opacity-60 group-hover:opacity-40 transition"
-                              />
-                            )}
-                            <button
-                              onClick={(e) => togglePlay(music, e)}
-                              className="absolute inset-0 flex items-center justify-center text-white"
-                            >
-                              {playingMusicId === music.id ? (
-                                <Pause size={20} className="drop-shadow-md" />
-                              ) : (
-                                <Play
-                                  size={20}
-                                  className="ml-1 drop-shadow-md"
-                                />
-                              )}
-                            </button>
-                          </div>
-                          <div className="truncate">
-                            <p className="text-white text-sm font-medium truncate">
-                              {music.title}
-                            </p>
-                            <p className="text-neutral-400 text-xs truncate">
-                              {music.artist}
-                            </p>
-                          </div>
-                        </div>
-                        {selectedMusic?.id === music.id && (
-                          <CheckCircle2
-                            size={20}
-                            className="text-blue-500 shrink-0 ml-2"
-                          />
-                        )}
-                      </div>
-                    ))
-                  )}
+            {store.stickers.map((s) => (
+              <DraggableOverlay
+                key={s.id}
+                item={s}
+                onUpdate={store.updateSticker}
+                onRemove={store.removeSticker}
+              >
+                <span className="text-6xl drop-shadow-xl">{s.emoji}</span>
+              </DraggableOverlay>
+            ))}
 
-                  <div
-                    onClick={() => {
-                      setSelectedMusic(null);
-                      setShowMusicList(false);
-                      setPlayingMusicId(null);
-                      audioRef.current?.pause();
-                    }}
-                    className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-neutral-800/50 transition mt-2 border-t border-neutral-800"
+            {store.texts.map((t) => (
+              <DraggableOverlay
+                key={t.id}
+                item={t}
+                onUpdate={store.updateText}
+                onRemove={store.removeText}
+              >
+                <span
+                  className="text-3xl font-bold whitespace-pre-wrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
+                  style={{ color: t.color, fontFamily: t.fontFamily }}
+                >
+                  {t.content}
+                </span>
+              </DraggableOverlay>
+            ))}
+
+            {/* Top Toolbar */}
+            {editorMode === "none" && (
+              <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-30 bg-gradient-to-b from-black/60 to-transparent">
+                <button
+                  onClick={() => store.setDraftFile(null)}
+                  className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setEditorMode("adjust")}
+                    className="w-9 h-9 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition"
                   >
-                    <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-400">
-                      <X size={18} />
-                    </div>
-                    <p className="text-white text-sm font-medium">No Music</p>
-                  </div>
+                    <Maximize size={18} />
+                  </button>
+                  <button
+                    onClick={() => setEditorMode("location")}
+                    className="w-9 h-9 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition"
+                  >
+                    <MapPin size={18} />
+                  </button>
+                  <button
+                    onClick={() => setEditorMode("text")}
+                    className="w-9 h-9 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition"
+                  >
+                    <Type size={18} />
+                  </button>
+                  <button
+                    onClick={() => setEditorMode("stickers")}
+                    className="w-9 h-9 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition"
+                  >
+                    <Smile size={18} />
+                  </button>
+                  <button
+                    onClick={() => setEditorMode("filters")}
+                    className="w-9 h-9 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition"
+                  >
+                    <Wand2 size={18} />
+                  </button>
+                  <button
+                    onClick={() =>
+                      setEditorMode(store.selectedMusic ? "trim" : "music")
+                    }
+                    className={`flex items-center gap-2 px-3 h-9 rounded-full backdrop-blur-md transition ${store.selectedMusic ? "bg-white text-black" : "bg-black/40 text-white hover:bg-black/60"}`}
+                  >
+                    <Music size={16} />
+                    <span className="text-sm font-semibold truncate max-w-[80px]">
+                      {store.selectedMusic
+                        ? store.selectedMusic.title
+                        : "Music"}
+                    </span>
+                  </button>
                 </div>
               </div>
             )}
 
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-10 pointer-events-none">
-              <button
-                onClick={handleSubmit}
-                disabled={isUploading}
-                className="w-full bg-white text-black py-3 rounded-full font-semibold text-sm hover:bg-neutral-200 transition flex justify-center items-center gap-2 disabled:opacity-70 pointer-events-auto"
-              >
-                {isUploading && <Loader2 size={18} className="animate-spin" />}
-                {isUploading ? "Sharing..." : "Share to Story"}
-              </button>
-            </div>
+            {/* Bottom Sharing Bar */}
+            {editorMode === "none" && (
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-30 pointer-events-none flex gap-2">
+                <button
+                  onClick={() => store.uploadStory(user?._id)}
+                  disabled={store.isUploading}
+                  className="flex-1 bg-white text-black py-3 rounded-full font-semibold text-sm hover:bg-neutral-200 transition flex justify-center items-center gap-2 disabled:opacity-70 pointer-events-auto shadow-lg"
+                >
+                  {store.isUploading && (
+                    <Loader2 size={18} className="animate-spin" />
+                  )}
+                  {store.isUploading ? "Sharing..." : "Share to Story"}
+                </button>
+              </div>
+            )}
+
+            {/* Render Active Editor Mode */}
+            {editorMode === "text" && <StoryTextEditor onClose={closeEditor} />}
+            {editorMode === "location" && (
+              <StoryLocationEditor onClose={closeEditor} />
+            )}
+            {editorMode === "adjust" && (
+              <StoryAdjustEditor onClose={closeEditor} />
+            )}
+            {editorMode === "stickers" && (
+              <StoryStickersEditor onClose={closeEditor} />
+            )}
+            {editorMode === "filters" && (
+              <StoryFiltersEditor onClose={closeEditor} />
+            )}
+            {editorMode === "music" && (
+              <StoryMusicLibrary
+                onClose={closeEditor}
+                onSelectMusic={handleSelectMusic}
+              />
+            )}
+            {editorMode === "trim" && (
+              <StoryMusicTrimmer
+                onClose={closeEditor}
+                onBackToLibrary={() => setEditorMode("music")}
+              />
+            )}
           </div>
         )}
       </div>

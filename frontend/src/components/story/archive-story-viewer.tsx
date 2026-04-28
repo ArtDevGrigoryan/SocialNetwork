@@ -3,15 +3,15 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Volume2,
-  VolumeX,
   Eye,
-  Heart,
   Loader2,
   ChevronUp,
 } from "lucide-react";
 import { api } from "../../lib/axios.config";
 import { cn } from "../../lib/utils";
+import { StoryMedia } from "../story-ui/media-renderer";
+import { StoryHeader } from "../story-ui/header";
+import { StoryProgressBar } from "../story-ui/progess-bar";
 import type {
   ArchiveStoryViewerProps,
   ViewerReaction,
@@ -63,7 +63,12 @@ export default function ArchiveStoryViewer({
     setProgress(0);
     lastTimeRef.current = performance.now();
 
-    const duration = currentStory.media.duration || 5000;
+    const mediaDuration =
+      currentStory.media.type === "image" &&
+      currentStory.media.musicUrl &&
+      currentStory.media.musicUrl !== "none"
+        ? (currentStory.media.musicDuration || 15) * 1000
+        : 5000;
 
     const animate = (time: number) => {
       if (isPaused || isDrawerOpen) {
@@ -76,7 +81,7 @@ export default function ArchiveStoryViewer({
       lastTimeRef.current = time;
 
       if (currentStory.media.type === "image") {
-        progressRef.current += (deltaTime / duration) * 100;
+        progressRef.current += (deltaTime / mediaDuration) * 100;
       } else if (videoRef.current && videoRef.current.duration) {
         progressRef.current =
           (videoRef.current.currentTime / videoRef.current.duration) * 100;
@@ -113,13 +118,14 @@ export default function ArchiveStoryViewer({
       videoRef.current?.play().catch(console.error);
     }
 
+    const musicSrc =
+      currentStory.media.musicUrl || currentStory.media.backgroundMusic;
     const hasValidMusic =
-      currentStory.media.backgroundMusic &&
-      currentStory.media.backgroundMusic !== "none" &&
-      currentStory.media.backgroundMusic.startsWith("http");
+      musicSrc && musicSrc !== "none" && musicSrc.startsWith("http");
 
     if (hasValidMusic && audioRef.current) {
-      audioRef.current.src = String(currentStory?.media?.backgroundMusic || "");
+      audioRef.current.src = String(musicSrc);
+      audioRef.current.currentTime = currentStory.media.musicStartTime || 0;
       audioRef.current.muted = isMuted;
       audioRef.current.play().catch((e) => console.log("Audio skipped:", e));
     }
@@ -155,10 +161,10 @@ export default function ArchiveStoryViewer({
 
   if (!currentStory) return null;
 
+  const musicSrc =
+    currentStory.media.musicUrl || currentStory.media.backgroundMusic;
   const hasAudio =
-    currentStory.media.type === "video" ||
-    (currentStory.media.backgroundMusic &&
-      currentStory.media.backgroundMusic !== "none");
+    currentStory.media.type === "video" || (musicSrc && musicSrc !== "none");
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95">
@@ -192,100 +198,30 @@ export default function ArchiveStoryViewer({
       </button>
 
       <div className="relative w-full h-full sm:w-[400px] sm:h-[90vh] bg-neutral-900 sm:rounded-xl overflow-hidden flex flex-col shadow-2xl">
-        <div className="absolute top-0 left-0 right-0 z-20 flex gap-1 p-2 bg-gradient-to-b from-black/60 to-transparent">
-          {archives.map((archived, idx) => (
-            <div
-              key={archived._id}
-              className="h-[2px] flex-1 bg-white/30 rounded-full overflow-hidden"
-            >
-              <div
-                className="h-full bg-white transition-none"
-                style={{
-                  width:
-                    idx === currentIndex
-                      ? `${progress}%`
-                      : idx < currentIndex
-                        ? "100%"
-                        : "0%",
-                }}
-              />
-            </div>
-          ))}
-        </div>
+        <StoryProgressBar
+          total={archives.length}
+          currentIndex={currentIndex}
+          progress={progress}
+        />
 
-        <div className="absolute top-4 left-0 right-0 z-20 flex items-center justify-between px-4 pt-2">
-          <div className="flex items-center gap-2 drop-shadow-md">
-            <div className="flex flex-col">
-              <span className="text-white font-semibold text-sm drop-shadow-lg">
-                Memory
-              </span>
-              <span className="text-neutral-200 text-xs drop-shadow-lg font-medium">
-                {formatDate(currentStory.createdAt)}
-              </span>
-            </div>
-          </div>
+        <StoryHeader
+          avatar="/default-avatar.png"
+          username="Memory"
+          timeText={formatDate(currentStory.createdAt)}
+          hasAudio={Boolean(hasAudio)}
+          isMuted={isMuted}
+          onToggleMute={() => setIsMuted(!isMuted)}
+          onClose={onClose}
+        />
 
-          <div className="flex items-center gap-2">
-            {hasAudio && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsMuted(!isMuted);
-                }}
-                className="text-white p-1.5 drop-shadow-md hover:bg-white/20 rounded-full transition"
-              >
-                {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="text-white sm:hidden p-1 drop-shadow-md"
-            >
-              <X size={24} />
-            </button>
-          </div>
-        </div>
-
-        <div
-          className="relative flex-1 flex items-center justify-center bg-black cursor-pointer select-none"
-          onMouseDown={() => setIsPaused(true)}
-          onMouseUp={() => setIsPaused(false)}
-          onMouseLeave={() => setIsPaused(false)}
-          onTouchStart={() => setIsPaused(true)}
-          onTouchEnd={() => setIsPaused(false)}
-        >
-          {currentStory.media.type === "image" ? (
-            <img
-              src={currentStory.media.url}
-              alt="Archive"
-              className="w-full h-full object-cover pointer-events-none"
-            />
-          ) : (
-            <video
-              ref={videoRef}
-              src={currentStory.media.url}
-              playsInline
-              muted={isMuted}
-              className="w-full h-full object-cover pointer-events-none"
-              onEnded={handleNext}
-            />
-          )}
-
-          <div
-            className="absolute inset-y-0 left-0 w-1/3 z-10"
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePrev();
-            }}
-          />
-          <div
-            className="absolute inset-y-0 right-0 w-1/3 z-10"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleNext();
-            }}
-          />
-        </div>
+        <StoryMedia
+          media={currentStory.media}
+          isMuted={isMuted}
+          videoRef={videoRef}
+          setIsPaused={setIsPaused}
+          onPrev={handlePrev}
+          onNext={handleNext}
+        />
 
         <div className="absolute bottom-0 left-0 right-0 z-30">
           <div className="bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-10 pb-4 px-4 flex justify-center">
@@ -353,12 +289,6 @@ export default function ArchiveStoryViewer({
 
                     {(v.reaction || v.liked) && (
                       <div className="flex items-center gap-1.5 text-xl">
-                        {v.liked && (
-                          <Heart
-                            className="text-red-500 fill-red-500"
-                            size={20}
-                          />
-                        )}
                         {v.reaction && <span>{v.reaction}</span>}
                       </div>
                     )}

@@ -279,8 +279,9 @@ export default function ActiveChat() {
                   chatId,
                   myParticipantId,
                   text,
+                  "",
                   files,
-                  type,
+                  type as any,
                   replyToId,
                 );
               }
