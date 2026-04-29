@@ -4,8 +4,8 @@ import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
 import { ProfileHeader } from "./profile-header";
 import { ProfileTabs } from "./profile-tabs";
-import { PostGrid } from "./post-grid";
-import { PostModal } from "./post-modal";
+import { PostGrid } from "../../components/post/post-grid";
+import { PostModal } from "../../components/post/post-modal";
 import { UsersModal } from "./users-modal";
 import type { IPost, IUser } from "../../types/user.types";
 
@@ -19,7 +19,10 @@ export const Profile = () => {
   const [tabData, setTabData] = useState<IPost[]>([]);
   const [loadingTab, setLoadingTab] = useState(true);
 
-  const [selectedPost, setSelectedPost] = useState<IPost | null>(null);
+  const [selectedPostIndex, setSelectedPostIndex] = useState<number | null>(
+    null,
+  );
+
   const [usersModal, setUsersModal] = useState({
     open: false,
     title: "",
@@ -74,15 +77,22 @@ export const Profile = () => {
           const extractedPosts = (res.data.payload || []).map(
             (item: any) => item.post || item,
           );
-          console.log(res.data.payload);
           setTabData(extractedPosts);
         } else if (activeTab === "reposts") {
-          res = await api.get(`/reposts?user=${id}`);
-          const extractedPosts = (res.data.payload || []).map(
-            (item: any) => item.post || item,
+          res = await api.get(
+            isOwner ? `/reposts/my?limit=20` : `/reposts/${id}`,
           );
 
-          setTabData(extractedPosts);
+          const extractedPosts = (res.data.payload || [])
+            .map((item: any) => item.post)
+            .filter(Boolean);
+
+          const mappedPosts = extractedPosts.map((p: any) => ({
+            ...p,
+            isReposted: true,
+          }));
+
+          setTabData(mappedPosts);
         }
       } catch (error) {
         console.error(`Error fetching ${activeTab}:`, error);
@@ -146,14 +156,21 @@ export const Profile = () => {
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <PostGrid
               posts={tabData}
-              onPostClick={(post) => setSelectedPost(post)}
+              onPostClick={(post) => {
+                const idx = tabData.findIndex((p) => p._id === post._id);
+                setSelectedPostIndex(idx);
+              }}
             />
           </div>
         )}
       </div>
 
-      {selectedPost && (
-        <PostModal post={selectedPost} onClose={() => setSelectedPost(null)} />
+      {selectedPostIndex !== null && (
+        <PostModal
+          posts={tabData}
+          initialIndex={selectedPostIndex}
+          onClose={() => setSelectedPostIndex(null)}
+        />
       )}
 
       <UsersModal

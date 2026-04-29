@@ -13,7 +13,8 @@ const {
 } = require("@schemas/chat.schema");
 
 router.get("/", validate(getChatSchema), chatController.chats);
-router.get("/key", chatController.getByKey)
+router.get("/my", chatController.myChats);
+router.get("/key", chatController.getByKey);
 router.get("/:id/admins", validate(paramsWithId), chatController.admins);
 router.get("/:id", validate(paramsWithId), chatController.specificChat);
 router.patch(

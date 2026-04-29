@@ -1,4 +1,5 @@
 const Comment = require("@models/comment");
+const Post = require("@models/post");
 const PolicyService = require("@services/policy.service");
 const { NotFoundException, ForBiddenException } = require("@helpers/errors");
 const notificationService = require("./notification.service");
@@ -7,7 +8,9 @@ class CommentService {
   async add(author, postId, text) {
     const post = await PolicyService.canAccessPost(author, postId);
     const comm = await Comment.create({ author, post: postId, text });
-    if (author.toString() != post.author.toString()) {
+    await Post.findByIdAndUpdate(postId, { $inc: { comments: 1 } });
+
+    if (author != post.author._id) {
       await notificationService.commentNotification({
         postId,
         toUser: post.author._id,
@@ -55,7 +58,9 @@ class CommentService {
     }
 
     await comment.deleteOne();
-
+    await Post.findByIdAndUpdate(comment.post, {
+      $inc: { comments: -1 },
+    });
     return true;
   }
   async comments(userId, postId, pagination) {

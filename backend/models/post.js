@@ -15,6 +15,11 @@ const postsSchema = new mongoose.Schema(
     images: [imagesSchema],
     location: { type: String, default: "" },
     mentions: [{ type: mongoose.Types.ObjectId, ref: "User" }],
+    music: {
+      url: String,
+      title: String,
+      startTime: { type: Number, default: 0 },
+    },
     likes: { type: Number, default: 0 },
     comments: { type: Number, default: 0 },
     isArchived: { type: Boolean, default: false },

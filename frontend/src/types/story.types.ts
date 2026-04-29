@@ -140,8 +140,7 @@ export interface StoryStore {
 
   isUploading: boolean;
   resetDraft: () => void;
-  uploadStory: (userId?: string) => Promise<void>;
-
+  uploadStory: (userId?: string, customFile?: File) => Promise<void>;
   viewingUserId: string | null;
   setViewingUserId: (id: string | null) => void;
 }
@@ -232,10 +231,10 @@ export interface StoryMediaProps {
   isMuted?: boolean;
   videoRef?: RefObject<HTMLVideoElement | null>;
   setIsPaused: (val: boolean) => void;
+  setIsHolding?: (val: boolean) => void;
   onPrev: () => void;
   onNext: () => void;
 }
-
 export interface StoryHeaderProps {
   avatar?: string;
   username: string;

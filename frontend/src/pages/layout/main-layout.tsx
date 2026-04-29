@@ -21,7 +21,8 @@ export default function MainLayout() {
   const { connect, disconnect, socket } = useSocketStore();
   const { toasts, addToast } = useUIStore();
 
-  const isMessagePage = pathname.includes("/message");
+  const isFullscreenPage =
+    pathname.includes("/message") || pathname.includes("/settings");
 
   useEffect(() => {
     pathnameRef.current = pathname;
@@ -47,15 +48,11 @@ export default function MainLayout() {
     if (isAuthenticated && user && accessToken) {
       connect(accessToken);
     }
-
-    return () => {
-      disconnect();
-    };
+    return () => disconnect();
   }, [isAuthenticated, user, accessToken, connect, disconnect]);
 
   useEffect(() => {
     if (!socket) return;
-
     const onNotification = (notification: any) => {
       const from = notification?.fromUser?.username || "Someone";
       const type = String(notification?.type || "").toUpperCase();
@@ -82,9 +79,7 @@ export default function MainLayout() {
     };
   }, [addToast, socket]);
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   return (
     <div className="min-h-[100dvh] bg-black text-white flex flex-col md:flex-row">
@@ -101,20 +96,20 @@ export default function MainLayout() {
       <Sidebar />
 
       <div className="flex-1 flex flex-col md:ml-[76px] transition-all duration-300 min-h-screen">
-        {!isMessagePage && <Header />}
+        {!isFullscreenPage && <Header />}
 
         <div
-          className={`flex justify-center w-full grow ${isMessagePage ? "h-screen overflow-hidden" : ""}`}
+          className={`flex justify-center w-full grow ${isFullscreenPage ? "h-screen overflow-hidden" : ""}`}
         >
           <main
-            className={`w-full ${isMessagePage ? "h-full" : "max-w-[630px] pb-24 md:pb-0"}`}
+            className={`w-full ${isFullscreenPage ? "h-full" : "max-w-[630px] pb-24 md:pb-0"}`}
           >
-            <div className={`h-full ${isMessagePage ? "" : "py-2 md:py-8"}`}>
+            <div className={`h-full ${isFullscreenPage ? "" : "py-2 md:py-8"}`}>
               <Outlet />
             </div>
           </main>
 
-          {!isMessagePage && (
+          {!isFullscreenPage && (
             <aside className="hidden xl:block w-[320px] pt-10 pl-10 pr-4 shrink-0">
               <RightPanel />
             </aside>

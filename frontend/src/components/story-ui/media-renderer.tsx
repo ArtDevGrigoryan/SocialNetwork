@@ -6,6 +6,7 @@ export const StoryMedia = ({
   isMuted,
   videoRef,
   setIsPaused,
+  setIsHolding, // Ավելացված է
   onPrev,
   onNext,
 }: StoryMediaProps) => {
@@ -16,12 +17,19 @@ export const StoryMedia = ({
 
   return (
     <div
-      className="relative flex-1 flex items-center justify-center bg-black cursor-pointer select-none overflow-hidden"
-      onMouseDown={() => setIsPaused(true)}
-      onMouseUp={() => setIsPaused(false)}
-      onMouseLeave={() => setIsPaused(false)}
-      onTouchStart={() => setIsPaused(true)}
-      onTouchEnd={() => setIsPaused(false)}
+      className="relative flex-1 flex items-center justify-center bg-black cursor-pointer select-none overflow-hidden touch-none"
+      onPointerDown={() => {
+        setIsPaused(true);
+        if (setIsHolding) setIsHolding(true);
+      }}
+      onPointerUp={() => {
+        setIsPaused(false);
+        if (setIsHolding) setIsHolding(false);
+      }}
+      onPointerCancel={() => {
+        setIsPaused(false);
+        if (setIsHolding) setIsHolding(false);
+      }}
     >
       {media.type === "image" ? (
         <img
@@ -48,7 +56,6 @@ export const StoryMedia = ({
         />
       )}
 
-      {/* Location */}
       {location && (
         <div
           className="absolute pointer-events-none drop-shadow-xl z-20"
@@ -64,7 +71,6 @@ export const StoryMedia = ({
         </div>
       )}
 
-      {/* Stickers Overlay */}
       {stickers.map((s, idx) => (
         <div
           key={s.id || idx}
@@ -79,7 +85,6 @@ export const StoryMedia = ({
         </div>
       ))}
 
-      {/* Texts Overlay */}
       {texts.map((t, idx) => (
         <div
           key={t.id || idx}

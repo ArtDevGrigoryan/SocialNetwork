@@ -18,8 +18,9 @@ class RepostService {
       post: postId,
       user: userId,
       author: post.author,
-    }).populate("post");
-    return { action: "created", repost };
+    });
+    const populated = await repost.populate("post");
+    return { action: "created", repost: populated };
   }
   myReposts(userId, pagination) {
     const { limit = 20, page = 1 } = pagination;
@@ -43,7 +44,7 @@ class RepostService {
     await PolicyService.canViewProfile(userId, authorId);
     const { page = 1, limit = 20 } = pagination;
     const skip = (page - 1) * limit;
-    return Repost.find({ author: userId })
+    return Repost.find({ user: authorId })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)

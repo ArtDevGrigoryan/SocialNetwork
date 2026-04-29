@@ -1,27 +1,22 @@
-import { useState, useRef, useEffect, type ChangeEvent } from "react";
 import {
-  X,
-  Image as ImageIcon,
-  ArrowLeft,
-  Loader2,
-  ChevronRight,
-  ChevronLeft,
-  MapPin,
-  Music,
-  Search,
-} from "lucide-react";
+  useState,
+  useRef,
+  useEffect,
+  type ChangeEvent,
+  useCallback,
+} from "react";
+import { X, ArrowLeft, Loader2 } from "lucide-react";
 import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
 import type { MusicTrack } from "../../types/story.types";
+import getCroppedImg from "../../lib/crop";
 
-const FILTERS = [
-  { name: "Normal", value: "none" },
-  { name: "Clarendon", value: "contrast(1.2) saturate(1.35)" },
-  { name: "Gingham", value: "brightness(1.05) hue-rotate(-10deg)" },
-  { name: "Moon", value: "grayscale(1) contrast(1.1) brightness(1.1)" },
-  { name: "Lark", value: "contrast(0.9) brightness(1.2) saturate(1.1)" },
-  { name: "Juno", value: "saturate(1.4) contrast(1.1) hue-rotate(-4deg)" },
-];
+import SelectStep from "./select-step";
+import CropStep from "./crop-step";
+import PreviewSide from "./preview-side";
+import FilterStep from "./filter-step";
+import DetailsStep from "./details-step";
+import MusicSidebar from "./music-sidebar";
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -35,9 +30,13 @@ export default function CreatePostModal({
   onPostCreated,
 }: CreatePostModalProps) {
   const { user } = useAuthStore();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const captionRef = useRef<HTMLTextAreaElement>(null);
 
-  const [step, setStep] = useState<"select" | "filter" | "details">("select");
+  const [step, setStep] = useState<"select" | "crop" | "filter" | "details">(
+    "select",
+  );
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -45,18 +44,26 @@ export default function CreatePostModal({
     Record<number, string>
   >({});
 
+  const [crops, setCrops] = useState<Record<number, { x: number; y: number }>>(
+    {},
+  );
+  const [zooms, setZooms] = useState<Record<number, number>>({});
+  const [croppedPixels, setCroppedPixels] = useState<Record<number, any>>({});
+  const [aspect, setAspect] = useState<number>(1);
+  const [isProcessingCrop, setIsProcessingCrop] = useState(false);
+
   const [caption, setCaption] = useState("");
   const [location, setLocation] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  // Music & Search
   const [showMusicSearch, setShowMusicSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [musicResults, setMusicResults] = useState<MusicTrack[]>([]);
   const [isSearchingMusic, setIsSearchingMusic] = useState(false);
   const [selectedMusic, setSelectedMusic] = useState<MusicTrack | null>(null);
-
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [musicStartTime, setMusicStartTime] = useState<number>(0);
+  const [audioDuration, setAudioDuration] = useState<number>(30);
 
   useEffect(() => {
     if (!isOpen) handleReset();
@@ -69,11 +76,20 @@ export default function CreatePostModal({
     setPreviews([]);
     setCurrentIndex(0);
     setSelectedFilters({});
+    setCrops({});
+    setZooms({});
+    setCroppedPixels({});
+    setAspect(1);
     setCaption("");
     setLocation("");
     setSelectedMusic(null);
     setShowMusicSearch(false);
-    if (audioRef.current) audioRef.current.pause();
+    setShowEmojiPicker(false);
+    setMusicStartTime(0);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
   };
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -82,9 +98,56 @@ export default function CreatePostModal({
       setFiles(selectedFiles);
       setPreviews(selectedFiles.map((file) => URL.createObjectURL(file)));
       const initialFilters: Record<number, string> = {};
-      selectedFiles.forEach((_, idx) => (initialFilters[idx] = "none"));
+      const initialCrops: Record<number, { x: number; y: number }> = {};
+      const initialZooms: Record<number, number> = {};
+
+      selectedFiles.forEach((_, idx) => {
+        initialFilters[idx] = "none";
+        initialCrops[idx] = { x: 0, y: 0 };
+        initialZooms[idx] = 1;
+      });
+
       setSelectedFilters(initialFilters);
+      setCrops(initialCrops);
+      setZooms(initialZooms);
+      setStep("crop");
+    }
+  };
+
+  const onCropComplete = useCallback(
+    (idx: number, _: any, croppedAreaPixels: any) => {
+      setCroppedPixels((prev) => ({ ...prev, [idx]: croppedAreaPixels }));
+    },
+    [],
+  );
+
+  const handleApplyCropsAndNext = async () => {
+    setIsProcessingCrop(true);
+    try {
+      const newFiles = [...files];
+      const newPreviews = [...previews];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file.type.startsWith("video/") && croppedPixels[i]) {
+          const croppedFile = await getCroppedImg(
+            previews[i],
+            croppedPixels[i],
+            file.name,
+          );
+          if (croppedFile) {
+            newFiles[i] = croppedFile;
+            URL.revokeObjectURL(newPreviews[i]);
+            newPreviews[i] = URL.createObjectURL(croppedFile);
+          }
+        }
+      }
+      setFiles(newFiles);
+      setPreviews(newPreviews);
       setStep("filter");
+    } catch (e) {
+      console.error("Error cropping", e);
+    } finally {
+      setIsProcessingCrop(false);
     }
   };
 
@@ -121,8 +184,19 @@ export default function CreatePostModal({
   const handleSelectMusic = (music: MusicTrack) => {
     setSelectedMusic(music);
     setShowMusicSearch(false);
+    setMusicStartTime(0);
     if (audioRef.current) {
       audioRef.current.src = music.url;
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
+    }
+  };
+
+  const handleAudioTimeChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const time = Number(e.target.value);
+    setMusicStartTime(time);
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
       audioRef.current.play().catch(() => {});
     }
   };
@@ -132,30 +206,25 @@ export default function CreatePostModal({
     try {
       setIsUploading(true);
       const formData = new FormData();
-      files.forEach((file) => formData.append("media", file));
-      formData.append("caption", caption);
-      if (location) formData.append("location", location);
+      files.forEach((file) => formData.append("post", file));
+      formData.append("content", caption);
+      formData.append("location", location);
       formData.append(
         "filters",
-        JSON.stringify(files.map((_, idx) => selectedFilters[idx] || "none")),
+        JSON.stringify(Object.values(selectedFilters)),
       );
-
-      // Extract mentions using Regex (e.g. @username) -> Real app should match with backend users ID.
-      // Պարզության համար ուղարկում ենք դատարկ զանգված, քանի որ ID-ներ են պետք։
-      formData.append("mentions", JSON.stringify([]));
 
       if (selectedMusic) {
         formData.append("musicUrl", selectedMusic.url);
         formData.append("musicTitle", selectedMusic.title);
+        formData.append("musicStartTime", musicStartTime.toString());
       }
 
-      await api.post("/posts", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      if (onPostCreated) onPostCreated();
+      await api.post("/posts", formData);
+      onPostCreated?.();
       onClose();
     } catch (error) {
-      console.error("Error creating post:", error);
+      console.error(error);
     } finally {
       setIsUploading(false);
     }
@@ -163,35 +232,67 @@ export default function CreatePostModal({
 
   if (!isOpen) return null;
 
+  const currentFile = files[currentIndex];
+  const isVideo = currentFile?.type.startsWith("video/");
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <audio ref={audioRef} loop />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <audio
+        ref={audioRef}
+        loop
+        onLoadedMetadata={() => {
+          if (audioRef.current)
+            setAudioDuration(audioRef.current.duration || 30);
+        }}
+      />
       <div
-        className={`bg-[#262626] rounded-xl overflow-hidden shadow-2xl flex flex-col transition-all duration-300 ${step === "select" ? "w-[400px] h-[450px]" : "w-[850px] max-w-full h-[600px]"}`}
+        className={`bg-[#262626] w-full sm:rounded-xl shadow-2xl flex flex-col transition-all duration-300 relative overflow-hidden ${
+          step === "select"
+            ? "max-w-[400px] h-[100dvh] sm:h-[450px]"
+            : "max-w-[850px] h-[100dvh] sm:h-[600px]"
+        }`}
       >
-        {/* Header */}
-        <div className="h-12 border-b border-neutral-800 flex items-center justify-between px-4 shrink-0">
+        <div className="h-12 border-b border-neutral-800 flex items-center justify-between px-4 shrink-0 rounded-t-xl overflow-hidden">
           {step === "select" ? (
             <button onClick={onClose} className="text-white">
               <X size={24} />
             </button>
           ) : (
             <button
-              onClick={() => setStep(step === "details" ? "filter" : "select")}
+              onClick={() => {
+                if (step === "details") setStep("filter");
+                else if (step === "filter") setStep("crop");
+                else if (step === "crop") handleReset();
+              }}
               className="text-white"
             >
               <ArrowLeft size={24} />
             </button>
           )}
+
           <h2 className="text-white font-semibold text-sm">
             {step === "select"
               ? "Create new post"
-              : step === "filter"
-                ? "Edit"
-                : "New post"}
+              : step === "crop"
+                ? "Crop"
+                : step === "filter"
+                  ? "Edit"
+                  : "New post"}
           </h2>
+
           {step === "select" ? (
             <div className="w-6" />
+          ) : step === "crop" ? (
+            <button
+              onClick={handleApplyCropsAndNext}
+              disabled={isProcessingCrop}
+              className="text-[#0095F6] font-semibold text-sm flex items-center gap-2"
+            >
+              {isProcessingCrop && (
+                <Loader2 size={16} className="animate-spin" />
+              )}{" "}
+              Next
+            </button>
           ) : step === "filter" ? (
             <button
               onClick={() => setStep("details")}
@@ -211,266 +312,79 @@ export default function CreatePostModal({
           )}
         </div>
 
-        {/* Body */}
-        <div className="flex-1 flex overflow-hidden">
+        {/* Body content based on step */}
+        <div className="flex-1 flex overflow-hidden rounded-b-xl relative">
           {step === "select" && (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-              <ImageIcon
-                size={60}
-                className="text-neutral-300 mb-4"
-                strokeWidth={1}
-              />
-              <p className="text-xl text-white mb-6">
-                Drag photos and videos here
-              </p>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="bg-[#0095F6] hover:bg-[#1877F2] text-white px-4 py-1.5 rounded-lg font-semibold text-sm transition"
-              >
-                Select from computer
-              </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/*,video/*"
-                multiple
-                onChange={handleFileSelect}
-              />
-            </div>
+            <SelectStep
+              fileInputRef={fileInputRef}
+              handleFileSelect={handleFileSelect}
+            />
+          )}
+
+          {step === "crop" && (
+            <CropStep
+              previews={previews}
+              currentIndex={currentIndex}
+              setCurrentIndex={setCurrentIndex}
+              crops={crops}
+              setCrops={setCrops}
+              zooms={zooms}
+              setZooms={setZooms}
+              aspect={aspect}
+              setAspect={setAspect}
+              onCropComplete={onCropComplete}
+              isVideo={isVideo}
+            />
           )}
 
           {(step === "filter" || step === "details") && (
             <div className="flex w-full h-full relative">
-              {/* Preview Side */}
-              <div className="relative bg-black flex flex-col items-center justify-center w-[60%] border-r border-neutral-800">
-                {files[currentIndex].type.startsWith("video/") ? (
-                  <video
-                    src={previews[currentIndex]}
-                    autoPlay
-                    loop
-                    muted
-                    style={{
-                      filter:
-                        selectedFilters[currentIndex] !== "none"
-                          ? selectedFilters[currentIndex]
-                          : undefined,
-                    }}
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <img
-                    src={previews[currentIndex]}
-                    style={{
-                      filter:
-                        selectedFilters[currentIndex] !== "none"
-                          ? selectedFilters[currentIndex]
-                          : undefined,
-                    }}
-                    className="w-full h-full object-contain transition-all duration-300"
-                    alt="Preview"
-                  />
-                )}
+              <PreviewSide
+                previews={previews}
+                currentIndex={currentIndex}
+                setCurrentIndex={setCurrentIndex}
+                selectedFilters={selectedFilters}
+                selectedMusic={selectedMusic}
+                setSelectedMusic={setSelectedMusic}
+                audioRef={audioRef}
+                isVideo={isVideo}
+              />
 
-                {previews.length > 1 && (
-                  <>
-                    {currentIndex > 0 && (
-                      <button
-                        onClick={() => setCurrentIndex((prev) => prev - 1)}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white"
-                      >
-                        <ChevronLeft size={20} />
-                      </button>
-                    )}
-                    {currentIndex < previews.length - 1 && (
-                      <button
-                        onClick={() => setCurrentIndex((prev) => prev + 1)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white"
-                      >
-                        <ChevronRight size={20} />
-                      </button>
-                    )}
-                    <div className="absolute bottom-4 flex gap-1.5">
-                      {previews.map((_, idx) => (
-                        <div
-                          key={idx}
-                          className={`w-1.5 h-1.5 rounded-full ${idx === currentIndex ? "bg-[#0095F6]" : "bg-white/50"}`}
-                        />
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {selectedMusic && (
-                  <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg">
-                    <Music size={14} className="text-white" />
-                    <span className="text-white text-[12px] font-medium">
-                      {selectedMusic.title}
-                    </span>
-                    <button
-                      onClick={() => {
-                        setSelectedMusic(null);
-                        if (audioRef.current) audioRef.current.pause();
-                      }}
-                      className="ml-1 text-neutral-400 hover:text-white"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Sidebar */}
               <div className="w-[40%] bg-[#262626] flex flex-col h-full relative overflow-hidden">
                 {step === "filter" ? (
-                  <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
-                    <h3 className="text-white font-semibold mb-4 text-sm">
-                      Filters
-                    </h3>
-                    <div className="grid grid-cols-3 gap-3">
-                      {FILTERS.map((f) => (
-                        <div
-                          key={f.name}
-                          onClick={() =>
-                            setSelectedFilters((prev) => ({
-                              ...prev,
-                              [currentIndex]: f.value,
-                            }))
-                          }
-                          className="flex flex-col items-center gap-2 cursor-pointer group"
-                        >
-                          <div
-                            className={`w-full aspect-square rounded-md overflow-hidden border-2 transition-all ${selectedFilters[currentIndex] === f.value ? "border-[#0095F6]" : "border-transparent group-hover:border-neutral-500"}`}
-                          >
-                            <img
-                              src={previews[currentIndex]}
-                              style={{
-                                filter:
-                                  f.value !== "none" ? f.value : undefined,
-                              }}
-                              className="w-full h-full object-cover"
-                              alt={f.name}
-                            />
-                          </div>
-                          <span
-                            className={`text-[12px] ${selectedFilters[currentIndex] === f.value ? "text-[#0095F6] font-semibold" : "text-neutral-400 font-medium"}`}
-                          >
-                            {f.name}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <FilterStep
+                    previews={previews}
+                    currentIndex={currentIndex}
+                    selectedFilters={selectedFilters}
+                    setSelectedFilters={setSelectedFilters}
+                  />
                 ) : (
-                  <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar relative">
-                    <div className="flex items-center gap-3 p-4">
-                      <img
-                        src={user?.avatar || "/default-avatar.png"}
-                        alt="user"
-                        className="w-7 h-7 rounded-full object-cover"
-                      />
-                      <span className="text-white text-sm font-semibold">
-                        {user?.username}
-                      </span>
-                    </div>
-                    <div className="px-4">
-                      <textarea
-                        value={caption}
-                        onChange={(e) => setCaption(e.target.value)}
-                        placeholder="Write a caption... mention friends with @username"
-                        className="w-full bg-transparent text-white resize-none outline-none text-sm min-h-[120px]"
-                        maxLength={2200}
-                      />
-                    </div>
-                    <div className="p-2 border-y border-neutral-800 relative">
-                      <input
-                        type="text"
-                        placeholder="Add location"
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        className="w-full bg-transparent text-white text-sm px-2 py-2 outline-none"
-                      />
-                      <MapPin
-                        size={18}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400"
-                      />
-                    </div>
-                    <div
-                      className="p-4 border-b border-neutral-800 flex justify-between items-center cursor-pointer hover:bg-neutral-800/50 transition"
-                      onClick={() => setShowMusicSearch(true)}
-                    >
-                      <span className="text-white text-sm">
-                        Add Background Music
-                      </span>
-                      <ChevronRight size={20} className="text-neutral-500" />
-                    </div>
-
-                    {/* Music Slide */}
-                    <div
-                      className={`absolute inset-0 bg-[#262626] z-10 flex flex-col transition-transform duration-300 ${showMusicSearch ? "translate-x-0" : "translate-x-full"}`}
-                    >
-                      <div className="p-4 border-b border-neutral-800 flex items-center gap-3">
-                        <button
-                          onClick={() => setShowMusicSearch(false)}
-                          className="text-white"
-                        >
-                          <ArrowLeft size={20} />
-                        </button>
-                        <span className="text-white font-semibold">
-                          Search Music
-                        </span>
-                      </div>
-                      <div className="p-3 relative border-b border-neutral-800">
-                        <Search
-                          size={16}
-                          className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-400"
-                        />
-                        <input
-                          type="text"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Search for tracks..."
-                          className="w-full bg-neutral-900 text-white text-sm rounded-lg py-2 pl-9 pr-4 outline-none border border-transparent focus:border-neutral-600"
-                        />
-                      </div>
-                      <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-                        {isSearchingMusic ? (
-                          <div className="flex justify-center p-6">
-                            <Loader2
-                              size={24}
-                              className="text-neutral-500 animate-spin"
-                            />
-                          </div>
-                        ) : musicResults.length === 0 ? (
-                          <div className="text-center p-6 text-neutral-500 text-sm">
-                            No results
-                          </div>
-                        ) : (
-                          musicResults.map((music) => (
-                            <div
-                              key={music.id}
-                              onClick={() => handleSelectMusic(music)}
-                              className="flex items-center gap-3 p-2 rounded-lg hover:bg-neutral-800 cursor-pointer transition"
-                            >
-                              <img
-                                src={music.coverArt}
-                                className="w-11 h-11 rounded-md object-cover"
-                                alt="cover"
-                              />
-                              <div className="flex flex-col">
-                                <span className="text-white text-[13px] font-semibold">
-                                  {music.title}
-                                </span>
-                                <span className="text-neutral-400 text-[11px]">
-                                  {music.artist}
-                                </span>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                  <>
+                    <DetailsStep
+                      user={user}
+                      caption={caption}
+                      setCaption={setCaption}
+                      location={location}
+                      setLocation={setLocation}
+                      showEmojiPicker={showEmojiPicker}
+                      setShowEmojiPicker={setShowEmojiPicker}
+                      selectedMusic={selectedMusic}
+                      setShowMusicSearch={setShowMusicSearch}
+                      musicStartTime={musicStartTime}
+                      audioDuration={audioDuration}
+                      handleAudioTimeChange={handleAudioTimeChange}
+                      captionRef={captionRef}
+                    />
+                    <MusicSidebar
+                      showMusicSearch={showMusicSearch}
+                      setShowMusicSearch={setShowMusicSearch}
+                      searchQuery={searchQuery}
+                      setSearchQuery={setSearchQuery}
+                      isSearchingMusic={isSearchingMusic}
+                      musicResults={musicResults}
+                      handleSelectMusic={handleSelectMusic}
+                    />
+                  </>
                 )}
               </div>
             </div>

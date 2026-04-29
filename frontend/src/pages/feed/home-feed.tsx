@@ -4,6 +4,7 @@ import { api } from "../../lib/axios.config";
 import type { IPost } from "../../types/user.types";
 import PostCard from "../../components/post/post-card";
 import StoryBar from "../../components/story/story-bar";
+import { PostModal } from "../../components/post/post-modal";
 
 export interface FeedPost extends IPost {
   isLiked?: boolean;
@@ -24,6 +25,8 @@ export default function HomeFeed() {
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [isStoryOpen, setIsStoryOpen] = useState<boolean>(false);
   const observer = useRef<IntersectionObserver | null>(null);
 
   const lastPostElementRef = useCallback(
@@ -75,6 +78,8 @@ export default function HomeFeed() {
   }, [page]);
 
   useEffect(() => {
+    const handleStoryOpen = () => setIsStoryOpen(true);
+    const handleStoryClose = () => setIsStoryOpen(false);
     const handlePostCreated = () => {
       setPage(1);
       setHasMore(true);
@@ -93,13 +98,16 @@ export default function HomeFeed() {
 
     window.addEventListener("post:created", handlePostCreated);
     window.addEventListener("post:deleted", handlePostDeleted as EventListener);
-
+    window.addEventListener("story:opened", handleStoryOpen);
+    window.addEventListener("story:closed", handleStoryClose);
     return () => {
       window.removeEventListener("post:created", handlePostCreated);
       window.removeEventListener(
         "post:deleted",
         handlePostDeleted as EventListener,
       );
+      window.removeEventListener("story:opened", handleStoryOpen);
+      window.removeEventListener("story:closed", handleStoryClose);
     };
   }, []);
 
@@ -123,8 +131,13 @@ export default function HomeFeed() {
             <div
               key={post._id}
               ref={index === posts.length - 1 ? lastPostElementRef : null}
+              className="cursor-pointer"
             >
-              <PostCard post={post} />
+              <PostCard
+                post={post}
+                isModalOpen={selectedIndex != null || isStoryOpen}
+                onClick={() => setSelectedIndex(index)}
+              />
             </div>
           ))
         ) : (
@@ -144,6 +157,14 @@ export default function HomeFeed() {
         <div className="flex justify-center py-6">
           <Loader2 className="w-6 h-6 animate-spin text-neutral-500" />
         </div>
+      )}
+
+      {selectedIndex !== null && (
+        <PostModal
+          posts={posts}
+          initialIndex={selectedIndex}
+          onClose={() => setSelectedIndex(null)}
+        />
       )}
     </div>
   );

@@ -15,6 +15,11 @@ router.get(
   validate(schemas.getSpecificSchema),
   postController.getSpecific,
 );
+router.get(
+  "/:id/like",
+  validate(schemas.likedUsersSchema),
+  postController.postLikes,
+);
 router.patch(
   "/:id",
   validate(schemas.updateSchema),

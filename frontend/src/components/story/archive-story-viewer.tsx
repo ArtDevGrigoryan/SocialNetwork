@@ -26,17 +26,31 @@ export default function ArchiveStoryViewer({
   const [progress, setProgress] = useState(0);
 
   const [isPaused, setIsPaused] = useState(false);
+  const [isHolding, setIsHolding] = useState(false); // UI թաքցնելու վիճակը
   const [isMuted, setIsMuted] = useState(false);
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [viewers, setViewers] = useState<ViewerReaction[]>([]);
   const [loadingViewers, setLoadingViewers] = useState(false);
 
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const progressRef = useRef(0);
   const animationRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
+
+  // Refs անիմացիայի loop-ի համար, որ pause-ից չռեստարտվի
+  const isPausedRef = useRef(isPaused);
+  const isDrawerOpenRef = useRef(isDrawerOpen);
+
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+  useEffect(() => {
+    isDrawerOpenRef.current = isDrawerOpen;
+  }, [isDrawerOpen]);
 
   const currentStory = archives[currentIndex];
 
@@ -56,6 +70,7 @@ export default function ArchiveStoryViewer({
     }
   }, [currentIndex]);
 
+  // 1. Progress Animation
   useEffect(() => {
     if (!currentStory) return;
 
@@ -63,21 +78,23 @@ export default function ArchiveStoryViewer({
     setProgress(0);
     lastTimeRef.current = performance.now();
 
+    const musicSrc =
+      currentStory.media.musicUrl || currentStory.media.backgroundMusic;
+    const hasValidMusic = musicSrc && musicSrc !== "none";
+
     const mediaDuration =
-      currentStory.media.type === "image" &&
-      currentStory.media.musicUrl &&
-      currentStory.media.musicUrl !== "none"
+      currentStory.media.type === "image" && hasValidMusic
         ? (currentStory.media.musicDuration || 15) * 1000
         : 5000;
 
     const animate = (time: number) => {
-      if (isPaused || isDrawerOpen) {
+      if (isPausedRef.current || isDrawerOpenRef.current) {
         lastTimeRef.current = time;
         animationRef.current = requestAnimationFrame(animate);
         return;
       }
 
-      const deltaTime = time - (lastTimeRef.current || time);
+      const deltaTime = time - lastTimeRef.current;
       lastTimeRef.current = time;
 
       if (currentStory.media.type === "image") {
@@ -100,37 +117,68 @@ export default function ArchiveStoryViewer({
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [currentIndex, currentStory, isPaused, isDrawerOpen, handleNext]);
+  }, [currentStory?._id, handleNext]);
 
+  // 2. Initial Audio/Video Load
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+      audioRef.current.src = "";
     }
+    if (currentStory) {
+      const musicSrc =
+        currentStory.media.musicUrl || currentStory.media.backgroundMusic;
+      const hasValidMusic =
+        musicSrc && musicSrc !== "none" && musicSrc.startsWith("http");
 
-    if (!currentStory || isPaused || isDrawerOpen) {
+      if (hasValidMusic && audioRef.current) {
+        audioRef.current.src = String(musicSrc);
+        audioRef.current.currentTime = currentStory.media.musicStartTime || 0;
+      }
+      if (videoRef.current) videoRef.current.currentTime = 0;
+    }
+  }, [currentStory?._id]);
+
+  // 3. Play/Pause Controller
+  useEffect(() => {
+    if (!currentStory) return;
+    const shouldPause = isPaused || isDrawerOpen;
+
+    if (shouldPause) {
       videoRef.current?.pause();
       audioRef.current?.pause();
-      return;
+    } else {
+      if (currentStory.media.type === "video")
+        videoRef.current?.play().catch(() => {});
+      const musicSrc =
+        currentStory.media.musicUrl || currentStory.media.backgroundMusic;
+      const hasValidMusic =
+        musicSrc && musicSrc !== "none" && musicSrc.startsWith("http");
+
+      if (hasValidMusic && audioRef.current) {
+        audioRef.current.muted = isMuted;
+        audioRef.current.play().catch((e) => console.log("Audio skipped:", e));
+      }
     }
+  }, [isPaused, isDrawerOpen, isMuted, currentStory?._id]);
 
-    if (currentStory.media.type === "video") {
-      videoRef.current?.play().catch(console.error);
-    }
+  // 4. Music Trimmer Loop
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !currentStory) return;
+    const handleTimeUpdate = () => {
+      const startTime = currentStory.media.musicStartTime || 0;
+      const duration = currentStory.media.musicDuration || 15;
+      if (audio.currentTime >= startTime + duration) {
+        audio.currentTime = startTime;
+        audio.play().catch(() => {});
+      }
+    };
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    return () => audio.removeEventListener("timeupdate", handleTimeUpdate);
+  }, [currentStory?._id]);
 
-    const musicSrc =
-      currentStory.media.musicUrl || currentStory.media.backgroundMusic;
-    const hasValidMusic =
-      musicSrc && musicSrc !== "none" && musicSrc.startsWith("http");
-
-    if (hasValidMusic && audioRef.current) {
-      audioRef.current.src = String(musicSrc);
-      audioRef.current.currentTime = currentStory.media.musicStartTime || 0;
-      audioRef.current.muted = isMuted;
-      audioRef.current.play().catch((e) => console.log("Audio skipped:", e));
-    }
-  }, [currentIndex, currentStory, isPaused, isDrawerOpen, isMuted]);
-
+  // Viewers Fetch
   useEffect(() => {
     if (isDrawerOpen && currentStory) {
       const fetchViewers = async () => {
@@ -148,7 +196,7 @@ export default function ArchiveStoryViewer({
       };
       fetchViewers();
     }
-  }, [isDrawerOpen, currentStory]);
+  }, [isDrawerOpen, currentStory?._id]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -159,6 +207,43 @@ export default function ArchiveStoryViewer({
     });
   };
 
+  // Swipe Up / Down Handlers
+  const handleTouchStart = (e: React.TouchEvent) =>
+    setTouchStartY(e.targetTouches[0].clientY);
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartY) return;
+    const diff = touchStartY - e.targetTouches[0].clientY;
+
+    if (diff > 50) {
+      // Swipe Up
+      if (!isDrawerOpen) {
+        setIsDrawerOpen(true);
+        setIsPaused(true);
+      }
+      setTouchStartY(null);
+    } else if (diff < -50) {
+      // Swipe Down
+      if (isDrawerOpen) {
+        setIsDrawerOpen(false);
+        setIsPaused(false);
+      } else {
+        onClose();
+      }
+      setTouchStartY(null);
+    }
+  };
+  const handleTouchEnd = () => setTouchStartY(null);
+
+  const handleSetIsPaused = (val: boolean) => {
+    if (isDrawerOpenRef.current) return;
+    setIsPaused(val);
+  };
+
+  const handleSetIsHolding = (val: boolean) => {
+    if (isDrawerOpenRef.current) return;
+    setIsHolding(val);
+  };
+
   if (!currentStory) return null;
 
   const musicSrc =
@@ -167,15 +252,21 @@ export default function ArchiveStoryViewer({
     currentStory.media.type === "video" || (musicSrc && musicSrc !== "none");
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <audio ref={audioRef} loop muted={isMuted} />
 
+      {/* Navigation Buttons (Hidden on hold) */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           handlePrev();
         }}
-        className="absolute left-4 top-1/2 -translate-y-1/2 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition hidden sm:block"
+        className={`absolute left-4 top-1/2 -translate-y-1/2 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
       >
         <ChevronLeft size={30} />
       </button>
@@ -185,50 +276,60 @@ export default function ArchiveStoryViewer({
           e.stopPropagation();
           handleNext();
         }}
-        className="absolute right-4 top-1/2 -translate-y-1/2 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition hidden sm:block"
+        className={`absolute right-4 top-1/2 -translate-y-1/2 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
       >
         <ChevronRight size={30} />
       </button>
 
       <button
         onClick={onClose}
-        className="absolute top-6 right-6 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition hidden sm:block"
+        className={`absolute top-6 right-6 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
       >
         <X size={30} />
       </button>
 
       <div className="relative w-full h-full sm:w-[400px] sm:h-[90vh] bg-neutral-900 sm:rounded-xl overflow-hidden flex flex-col shadow-2xl">
-        <StoryProgressBar
-          total={archives.length}
-          currentIndex={currentIndex}
-          progress={progress}
-        />
+        {/* Header & Progress (Hidden on hold) */}
+        <div
+          className={`transition-opacity duration-300 z-50 ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        >
+          <StoryProgressBar
+            total={archives.length}
+            currentIndex={currentIndex}
+            progress={progress}
+          />
+          <StoryHeader
+            avatar="/default-avatar.png"
+            username="Memory"
+            timeText={formatDate(currentStory.createdAt)}
+            hasAudio={Boolean(hasAudio)}
+            isMuted={isMuted}
+            onToggleMute={() => setIsMuted(!isMuted)}
+            onClose={onClose}
+          />
+        </div>
 
-        <StoryHeader
-          avatar="/default-avatar.png"
-          username="Memory"
-          timeText={formatDate(currentStory.createdAt)}
-          hasAudio={Boolean(hasAudio)}
-          isMuted={isMuted}
-          onToggleMute={() => setIsMuted(!isMuted)}
-          onClose={onClose}
-        />
-
+        {/* Media Container */}
         <StoryMedia
           media={currentStory.media}
           isMuted={isMuted}
           videoRef={videoRef}
-          setIsPaused={setIsPaused}
+          setIsPaused={handleSetIsPaused}
+          setIsHolding={handleSetIsHolding}
           onPrev={handlePrev}
           onNext={handleNext}
         />
 
-        <div className="absolute bottom-0 left-0 right-0 z-30">
+        {/* Viewers Trigger Button (Hidden on hold) */}
+        <div
+          className={`absolute bottom-0 left-0 right-0 z-30 transition-opacity duration-300 ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        >
           <div className="bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-10 pb-4 px-4 flex justify-center">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setIsDrawerOpen(true);
+                setIsPaused(true);
               }}
               className="flex flex-col items-center gap-1 text-white hover:text-gray-300 transition"
             >
@@ -241,9 +342,10 @@ export default function ArchiveStoryViewer({
           </div>
         </div>
 
+        {/* Viewers Drawer */}
         <div
           className={cn(
-            "absolute bottom-0 left-0 right-0 bg-neutral-900 rounded-t-2xl transition-transform duration-300 z-40 flex flex-col",
+            "absolute bottom-0 left-0 right-0 bg-neutral-900 rounded-t-2xl transition-transform duration-300 z-40 flex flex-col pointer-events-auto",
             isDrawerOpen ? "translate-y-0 h-[60%]" : "translate-y-full h-[60%]",
           )}
         >
@@ -256,6 +358,7 @@ export default function ArchiveStoryViewer({
               onClick={(e) => {
                 e.stopPropagation();
                 setIsDrawerOpen(false);
+                setIsPaused(false);
               }}
               className="text-neutral-400 hover:text-white p-1"
             >

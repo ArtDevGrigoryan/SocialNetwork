@@ -1,7 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { Loader2, Play, Eye, Trash2 } from "lucide-react";
 import { useArchiveStore } from "../../store/archive.store";
-import StoryViewer from "../../components/story/story-viewer";
 import ArchiveStoryViewer from "../../components/story/archive-story-viewer";
 
 export default function ArchivePage() {
@@ -53,8 +52,8 @@ export default function ArchivePage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto w-full p-4 lg:p-8 animate-in fade-in">
-      <div className="mb-6 border-b border-neutral-800 pb-4 flex items-center justify-between">
+    <div className="max-w-4xl mx-auto w-full animate-in fade-in">
+      <div className="hidden md:flex mb-6 border-b border-neutral-800 pb-4 items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Story Archive</h1>
           <p className="text-sm text-neutral-400 mt-1">
@@ -62,6 +61,7 @@ export default function ArchivePage() {
           </p>
         </div>
       </div>
+
       {loading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="animate-spin text-neutral-500 w-8 h-8" />
@@ -90,7 +90,7 @@ export default function ArchivePage() {
                 onClick={() => setViewerIndex(index)}
               >
                 <img
-                  src={bgImage}
+                  src={bgImage?.toString() || "/default-bg.png"}
                   alt="Story Archive"
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   loading="lazy"
@@ -126,7 +126,7 @@ export default function ArchivePage() {
       )}
       {viewerIndex !== null && (
         <ArchiveStoryViewer
-          archives={archives}
+          archives={archives as any}
           initialIndex={viewerIndex}
           onClose={() => setViewerIndex(null)}
         />

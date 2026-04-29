@@ -619,6 +619,45 @@ class ChatService {
     chat.participants = participants;
     return chat;
   }
+  myChats(userId) {
+    return Chat.aggregate([
+      {
+        $lookup: {
+          from: "participants",
+          let: { chatId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$chatId", "$$chatId"] },
+                    { $eq: ["$user", userId] },
+                  ],
+                },
+              },
+            },
+            { $project: { _id: 1 } },
+          ],
+          as: "myParticipant",
+        },
+      },
+      {
+        $match: {
+          myParticipant: { $ne: [] },
+        },
+      },
+      {
+        $addFields: {
+          myParticipantId: { $arrayElemAt: ["$myParticipant._id", 0] },
+        },
+      },
+      {
+        $project: {
+          myParticipant: 0,
+        },
+      },
+    ]);
+  }
 }
 
 module.exports = new ChatService();

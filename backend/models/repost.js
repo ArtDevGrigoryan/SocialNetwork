@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const repostsSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Types.ObjectId, ref: "User" },
-    post: { type: mongoose.Types.ObjectId, ref: "Post" },
+    post: { type: mongoose.Types.ObjectId, ref: "Posts" },
     author: { type: mongoose.Types.ObjectId, ref: "User" },
   },
   { timestamps: true },

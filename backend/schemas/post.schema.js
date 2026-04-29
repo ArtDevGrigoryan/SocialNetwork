@@ -29,6 +29,9 @@ const createSchema = z.object({
   location: z.string().optional(),
   mentions: z.string().optional(),
   filters: z.string().optional(),
+  musicUrl: z.string().url().optional(),
+  musicTitle: z.string().optional(),
+  musicStartTime: z.coerce.number().optional(),
 });
 
 module.exports = {
@@ -38,4 +41,8 @@ module.exports = {
   updateSchema: [{ params: getSpecificSchema, body: updateSchema }],
   removeImageSchema: [{ body: removeImageSchema, params: getSpecificSchema }],
   createSchema: [{ body: createSchema }],
+  likedUsersSchema: [
+    { params: getSpecificSchema, query: paginationSchema },
+    { defaults: true },
+  ],
 };

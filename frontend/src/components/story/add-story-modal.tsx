@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from "react";
+import Cropper from "react-easy-crop";
 import {
   X,
   Music,
@@ -24,6 +25,7 @@ import {
   StoryFiltersEditor,
 } from "./story-editor";
 import { StoryMusicLibrary, StoryMusicTrimmer } from "./story-music";
+import getCroppedImg from "../../lib/crop";
 
 export type EditorMode =
   | "none"
@@ -40,15 +42,17 @@ export default function CreateStoryModal() {
   const store = useStoryStore();
 
   const [editorMode, setEditorMode] = useState<EditorMode>("none");
+  const [croppedPixels, setCroppedPixels] = useState<any>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const isDraggingBg = useRef(false);
-  const startBgPos = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    window.dispatchEvent(new Event("story:opened"));
+
     const handleTimeUpdate = () => {
       if (store.selectedMusic && editorMode !== "music") {
         if (audio.currentTime >= store.musicStartTime + store.musicDuration) {
@@ -58,7 +62,10 @@ export default function CreateStoryModal() {
       }
     };
     audio.addEventListener("timeupdate", handleTimeUpdate);
-    return () => audio.removeEventListener("timeupdate", handleTimeUpdate);
+    return () => {
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+      window.dispatchEvent(new Event("story:closed"));
+    };
   }, [
     store.musicStartTime,
     store.musicDuration,
@@ -95,29 +102,29 @@ export default function CreateStoryModal() {
 
   const closeEditor = () => setEditorMode("none");
 
-  // Background drag logic
-  const handleBgPointerDown = (e: React.PointerEvent) => {
-    if (editorMode !== "none" && editorMode !== "adjust") return;
-    isDraggingBg.current = true;
-    startBgPos.current = {
-      x: e.clientX - store.mediaTransform.x,
-      y: e.clientY - store.mediaTransform.y,
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
+  const handleShareStory = async () => {
+    if (store.draftType === "image" && croppedPixels && store.draftPreview) {
+      try {
+        setIsProcessing(true);
+        const croppedFile = await getCroppedImg(
+          store.draftPreview,
+          croppedPixels,
+          "cropped-story.jpeg",
+        );
 
-  const handleBgPointerMove = (e: React.PointerEvent) => {
-    if (!isDraggingBg.current) return;
-    const newX = e.clientX - startBgPos.current.x;
-    const newY = e.clientY - startBgPos.current.y;
-    store.setMediaTransform({ x: newX, y: newY });
-  };
+        if (croppedFile) {
+          await store.uploadStory(user?._id, croppedFile);
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to crop image:", error);
+      } finally {
+        setIsProcessing(false);
+      }
+    }
 
-  const handleBgPointerUp = (e: React.PointerEvent) => {
-    isDraggingBg.current = false;
-    e.currentTarget.releasePointerCapture(e.pointerId);
+    await store.uploadStory(user?._id);
   };
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
       <button
@@ -157,44 +164,65 @@ export default function CreateStoryModal() {
           </div>
         ) : (
           <div className="relative w-full h-full flex flex-col bg-neutral-900 overflow-hidden">
-            {/* Main Media Preview with Drag Support */}
-            <div
-              className="absolute inset-0 flex items-center justify-center overflow-hidden cursor-move touch-none"
-              onPointerDown={handleBgPointerDown}
-              onPointerMove={handleBgPointerMove}
-              onPointerUp={handleBgPointerUp}
-              onPointerCancel={handleBgPointerUp}
-            >
-              {store.draftType === "image" ? (
-                <img
-                  src={store.draftPreview || ""}
-                  alt="Preview"
-                  style={{
+            <div className="absolute inset-0">
+              <Cropper
+                image={
+                  store.draftType === "image"
+                    ? store.draftPreview || undefined
+                    : undefined
+                }
+                video={
+                  store.draftType === "video"
+                    ? store.draftPreview || undefined
+                    : undefined
+                }
+                crop={{ x: store.mediaTransform.x, y: store.mediaTransform.y }}
+                zoom={store.mediaTransform.scale}
+                aspect={9 / 16}
+                objectFit="cover" // <-- ՍԱ Է ԳԼԽԱՎՈՐ ԼՈՒԾՈՒՄԸ
+                onCropChange={(crop) => {
+                  if (editorMode === "adjust") {
+                    store.setMediaTransform({
+                      ...store.mediaTransform,
+                      x: crop.x,
+                      y: crop.y,
+                    });
+                  }
+                }}
+                onZoomChange={(zoom) => {
+                  if (editorMode === "adjust") {
+                    store.setMediaTransform({
+                      ...store.mediaTransform,
+                      scale: zoom,
+                    });
+                  }
+                }}
+                onCropComplete={(_, croppedAreaPixels) =>
+                  setCroppedPixels(croppedAreaPixels)
+                }
+                restrictPosition={false}
+                showGrid={editorMode === "adjust"}
+                classes={{ containerClassName: "w-full h-full" }}
+                style={{
+                  containerStyle: {
+                    background: "black",
+                    pointerEvents: editorMode === "adjust" ? "auto" : "none",
+                  },
+                  cropAreaStyle: {
+                    border:
+                      editorMode === "adjust"
+                        ? "1px solid rgba(255,255,255,0.3)"
+                        : "none",
+                    boxShadow: "none",
+                  },
+                  mediaStyle: {
                     filter:
                       store.selectedFilter !== "none"
                         ? store.selectedFilter
                         : undefined,
-                    transform: `scale(${store.mediaTransform.scale}) translate(${store.mediaTransform.x}px, ${store.mediaTransform.y}px)`,
-                  }}
-                  className="w-full h-full object-cover pointer-events-none transition-transform duration-75"
-                />
-              ) : (
-                <video
-                  src={store.draftPreview || ""}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  style={{
-                    filter:
-                      store.selectedFilter !== "none"
-                        ? store.selectedFilter
-                        : undefined,
-                    transform: `scale(${store.mediaTransform.scale}) translate(${store.mediaTransform.x}px, ${store.mediaTransform.y}px)`,
-                  }}
-                  className="w-full h-full object-cover pointer-events-none transition-transform duration-75"
-                />
-              )}
+                  },
+                }}
+              />
             </div>
 
             {/* Draggable Overlays */}
@@ -299,14 +327,16 @@ export default function CreateStoryModal() {
             {editorMode === "none" && (
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-30 pointer-events-none flex gap-2">
                 <button
-                  onClick={() => store.uploadStory(user?._id)}
-                  disabled={store.isUploading}
+                  onClick={handleShareStory}
+                  disabled={store.isUploading || isProcessing}
                   className="flex-1 bg-white text-black py-3 rounded-full font-semibold text-sm hover:bg-neutral-200 transition flex justify-center items-center gap-2 disabled:opacity-70 pointer-events-auto shadow-lg"
                 >
-                  {store.isUploading && (
+                  {(store.isUploading || isProcessing) && (
                     <Loader2 size={18} className="animate-spin" />
                   )}
-                  {store.isUploading ? "Sharing..." : "Share to Story"}
+                  {store.isUploading || isProcessing
+                    ? "Sharing..."
+                    : "Share to Story"}
                 </button>
               </div>
             )}

@@ -3,19 +3,17 @@ import { Loader2, Mail, CheckCircle2 } from "lucide-react";
 import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
 import type { AlertType } from "../../components/message-popup/alert";
+import { useOutletContext } from "react-router-dom";
 
-interface Props {
-  showAlert: (type: AlertType, message: string) => void;
-}
-
-export default function VerifyEmail({ showAlert }: Props) {
+export default function VerifyEmail() {
+  const { showAlert } = useOutletContext<{
+    showAlert: (type: AlertType, message: string) => void;
+  }>();
   const { user } = useAuthStore();
-
   const [code, setCode] = useState("");
   const [loadingVerify, setLoadingVerify] = useState(false);
   const [loadingResend, setLoadingResend] = useState(false);
   const [step, setStep] = useState<"idle" | "verify">("idle");
-
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [fetchingConfig, setFetchingConfig] = useState(true);
 
@@ -31,7 +29,6 @@ export default function VerifyEmail({ showAlert }: Props) {
         setFetchingConfig(false);
       }
     };
-
     fetchUserConfig();
   }, []);
 
@@ -40,10 +37,13 @@ export default function VerifyEmail({ showAlert }: Props) {
     setLoadingResend(true);
     try {
       await api.post("/auth/resend-verification", { email: user.email });
-      showAlert("success", "Verification code sent to your email.");
+      showAlert?.("success", "Verification code sent to your email.");
       setStep("verify");
     } catch (err: any) {
-      showAlert("error", err.response?.data?.message || "Failed to send code.");
+      showAlert?.(
+        "error",
+        err.response?.data?.message || "Failed to send code.",
+      );
     } finally {
       setLoadingResend(false);
     }
@@ -55,13 +55,12 @@ export default function VerifyEmail({ showAlert }: Props) {
     setLoadingVerify(true);
     try {
       await api.post("/auth/verify-email", { code });
-      showAlert("success", "Email verified successfully.");
-
+      showAlert?.("success", "Email verified successfully.");
       setIsVerified(true);
       setCode("");
       setStep("idle");
     } catch (err: any) {
-      showAlert(
+      showAlert?.(
         "error",
         err.response?.data?.message || "Invalid verification code.",
       );
@@ -72,7 +71,7 @@ export default function VerifyEmail({ showAlert }: Props) {
 
   if (fetchingConfig) {
     return (
-      <div className="max-w-lg space-y-8 animate-in fade-in flex justify-center py-20">
+      <div className="max-w-2xl mx-auto flex justify-center py-20 animate-in fade-in">
         <Loader2 size={32} className="animate-spin text-neutral-500" />
       </div>
     );
@@ -80,18 +79,18 @@ export default function VerifyEmail({ showAlert }: Props) {
 
   if (isVerified) {
     return (
-      <div className="max-w-lg space-y-8 animate-in fade-in zoom-in-95 duration-300">
+      <div className="max-w-2xl mx-auto space-y-6 md:space-y-8 animate-in fade-in zoom-in-95 duration-300">
         <h2 className="text-2xl font-bold text-white hidden md:block">
           Email Verification
         </h2>
-        <div className="flex flex-col items-center justify-center p-8 md:p-10 bg-neutral-900/30 border border-neutral-800 rounded-2xl text-center shadow-sm">
-          <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-5">
-            <CheckCircle2 className="w-8 h-8 text-green-500" />
+        <div className="flex flex-col items-center justify-center p-8 md:p-12 bg-neutral-900 border border-neutral-800 rounded-3xl text-center shadow-sm">
+          <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mb-6">
+            <CheckCircle2 className="w-10 h-10 text-green-500" />
           </div>
-          <h3 className="text-xl font-bold text-white mb-2">
+          <h3 className="text-xl md:text-2xl font-bold text-white mb-3">
             Email is Verified
           </h3>
-          <p className="text-neutral-400 text-sm max-w-[250px] leading-relaxed">
+          <p className="text-neutral-400 text-[15px] max-w-[300px] leading-relaxed">
             Your email address{" "}
             <span className="text-white font-medium">{user?.email}</span> is
             verified and secure.
@@ -102,64 +101,64 @@ export default function VerifyEmail({ showAlert }: Props) {
   }
 
   return (
-    <div className="max-w-lg space-y-8 animate-in fade-in duration-300">
-      <h2 className="text-2xl font-bold text-white hidden md:block">
-        Verify Email
-      </h2>
-      <p className="text-sm text-neutral-400 leading-relaxed">
-        Verify your email address to secure your account and recover it if you
-        lose access.
-      </p>
+    <div className="max-w-2xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-300">
+      <div className="hidden md:block">
+        <h2 className="text-2xl font-bold text-white mb-2">Verify Email</h2>
+        <p className="text-sm text-neutral-400 leading-relaxed max-w-lg">
+          Verify your email address to secure your account and recover it if you
+          lose access.
+        </p>
+      </div>
 
       {step === "idle" ? (
-        <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-200 shadow-sm">
-          <div className="w-14 h-14 bg-neutral-800 rounded-full flex items-center justify-center mb-4">
-            <Mail size={24} className="text-neutral-300" />
+        <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-3xl flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-200 shadow-sm">
+          <div className="w-16 h-16 bg-neutral-800 rounded-full flex items-center justify-center mb-5">
+            <Mail size={28} className="text-neutral-300" />
           </div>
-          <h3 className="text-lg font-bold text-white mb-2">
+          <h3 className="text-xl font-bold text-white mb-3">
             Unverified Email
           </h3>
-          <p className="text-sm text-neutral-400 mb-6 max-w-sm">
+          <p className="text-[15px] text-neutral-400 mb-8 max-w-[320px] leading-relaxed">
             Click the button below to send a verification code to{" "}
             <strong className="text-neutral-200">{user?.email}</strong>.
           </p>
           <button
             onClick={handleResend}
             disabled={loadingResend}
-            className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2.5 px-8 rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full sm:w-auto bg-[#0095f6] hover:bg-[#1877f2] active:scale-95 text-white font-semibold py-3.5 px-10 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loadingResend ? (
-              <Loader2 size={18} className="animate-spin" />
+              <Loader2 size={20} className="animate-spin" />
             ) : (
               "Send Verification Code"
             )}
           </button>
         </div>
       ) : (
-        <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl animate-in zoom-in-95 duration-200 shadow-sm">
-          <div className="text-center mb-6">
-            <h3 className="text-lg font-bold text-white mb-2">Enter Code</h3>
-            <p className="text-sm text-neutral-400">
+        <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-3xl animate-in zoom-in-95 duration-200 shadow-sm max-w-lg mx-auto">
+          <div className="text-center mb-8">
+            <h3 className="text-xl font-bold text-white mb-3">Enter Code</h3>
+            <p className="text-[15px] text-neutral-400 leading-relaxed">
               We sent a verification code to{" "}
               <strong className="text-neutral-200">{user?.email}</strong>.
             </p>
           </div>
 
-          <form onSubmit={handleVerify} className="flex flex-col gap-4">
+          <form onSubmit={handleVerify} className="flex flex-col gap-5">
             <input
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="Verification code"
-              className="w-full text-center tracking-[0.3em] font-mono bg-black border border-neutral-700 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-400 transition"
+              className="w-full text-center tracking-[0.4em] font-mono bg-black border border-neutral-700 rounded-xl px-4 py-4 text-white text-lg placeholder-neutral-600 focus:outline-none focus:border-neutral-400 transition"
             />
             <button
               type="submit"
               disabled={loadingVerify || !code.trim()}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl disabled:opacity-50 transition flex items-center justify-center gap-2"
+              className="w-full bg-[#0095f6] hover:bg-[#1877f2] active:scale-95 text-white font-semibold py-3.5 rounded-xl disabled:opacity-50 transition-all flex items-center justify-center gap-2 mt-2"
             >
               {loadingVerify ? (
-                <Loader2 size={18} className="animate-spin" />
+                <Loader2 size={20} className="animate-spin" />
               ) : (
                 "Verify Email"
               )}
@@ -168,7 +167,7 @@ export default function VerifyEmail({ showAlert }: Props) {
               type="button"
               onClick={() => setStep("idle")}
               disabled={loadingVerify}
-              className="mt-2 text-sm font-semibold text-neutral-400 hover:text-white transition"
+              className="mt-3 text-sm font-semibold text-neutral-400 hover:text-white transition"
             >
               Cancel
             </button>

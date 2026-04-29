@@ -29,15 +29,31 @@ export interface IFriend {
   follower?: IUser;
   following?: IUser;
 }
+export interface IPostImage {
+  url: string;
+  filter: string;
+}
+
+export interface IPostMusic {
+  url: string;
+  title: string;
+  startTime: number;
+}
+
 export interface IPost {
   _id: string;
   author: IUser | string;
   content: string;
-  images: string[];
+  images: IPostImage[];
+  location?: string;
+  mentions?: (IUser | string)[];
+  music?: IPostMusic;
   likes: number;
   comments: number;
   likesCount?: number;
   commentsCount?: number;
+  isLiked?: boolean;
+  isSaved?: boolean;
   isArchived: boolean;
   accessRepost: boolean;
   createdAt: string;
@@ -72,6 +88,11 @@ export interface IChat {
   _id: string;
   participants: IUser[];
   lastMessage?: string;
+}
+
+export interface ISharedChat {
+  _id: string;
+  myParticipantId: string;
 }
 
 export interface IMessage {

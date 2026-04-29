@@ -4,6 +4,7 @@ const {
   ConflictException,
   BadRequestException,
 } = require("@helpers/errors");
+const Likes = require("@models/like");
 const Post = require("@models/post");
 const Follow = require("@models/follow");
 const Block = require("@models/blocked-user");
@@ -14,27 +15,32 @@ const socketService = require("@services/socket.service");
 const PolicyService = require("@services/policy.service");
 const AggreagtionHelperPost = require("@models/aggregations/post");
 
+const safeJSONParse = (data, fallback = []) => {
+  if (!data) return fallback;
+  try {
+    return JSON.parse(data);
+  } catch (e) {
+    console.error("Error parsing JSON data:", e.message);
+    return fallback;
+  }
+};
+
 class PostService {
-  async create(user, files, { content, location, mentions, filters }) {
+  async create(user, files, data) {
+    const {
+      content,
+      location,
+      mentions,
+      filters,
+      musicUrl,
+      musicTitle,
+      musicStartTime,
+    } = data;
+
     const uploadedImages = await mediaService.upload(files, "post");
 
-    let parsedFilters = [];
-    if (filters) {
-      try {
-        parsedFilters = JSON.parse(filters);
-      } catch (e) {
-        console.error("Error parsing filters", e);
-      }
-    }
-
-    let parsedMentions = [];
-    if (mentions) {
-      try {
-        parsedMentions = JSON.parse(mentions);
-      } catch (e) {
-        console.error("Error parsing mentions", e);
-      }
-    }
+    const parsedFilters = safeJSONParse(filters);
+    const parsedMentions = safeJSONParse(mentions);
 
     const imagesWithFilters = uploadedImages.map((img, idx) => ({
       ...img,
@@ -47,8 +53,14 @@ class PostService {
       content,
       location: location || "",
       mentions: parsedMentions,
+      music: musicUrl
+        ? {
+            url: musicUrl,
+            title: musicTitle,
+            startTime: musicStartTime || 0,
+          }
+        : undefined,
     });
-
     await notificationService.newPostNotification({
       postId: post._id,
       fromUser: user,
@@ -149,15 +161,30 @@ class PostService {
   async deletePost(user, postId) {
     const userId = user._id.toString();
     const post = await Post.findById(postId).lean();
+
     if (!post) {
       throw new NotFoundException("Post not found");
     }
-    if (post.author.toString() != userId && user.role != "admin") {
-      throw new ConflictException("Cannot access delete this post");
+    if (post.author.toString() !== userId && user.role !== "admin") {
+      throw new ConflictException("Cannot access to delete this post");
     }
     await mediaService.delete(post.images.map((img) => img.key));
     await Post.deleteOne({ _id: postId });
     return true;
+  }
+
+  async toggleLike(user, postId) {
+    await PolicyService.canAccessPost(user, postId);
+    const { liked, author } = await toggleLikeTx(user, postId);
+
+    if (liked && author.toString() !== user.toString()) {
+      notificationService.likeNotification({
+        postId,
+        fromUser: user,
+        toUser: author,
+      });
+    }
+    return { liked };
   }
 
   async toggleArchivePost(user, postId) {
@@ -203,25 +230,17 @@ class PostService {
       { new: true },
     );
   }
-
-  async toggleLike(user, postId) {
-    await PolicyService.canAccessPost(user, postId);
-    const { liked, author } = await toggleLikeTx(user, postId);
-
-    if (liked && author.toString() != user)
-      notificationService.likeNotification({
-        postId,
-        fromUser: user,
-        toUser: author,
-      });
-    return { liked };
-  }
-
   async toggleAccessRepost(userId, postId) {
     const post = await Post.findOneAndUpdate(
       { _id: postId, author: userId },
-      { $bit: { accessRepost: { xor: 1 } } },
-      { returnDocument: "after" },
+      [
+        {
+          $set: {
+            accessRepost: { $not: "$accessRepost" },
+          },
+        },
+      ],
+      { returnDocument: "after", updatePipeline: true },
     );
 
     if (!post) {
@@ -229,6 +248,19 @@ class PostService {
     }
 
     return post;
+  }
+  async postLikes(userId, postId, pagination) {
+    await PolicyService.canAccessPost(userId, postId);
+    const { limit, page } = pagination;
+    const skip = (page - 1) * limit;
+    const likedUsers = await Likes.find({ post: postId })
+      .populate("user", "_id username avatar bio")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    return likedUsers.map((liked) => liked.user);
   }
 }
 

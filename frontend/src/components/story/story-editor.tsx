@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { X, MapPin } from "lucide-react";
+import EmojiPicker, { Theme } from "emoji-picker-react";
 import { useStoryStore } from "../../store/story.store";
-import { TEXT_COLORS, EMOJIS, FILTERS, FONTS } from "./constants";
+import { TEXT_COLORS, FILTERS, FONTS } from "./constants";
 import type { EditorProps } from "../../types/story.types";
 
 export const StoryTextEditor = ({ onClose }: EditorProps) => {
@@ -53,7 +54,11 @@ export const StoryTextEditor = ({ onClose }: EditorProps) => {
           <button
             key={idx}
             onClick={() => setFontFamily(font)}
-            className={`px-3 py-1.5 rounded-full border-2 shrink-0 text-white text-sm whitespace-nowrap ${fontFamily === font ? "border-white bg-white/20" : "border-transparent bg-black/50"}`}
+            className={`px-3 py-1.5 rounded-full border-2 shrink-0 text-white text-sm whitespace-nowrap ${
+              fontFamily === font
+                ? "border-white bg-white/20"
+                : "border-transparent bg-black/50"
+            }`}
             style={{ fontFamily: font }}
           >
             Aa Font
@@ -65,7 +70,9 @@ export const StoryTextEditor = ({ onClose }: EditorProps) => {
           <button
             key={c}
             onClick={() => setTextColor(c)}
-            className={`w-8 h-8 rounded-full border-2 shrink-0 ${textColor === c ? "border-white scale-110" : "border-transparent"}`}
+            className={`w-8 h-8 rounded-full border-2 shrink-0 ${
+              textColor === c ? "border-white scale-110" : "border-transparent"
+            }`}
             style={{ backgroundColor: c }}
           />
         ))}
@@ -139,7 +146,7 @@ export const StoryAdjustEditor = ({ onClose }: EditorProps) => {
   return (
     <div className="absolute inset-x-0 bottom-0 bg-neutral-900/95 backdrop-blur-xl rounded-t-3xl pt-4 pb-8 px-6 shadow-2xl z-40">
       <div className="flex justify-between items-center mb-6">
-        <h3 className="text-white font-semibold">Scale Media (Drag to move)</h3>
+        <h3 className="text-white font-semibold">Zoom Media</h3>
         <button
           onClick={onClose}
           className="text-blue-500 font-semibold text-sm"
@@ -154,7 +161,10 @@ export const StoryAdjustEditor = ({ onClose }: EditorProps) => {
         step="0.05"
         value={store.mediaTransform.scale}
         onChange={(e) =>
-          store.setMediaTransform({ scale: parseFloat(e.target.value) })
+          store.setMediaTransform({
+            ...store.mediaTransform,
+            scale: parseFloat(e.target.value),
+          })
         }
         className="w-full"
       />
@@ -166,28 +176,26 @@ export const StoryStickersEditor = ({ onClose }: EditorProps) => {
   const store = useStoryStore();
 
   return (
-    <div className="absolute inset-x-0 bottom-0 bg-neutral-900/95 backdrop-blur-xl rounded-t-3xl pt-4 pb-8 px-4 shadow-2xl z-40 h-[50%] flex flex-col">
-      <div className="flex justify-between items-center mb-4 px-2">
+    <div className="absolute inset-x-0 bottom-0 bg-neutral-900/95 backdrop-blur-xl rounded-t-3xl pt-4 pb-0 shadow-2xl z-40 h-[60%] flex flex-col overflow-hidden">
+      <div className="flex justify-between items-center mb-2 px-4 shrink-0">
         <h3 className="text-white font-semibold">Stickers</h3>
-        <button onClick={onClose} className="p-1 text-neutral-400">
+        <button
+          onClick={onClose}
+          className="p-1 text-neutral-400 hover:text-white transition"
+        >
           <X size={20} />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="grid grid-cols-5 gap-4 px-2">
-          {EMOJIS.map((emoji) => (
-            <button
-              key={emoji}
-              onClick={() => {
-                store.addSticker(emoji);
-                onClose();
-              }}
-              className="text-4xl hover:scale-110 transition pb-2"
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
+      <div className="flex-1 w-full bg-transparent [&_.EmojiPickerReact]:!bg-transparent [&_.EmojiPickerReact]:!border-none [&_.EmojiPickerReact]:!w-full [&_.EmojiPickerReact]:!h-full">
+        <EmojiPicker
+          theme={Theme.DARK}
+          onEmojiClick={(emojiData) => {
+            store.addSticker(emojiData.emoji);
+            onClose();
+          }}
+          searchPlaceHolder="Search emojis..."
+          lazyLoadEmojis={true}
+        />
       </div>
     </div>
   );
@@ -215,7 +223,11 @@ export const StoryFiltersEditor = ({ onClose }: EditorProps) => {
             className="flex flex-col items-center gap-2 cursor-pointer snap-start"
           >
             <div
-              className={`w-16 h-16 rounded-full overflow-hidden border-2 transition-all ${store.selectedFilter === f.value ? "border-blue-500 scale-105" : "border-transparent"}`}
+              className={`w-16 h-16 rounded-full overflow-hidden border-2 transition-all ${
+                store.selectedFilter === f.value
+                  ? "border-blue-500 scale-105"
+                  : "border-transparent"
+              }`}
             >
               <img
                 src={store.draftPreview || ""}
@@ -225,7 +237,11 @@ export const StoryFiltersEditor = ({ onClose }: EditorProps) => {
               />
             </div>
             <span
-              className={`text-[11px] font-medium ${store.selectedFilter === f.value ? "text-white" : "text-neutral-400"}`}
+              className={`text-[11px] font-medium ${
+                store.selectedFilter === f.value
+                  ? "text-white"
+                  : "text-neutral-400"
+              }`}
             >
               {f.name}
             </span>

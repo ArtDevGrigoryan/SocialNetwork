@@ -3,12 +3,12 @@ import { Loader2 } from "lucide-react";
 import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
 import type { AlertType } from "../../components/message-popup/alert";
+import { useOutletContext } from "react-router-dom";
 
-interface Props {
-  showAlert: (type: AlertType, message: string) => void;
-}
-
-export default function EditProfile({ showAlert }: Props) {
+export default function EditProfile() {
+  const { showAlert } = useOutletContext<{
+    showAlert: (type: AlertType, message: string) => void;
+  }>();
   const { user, patchUser } = useAuthStore();
 
   const [name, setName] = useState(user?.username || "");
@@ -63,12 +63,14 @@ export default function EditProfile({ showAlert }: Props) {
     name !== user?.username || bio !== (user?.bio || "") || avatarFile !== null;
 
   return (
-    <div className="max-w-lg">
-      <h2 className="text-2xl mb-8 text-white">Edit Profile</h2>
+    <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in">
+      <h2 className="text-2xl font-bold text-white hidden md:block">
+        Edit Profile
+      </h2>
 
-      <div className="flex items-center justify-between bg-neutral-900 rounded-xl p-4 mb-8">
+      <div className="flex items-center justify-between bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-[50px] h-[50px] rounded-full overflow-hidden bg-neutral-800 shrink-0">
+          <div className="w-14 h-14 rounded-full overflow-hidden bg-neutral-800 shrink-0 border border-neutral-700">
             <img
               src={avatarPreview || user?.avatar || "/default-avatar.png"}
               className="w-full h-full object-cover"
@@ -76,15 +78,17 @@ export default function EditProfile({ showAlert }: Props) {
             />
           </div>
           <div>
-            <p className="font-semibold text-white">{user?.username}</p>
-            <p className="text-neutral-400 text-sm">{user?.email}</p>
+            <p className="font-semibold text-white text-[15px]">
+              {user?.username}
+            </p>
+            <p className="text-neutral-400 text-sm mt-0.5">{user?.email}</p>
           </div>
         </div>
 
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition"
+          className="bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all"
         >
           Change Photo
         </button>
@@ -104,9 +108,9 @@ export default function EditProfile({ showAlert }: Props) {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full bg-black border border-neutral-700 rounded text-sm text-white px-3 py-2.5 outline-none focus:border-neutral-500 transition"
+            className="w-full bg-black border border-neutral-700 rounded-xl text-[15px] text-white px-4 py-3 outline-none focus:border-neutral-400 transition"
           />
-          <p className="text-xs text-neutral-500 mt-1">
+          <p className="text-xs text-neutral-500 mt-1 pl-1">
             Help people discover your account by using the name you're known by.
           </p>
         </div>
@@ -118,21 +122,23 @@ export default function EditProfile({ showAlert }: Props) {
             onChange={(e) => setBio(e.target.value)}
             rows={4}
             placeholder="Write something about yourself..."
-            className="w-full bg-black border border-neutral-700 rounded text-sm text-white px-3 py-2.5 outline-none focus:border-neutral-500 transition resize-none custom-scrollbar"
+            className="w-full bg-black border border-neutral-700 rounded-xl text-[15px] text-white px-4 py-3 outline-none focus:border-neutral-400 transition resize-none custom-scrollbar"
           />
         </div>
 
-        <button
-          disabled={loading || !hasChanges || name.trim() === ""}
-          type="submit"
-          className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-2 px-6 font-semibold text-sm w-fit disabled:opacity-50 transition"
-        >
-          {loading ? (
-            <Loader2 size={16} className="animate-spin mx-auto" />
-          ) : (
-            "Submit"
-          )}
-        </button>
+        <div className="pt-2">
+          <button
+            disabled={loading || !hasChanges || name.trim() === ""}
+            type="submit"
+            className="bg-[#0095f6] hover:bg-[#1877f2] active:scale-95 text-white rounded-xl py-3 px-8 font-semibold text-sm w-fit disabled:opacity-50 transition-all flex items-center justify-center min-w-[120px]"
+          >
+            {loading ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              "Submit"
+            )}
+          </button>
+        </div>
       </form>
     </div>
   );

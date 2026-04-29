@@ -207,14 +207,15 @@ export const useStoryStore = create<StoryStore>((set, get) => ({
     });
   },
 
-  uploadStory: async (userId) => {
+  uploadStory: async (userId, customFile?: File) => {
     const state = get();
-    if (!state.draftFile) return;
+    const fileToUpload = customFile || state.draftFile;
+    if (!fileToUpload) return;
 
     try {
       set({ isUploading: true });
       const formData = new FormData();
-      formData.append("story", state.draftFile);
+      formData.append("story", fileToUpload);
       formData.append("type", state.draftType);
 
       if (state.selectedMusic) {
@@ -227,11 +228,15 @@ export const useStoryStore = create<StoryStore>((set, get) => ({
       }
 
       formData.append("filter", state.selectedFilter);
-
       if (state.storyLocation) {
         formData.append("location", JSON.stringify(state.storyLocation));
       }
-      formData.append("transform", JSON.stringify(state.mediaTransform));
+
+      const transformToSend = customFile
+        ? { scale: 1, x: 0, y: 0 }
+        : state.mediaTransform;
+
+      formData.append("transform", JSON.stringify(transformToSend));
       formData.append("stickers", JSON.stringify(state.stickers));
       formData.append("texts", JSON.stringify(state.texts));
 

@@ -80,7 +80,9 @@ class AggregationHelperPost {
       })
       .transform((post) => ({
         ...post,
-        images: post.images?.map((img) => img.url) || [],
+        images:
+          post.images?.map((img) => ({ url: img.url, filter: img.filter })) ||
+          [],
       }));
   }
 
@@ -113,7 +115,6 @@ class AggregationHelperPost {
   }
 
   static postWithViewerLikes(viewer, id) {
-    const viewerId = new ObjectId(viewer);
     const postId = new ObjectId(id);
     const builder = new AggregationBuilder(Post).match({ _id: postId });
     return this.#basePostsAggregation(builder, viewer, 1, 1).execTransformed();

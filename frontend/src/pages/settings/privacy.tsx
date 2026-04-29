@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { Loader2, Globe, EyeOff } from "lucide-react";
 import { api } from "../../lib/axios.config";
 import type { AlertType } from "../../components/message-popup/alert";
+import { useOutletContext } from "react-router-dom";
 
-interface Props {
-  showAlert: (type: AlertType, message: string) => void;
-}
-
-export default function PrivacySettings({ showAlert }: Props) {
+export default function PrivacySettings() {
+  const { showAlert } = useOutletContext<{
+    showAlert: (type: AlertType, message: string) => void;
+  }>();
   const [loadingType, setLoadingType] = useState<string | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
   const [showTyping, setShowTyping] = useState(true);
@@ -36,7 +36,7 @@ export default function PrivacySettings({ showAlert }: Props) {
       const { data } = await api.patch("/settings/privacy/profile-visibility");
       setIsPrivate(data.payload.toLowerCase().includes("private"));
     } catch (err: any) {
-      showAlert("error", err.response?.data?.message || "An error occurred.");
+      showAlert?.("error", err.response?.data?.message || "An error occurred.");
     } finally {
       setLoadingType(null);
     }
@@ -48,7 +48,7 @@ export default function PrivacySettings({ showAlert }: Props) {
       const { data } = await api.patch("/settings/privacy/show-typing");
       setShowTyping(data.payload.showTyping);
     } catch (err: any) {
-      showAlert("error", err.response?.data?.message || "An error occurred.");
+      showAlert?.("error", err.response?.data?.message || "An error occurred.");
     } finally {
       setLoadingType(null);
     }
@@ -56,33 +56,33 @@ export default function PrivacySettings({ showAlert }: Props) {
 
   if (initialLoading) {
     return (
-      <div className="flex justify-center py-10">
-        <Loader2 className="animate-spin text-neutral-500 w-6 h-6" />
+      <div className="flex justify-center py-20">
+        <Loader2 className="animate-spin text-neutral-500 w-8 h-8" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-lg space-y-8 animate-in fade-in">
-      <h2 className="text-2xl text-white hidden md:block">
+    <div className="max-w-2xl mx-auto space-y-6 md:space-y-8 animate-in fade-in">
+      <h2 className="text-2xl font-bold text-white hidden md:block">
         Privacy and Security
       </h2>
 
-      <div className="space-y-6">
-        <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-5 shadow-sm flex items-center justify-between gap-6">
+      <div className="space-y-4 md:space-y-6">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 md:p-6 shadow-sm flex items-center justify-between gap-6">
           <div className="flex gap-4">
-            <div className="mt-1">
+            <div className="mt-1 shrink-0">
               {isPrivate ? (
-                <EyeOff className="text-neutral-400 w-5 h-5" />
+                <EyeOff className="text-neutral-400 w-6 h-6" />
               ) : (
-                <Globe className="text-blue-500 w-5 h-5" />
+                <Globe className="text-[#0095f6] w-6 h-6" />
               )}
             </div>
             <div>
               <p className="font-semibold text-white text-base">
                 Private Account
               </p>
-              <p className="text-sm text-neutral-400 mt-1.5 leading-relaxed">
+              <p className="text-sm text-neutral-400 mt-1.5 leading-relaxed max-w-[400px]">
                 When your account is private, only people you approve can see
                 your photos and videos.
               </p>
@@ -92,7 +92,7 @@ export default function PrivacySettings({ showAlert }: Props) {
             disabled={loadingType === "visibility"}
             onClick={toggleVisibility}
             className={`w-12 h-7 flex items-center rounded-full px-1 transition-colors shrink-0 outline-none ${
-              isPrivate ? "bg-blue-500" : "bg-neutral-700"
+              isPrivate ? "bg-[#0095f6]" : "bg-neutral-700"
             }`}
           >
             <div
@@ -101,20 +101,20 @@ export default function PrivacySettings({ showAlert }: Props) {
           </button>
         </div>
 
-        <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-5 shadow-sm flex items-center justify-between gap-6">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 md:p-6 shadow-sm flex items-center justify-between gap-6">
           <div className="flex gap-4">
-            <div className="mt-1">
-              <div className="w-5 h-5 flex items-center justify-center space-x-0.5">
-                <div className="w-1 h-1 bg-neutral-400 rounded-full animate-bounce" />
-                <div className="w-1 h-1 bg-neutral-400 rounded-full animate-bounce delay-75" />
-                <div className="w-1 h-1 bg-neutral-400 rounded-full animate-bounce delay-150" />
+            <div className="mt-1.5 shrink-0">
+              <div className="w-6 h-6 flex items-center justify-center space-x-0.5">
+                <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce" />
+                <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce delay-75" />
+                <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce delay-150" />
               </div>
             </div>
             <div>
               <p className="font-semibold text-white text-base">
                 Show Activity Status
               </p>
-              <p className="text-sm text-neutral-400 mt-1.5 leading-relaxed">
+              <p className="text-sm text-neutral-400 mt-1.5 leading-relaxed max-w-[400px]">
                 Allow accounts you follow and anyone you message to see when you
                 are active or typing.
               </p>
@@ -124,7 +124,7 @@ export default function PrivacySettings({ showAlert }: Props) {
             disabled={loadingType === "typing"}
             onClick={toggleTyping}
             className={`w-12 h-7 flex items-center rounded-full px-1 transition-colors shrink-0 outline-none ${
-              showTyping ? "bg-blue-500" : "bg-neutral-700"
+              showTyping ? "bg-[#0095f6]" : "bg-neutral-700"
             }`}
           >
             <div

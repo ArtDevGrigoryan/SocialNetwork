@@ -4,13 +4,7 @@ const postService = require("@services/post.service");
 class PostController {
   async create(req, res) {
     const { files } = req;
-    const { content, location, mentions, filters } = req.body;
-    const post = await postService.create(req.user._id, files, {
-      content,
-      location,
-      mentions,
-      filters,
-    });
+    const post = await postService.create(req.user._id, files, req.body);
     return sendSuccess(res, post);
   }
   async update(req, res) {
@@ -70,6 +64,15 @@ class PostController {
     const { id } = req.params;
     const updated = await postService.toggleAccessRepost(req.user._id, id);
     return sendSuccess(res, updated);
+  }
+  async postLikes(req, res) {
+    const { id } = req.params;
+    const likes = await postService.postLikes(
+      req.user._id,
+      id,
+      req.validated.query,
+    );
+    return sendSuccess(res, likes);
   }
 }
 

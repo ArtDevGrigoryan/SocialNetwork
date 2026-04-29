@@ -12,13 +12,13 @@ import {
 import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
 import type { AlertType } from "../../components/message-popup/alert";
+import { useNavigate, useOutletContext } from "react-router-dom";
 
-interface ITwoFactorProps {
-  showAlert: (type: AlertType, message: string) => void;
-  onBack?: () => void;
-}
-
-export default function TwoFactorAuth({ showAlert, onBack }: ITwoFactorProps) {
+export default function TwoFactorAuth() {
+  const { showAlert } = useOutletContext<{
+    showAlert: (type: AlertType, message: string) => void;
+  }>();
+  const navigate = useNavigate();
   const { user, patchUser } = useAuthStore();
 
   const [step, setStep] = useState<"idle" | "setup" | "enabled">(
@@ -123,14 +123,12 @@ export default function TwoFactorAuth({ showAlert, onBack }: ITwoFactorProps) {
     <div className="flex flex-col h-full bg-black text-white w-full mx-auto md:border-x md:border-neutral-900 min-h-[100dvh] md:min-h-[auto] relative animate-in fade-in duration-300">
       <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-black/90 backdrop-blur-md border-b border-neutral-900">
         <div className="flex items-center gap-3">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="p-1 -ml-1 text-white hover:opacity-70 transition-opacity"
-            >
-              <ChevronLeft size={28} strokeWidth={2} />
-            </button>
-          )}
+          <button
+            onClick={() => navigate(-1)}
+            className="p-1 -ml-1 text-white hover:opacity-70 transition-opacity"
+          >
+            <ChevronLeft size={28} strokeWidth={2} />
+          </button>
           <h1 className="text-xl font-bold tracking-tight">
             Two-Factor Authentication
           </h1>

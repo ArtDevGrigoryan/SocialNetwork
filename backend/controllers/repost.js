@@ -9,7 +9,7 @@ class RepostController {
   async myReposts(req, res) {
     const data = await repostService.myReposts(
       req.user._id,
-      req.validate.query,
+      req.validated.query,
     );
     return sendSuccess(res, data);
   }

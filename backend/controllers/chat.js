@@ -13,6 +13,10 @@ class ChatController {
       : await chatService.getChats(req.user._id, req.validated.query);
     return sendSuccess(res, chats);
   }
+  async myChats(req, res) {
+    const chats = await chatService.myChats(req.user._id);
+    return sendSuccess(res, chats);
+  }
   async createDM(req, res) {
     const { userId } = req.body;
     const chat = await chatService.createDM(req.user._id, userId);
