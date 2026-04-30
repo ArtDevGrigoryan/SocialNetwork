@@ -28,6 +28,7 @@ export const ViewersDrawer = ({
         </button>
       </div>
     </div>
+
     <div
       className={cn(
         "absolute bottom-0 left-0 right-0 bg-neutral-900 rounded-t-2xl transition-transform duration-300 z-40 flex flex-col pointer-events-auto",
@@ -47,7 +48,7 @@ export const ViewersDrawer = ({
                 onDelete();
               }}
               className="text-red-500 hover:text-red-400 p-1 transition flex items-center justify-center"
-              title="Delete Story"
+              title="Delete Archive"
             >
               <Trash2 size={20} />
             </button>
@@ -63,6 +64,7 @@ export const ViewersDrawer = ({
           </button>
         </div>
       </div>
+
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         {loadingViewers ? (
           <div className="flex justify-center items-center h-full">

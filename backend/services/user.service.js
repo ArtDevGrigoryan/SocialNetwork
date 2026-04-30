@@ -93,6 +93,7 @@ class UserService {
   findBlockeds(blocker, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
     return Block.find({ blocker })
+      .populate("blocked", "_id username avatar bio")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -102,7 +103,7 @@ class UserService {
     return Block.find({ blocker }).populate({
       path: "blocked",
       match: { username: regex },
-      select: "username avatar _id",
+      select: "username avatar bio _id",
     });
   }
   async getUserConfig(userId) {

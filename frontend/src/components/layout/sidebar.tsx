@@ -6,7 +6,6 @@ import { useNotificationStore } from "../../store/notification.store";
 import { api } from "../../lib/axios.config";
 import {
   Home,
-  Search,
   MessageCircle,
   Heart,
   User,
@@ -28,7 +27,6 @@ export default function Sidebar() {
   const navItems = useMemo(
     () => [
       { name: "Home", path: "/", icon: Home },
-      { name: "Search", path: "/search", icon: Search },
       { name: "Explore", path: "/explore", icon: Compass },
       { name: "Messages", path: "/messages", icon: MessageCircle },
       { name: "Notifications", path: "/notifications", icon: Heart },

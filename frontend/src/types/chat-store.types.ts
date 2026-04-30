@@ -2,6 +2,7 @@ import type {
   GroupActiveTab,
   IChat,
   IMessage,
+  IReaction,
   ISharedContentPayload,
   IViewerData,
 } from "../pages/message/types";
@@ -12,10 +13,10 @@ export interface ChatState {
   loadingChats: boolean;
   loadingMessages: boolean;
   sending: boolean;
-  addMessage: (message: any) => void;
+  addMessage: (message: IMessage) => void;
+  addReaction: (messageId: string, reaction: IReaction) => void;
   removeMessage: (messageId: string) => void;
   updateMessage: (messageId: string, text: string) => void;
-  addReaction: (messageId: string, reaction: any) => void;
   removeReaction: (messageId: string, participantId: string) => void;
   setChats: (chats: IChat[] | ((prev: IChat[]) => IChat[])) => void;
   setMessages: (

@@ -33,10 +33,15 @@ export function InAppToast() {
 
     switch (toast.type) {
       case "LIKE":
-        href = `/posts/${typeof toast.entity === "string" ? toast.entity : toast.entity._id}`;
+        if (toast.entityModel === "Story") {
+          if (primaryUser) href = `/profile/${primaryUser._id}`;
+        } else {
+          // Գնում ենք Explore
+          href = `/explore?postId=${typeof toast.entity === "string" ? toast.entity : toast.entity._id}`;
+        }
         break;
       case "COMMENT":
-        href = `/posts/${typeof toast.entity === "string" ? toast.entity : toast.entity.post || toast.entity._id}`;
+        href = `/explore?postId=${typeof toast.entity === "string" ? toast.entity : (toast.entity as any).post || toast.entity._id}`;
         break;
       case "FOLLOW":
       case "REQUEST":
@@ -44,16 +49,14 @@ export function InAppToast() {
       case "DECLINED":
       case "UNFOLLOW":
       case "CANCELLED":
+      case "NEW_STORY":
         if (primaryUser) href = `/profile/${primaryUser._id}`;
         break;
       case "MESSAGE":
-        href = `/messages/${toast.entity.chat}`;
+        href = `/messages/${(toast.entity as any).chat}`;
         break;
       case "NEW_POST":
-        href = `/posts/${toast.entity._id}`;
-        break;
-      case "NEW_STORY":
-        if (primaryUser) href = `/profile/${primaryUser._id}`;
+        href = `/explore?postId=${toast.entity._id}`;
         break;
       case "NEW_GROUP":
         href = `/messages/${toast.entity._id}`;
@@ -110,7 +113,7 @@ export function InAppToast() {
       text = "added a new story.";
       break;
     case "NEW_GROUP":
-      text = `added you to a new group: ${toast.entity?.groupName || "Chat"}.`;
+      text = `added you to a new group: ${(toast.entity as any)?.groupName || "Chat"}.`;
       break;
     case "GROUP_REMOVED":
       text = "deleted the group.";

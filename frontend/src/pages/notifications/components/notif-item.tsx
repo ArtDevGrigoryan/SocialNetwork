@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useNotificationStore } from "../../../store/notification.store";
 import { cn } from "../../../lib/utils";
 import type { StrictNotification } from "../../../types/notification";
@@ -17,6 +17,7 @@ const getTimeAgo = (dateString: string) => {
 };
 
 export function NotificationItem({ item }: { item: StrictNotification }) {
+  const navigate = useNavigate();
   const markAsRead = useNotificationStore((state) => state.markAsRead);
   const deleteNotification = useNotificationStore(
     (state) => state.deleteNotification,
@@ -159,7 +160,7 @@ export function NotificationItem({ item }: { item: StrictNotification }) {
       break;
     }
     case "NEW_GROUP": {
-      text = `added you to a new group: ${item.entity?.groupName || "Chat"}.`;
+      text = `added you to a new group: ${(item.entity as any)?.groupName || "Chat"}.`;
       break;
     }
     case "GROUP_REMOVED": {
@@ -196,9 +197,52 @@ export function NotificationItem({ item }: { item: StrictNotification }) {
     }
   }
 
+  const handleRowClick = () => {
+    markAsRead(item._id, item.isRead);
+
+    if (!primaryUser && item.type !== "SYSTEM") return;
+
+    let href = "";
+
+    switch (item.type) {
+      case "LIKE":
+        if (item.entityModel === "Story") {
+          href = `/profile/${primaryUser?._id}`;
+        } else {
+          href = `/explore?postId=${typeof item.entity === "string" ? item.entity : item.entity._id}`;
+        }
+        break;
+      case "COMMENT":
+        href = `/explore?postId=${typeof item.entity === "string" ? item.entity : (item.entity as any).post || item.entity._id}`;
+        break;
+      case "FOLLOW":
+      case "REQUEST":
+      case "ACCEPTED":
+      case "DECLINED":
+      case "UNFOLLOW":
+      case "CANCELLED":
+      case "NEW_STORY":
+        if (primaryUser) href = `/profile/${primaryUser._id}`;
+        break;
+      case "MESSAGE":
+        href = `/messages/${(item.entity as any).chat}`;
+        break;
+      case "NEW_POST":
+        href = `/explore?postId=${(item.entity as any)._id}`;
+        break;
+      case "NEW_GROUP":
+        href = `/messages/${(item.entity as any)._id}`;
+        break;
+    }
+
+    if (href) {
+      navigate(href);
+    }
+  };
+
   return (
     <div
-      onClick={() => markAsRead(item._id, item.isRead)}
+      onClick={handleRowClick}
       className={cn(
         "group flex items-center justify-between px-4 py-3 cursor-pointer transition-colors w-full",
         !item.isRead
@@ -210,7 +254,10 @@ export function NotificationItem({ item }: { item: StrictNotification }) {
         <Link
           to={primaryUser ? `/profile/${primaryUser._id}` : "#"}
           className="shrink-0 relative"
-          onClick={(e) => !primaryUser && e.preventDefault()}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!primaryUser) e.preventDefault();
+          }}
         >
           <img
             src={avatarUrl}
@@ -226,6 +273,7 @@ export function NotificationItem({ item }: { item: StrictNotification }) {
           {primaryUser ? (
             <Link
               to={`/profile/${primaryUser._id}`}
+              onClick={(e) => e.stopPropagation()}
               className="font-semibold text-white hover:text-neutral-300 mr-1 transition-colors"
             >
               {username}
@@ -240,7 +288,9 @@ export function NotificationItem({ item }: { item: StrictNotification }) {
         </div>
       </div>
       <div className="flex items-center shrink-0 ml-3 gap-2">
-        {rightSide && <div>{rightSide}</div>}
+        {rightSide && (
+          <div onClick={(e) => e.stopPropagation()}>{rightSide}</div>
+        )}
 
         <button
           onClick={handleDelete}

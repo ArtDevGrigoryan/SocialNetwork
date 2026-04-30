@@ -24,7 +24,6 @@ export const PostModal = ({ posts, initialIndex, onClose }: PostModalProps) => {
     if (desktopIndex > 0) setDesktopIndex((prev) => prev - 1);
   }, [desktopIndex]);
 
-  // Window resize event` հասկանալու համար Desktop ենք թե Mobile
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handleResize);
@@ -49,7 +48,6 @@ export const PostModal = ({ posts, initialIndex, onClose }: PostModalProps) => {
   }, []);
 
   useEffect(() => {
-    // Scroll Into View աշխատացնում ենք միայն մոբայլի դեպքում
     if (isMobile && scrollContainerRef.current) {
       const element = scrollContainerRef.current.children[
         initialIndex
@@ -69,7 +67,6 @@ export const PostModal = ({ posts, initialIndex, onClose }: PostModalProps) => {
         <X size={26} strokeWidth={2.5} />
       </button>
 
-      {/* Conditionally rendering Mobile or Desktop view */}
       {isMobile ? (
         <div
           ref={scrollContainerRef}

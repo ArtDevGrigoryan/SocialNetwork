@@ -62,6 +62,21 @@ class AggregationBuilder {
     return this;
   }
 
+  unwind(options) {
+    this.pipeline.push({ $unwind: options });
+    return this;
+  }
+
+  replaceRoot(options) {
+    this.pipeline.push({ $replaceRoot: options });
+    return this;
+  }
+
+  sample(options) {
+    this.pipeline.push({ $sample: options });
+    return this;
+  }
+
   transform(fn) {
     this.transformFn = fn;
     return this;

@@ -1,17 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import {
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  Loader2,
-  ChevronUp,
-} from "lucide-react";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "../../lib/axios.config";
-import { cn } from "../../lib/utils";
 import { StoryMedia } from "../story-ui/media-renderer";
 import { StoryHeader } from "../story-ui/header";
 import { StoryProgressBar } from "../story-ui/progess-bar";
+import { ViewersDrawer } from "../story-ui/viewers-drawer";
 import type {
   ArchiveStoryViewerProps,
   ViewerReaction,
@@ -26,7 +19,7 @@ export default function ArchiveStoryViewer({
   const [progress, setProgress] = useState(0);
 
   const [isPaused, setIsPaused] = useState(false);
-  const [isHolding, setIsHolding] = useState(false); // UI թաքցնելու վիճակը
+  const [isHolding, setIsHolding] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -41,13 +34,13 @@ export default function ArchiveStoryViewer({
   const animationRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
 
-  // Refs անիմացիայի loop-ի համար, որ pause-ից չռեստարտվի
   const isPausedRef = useRef(isPaused);
   const isDrawerOpenRef = useRef(isDrawerOpen);
 
   useEffect(() => {
     isPausedRef.current = isPaused;
   }, [isPaused]);
+
   useEffect(() => {
     isDrawerOpenRef.current = isDrawerOpen;
   }, [isDrawerOpen]);
@@ -148,8 +141,9 @@ export default function ArchiveStoryViewer({
       videoRef.current?.pause();
       audioRef.current?.pause();
     } else {
-      if (currentStory.media.type === "video")
+      if (currentStory.media.type === "video") {
         videoRef.current?.play().catch(() => {});
+      }
       const musicSrc =
         currentStory.media.musicUrl || currentStory.media.backgroundMusic;
       const hasValidMusic =
@@ -178,7 +172,7 @@ export default function ArchiveStoryViewer({
     return () => audio.removeEventListener("timeupdate", handleTimeUpdate);
   }, [currentStory?._id]);
 
-  // Viewers Fetch
+  // 5. Fetch Viewers
   useEffect(() => {
     if (isDrawerOpen && currentStory) {
       const fetchViewers = async () => {
@@ -210,19 +204,18 @@ export default function ArchiveStoryViewer({
   // Swipe Up / Down Handlers
   const handleTouchStart = (e: React.TouchEvent) =>
     setTouchStartY(e.targetTouches[0].clientY);
+
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchStartY) return;
     const diff = touchStartY - e.targetTouches[0].clientY;
 
     if (diff > 50) {
-      // Swipe Up
       if (!isDrawerOpen) {
         setIsDrawerOpen(true);
         setIsPaused(true);
       }
       setTouchStartY(null);
     } else if (diff < -50) {
-      // Swipe Down
       if (isDrawerOpen) {
         setIsDrawerOpen(false);
         setIsPaused(false);
@@ -260,13 +253,14 @@ export default function ArchiveStoryViewer({
     >
       <audio ref={audioRef} loop muted={isMuted} />
 
-      {/* Navigation Buttons (Hidden on hold) */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           handlePrev();
         }}
-        className={`absolute left-4 top-1/2 -translate-y-1/2 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        className={`absolute left-4 top-1/2 -translate-y-1/2 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${
+          isHolding ? "opacity-0 pointer-events-none" : "opacity-100"
+        }`}
       >
         <ChevronLeft size={30} />
       </button>
@@ -276,22 +270,27 @@ export default function ArchiveStoryViewer({
           e.stopPropagation();
           handleNext();
         }}
-        className={`absolute right-4 top-1/2 -translate-y-1/2 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        className={`absolute right-4 top-1/2 -translate-y-1/2 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${
+          isHolding ? "opacity-0 pointer-events-none" : "opacity-100"
+        }`}
       >
         <ChevronRight size={30} />
       </button>
 
       <button
         onClick={onClose}
-        className={`absolute top-6 right-6 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        className={`absolute top-6 right-6 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${
+          isHolding ? "opacity-0 pointer-events-none" : "opacity-100"
+        }`}
       >
         <X size={30} />
       </button>
 
       <div className="relative w-full h-full sm:w-[400px] sm:h-[90vh] bg-neutral-900 sm:rounded-xl overflow-hidden flex flex-col shadow-2xl">
-        {/* Header & Progress (Hidden on hold) */}
         <div
-          className={`transition-opacity duration-300 z-50 ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+          className={`transition-opacity duration-300 z-50 ${
+            isHolding ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
         >
           <StoryProgressBar
             total={archives.length}
@@ -309,7 +308,6 @@ export default function ArchiveStoryViewer({
           />
         </div>
 
-        {/* Media Container */}
         <StoryMedia
           media={currentStory.media}
           isMuted={isMuted}
@@ -320,86 +318,21 @@ export default function ArchiveStoryViewer({
           onNext={handleNext}
         />
 
-        {/* Viewers Trigger Button (Hidden on hold) */}
         <div
-          className={`absolute bottom-0 left-0 right-0 z-30 transition-opacity duration-300 ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+          className={`transition-opacity duration-300 ${
+            isHolding ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
         >
-          <div className="bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-10 pb-4 px-4 flex justify-center">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsDrawerOpen(true);
-                setIsPaused(true);
-              }}
-              className="flex flex-col items-center gap-1 text-white hover:text-gray-300 transition"
-            >
-              <ChevronUp size={20} className="animate-bounce" />
-              <div className="flex items-center gap-1.5 text-sm font-medium">
-                <Eye size={16} />
-                <span>{currentStory.viewsCount} Viewers</span>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        {/* Viewers Drawer */}
-        <div
-          className={cn(
-            "absolute bottom-0 left-0 right-0 bg-neutral-900 rounded-t-2xl transition-transform duration-300 z-40 flex flex-col pointer-events-auto",
-            isDrawerOpen ? "translate-y-0 h-[60%]" : "translate-y-full h-[60%]",
-          )}
-        >
-          <div className="flex items-center justify-between p-4 border-b border-neutral-800">
-            <div className="flex items-center gap-2 text-white font-semibold">
-              <Eye size={18} />
-              <span>{currentStory.viewsCount} Views</span>
-            </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsDrawerOpen(false);
-                setIsPaused(false);
-              }}
-              className="text-neutral-400 hover:text-white p-1"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-            {loadingViewers ? (
-              <div className="flex justify-center items-center h-full">
-                <Loader2 className="animate-spin text-neutral-500 w-6 h-6" />
-              </div>
-            ) : viewers.length === 0 ? (
-              <div className="text-center text-neutral-500 text-sm mt-10">
-                No viewers yet.
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {viewers.map((v, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={v.viewer.avatar || "/default-avatar.png"}
-                        alt={v.viewer.username}
-                        className="w-10 h-10 rounded-full object-cover border border-neutral-700"
-                      />
-                      <span className="text-sm font-semibold text-white">
-                        {v.viewer.username}
-                      </span>
-                    </div>
-
-                    {(v.reaction || v.liked) && (
-                      <div className="flex items-center gap-1.5 text-xl">
-                        {v.reaction && <span>{v.reaction}</span>}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <ViewersDrawer
+            isOpen={isDrawerOpen}
+            setIsOpen={(val) => {
+              setIsDrawerOpen(val);
+              setIsPaused(val);
+            }}
+            viewsCount={currentStory.viewsCount}
+            viewers={viewers}
+            loadingViewers={loadingViewers}
+          />
         </div>
       </div>
     </div>

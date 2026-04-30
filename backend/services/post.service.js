@@ -76,7 +76,6 @@ class PostService {
 
     return post;
   }
-
   async update(user, postId, data) {
     const isAuthor = await PolicyService.isPostAuthor(user, postId);
     if (!isAuthor) {
@@ -117,7 +116,6 @@ class PostService {
       { new: true },
     ).populate("author", "_id username bio avatar");
   }
-
   async getPosts(viewer, author, page = 1, limit = 20) {
     if (author) {
       await PolicyService.canViewProfile(viewer, author);
@@ -144,7 +142,6 @@ class PostService {
       limit,
     );
   }
-
   async getArchivedPosts(author, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
     return await Post.find({ author, isArchived: true })
@@ -153,11 +150,9 @@ class PostService {
       .limit(limit)
       .populate("author", "_id avatar username bio");
   }
-
   getSpecific(user, postId) {
     return PolicyService.canAccessPost(user, postId);
   }
-
   async deletePost(user, postId) {
     const userId = user._id.toString();
     const post = await Post.findById(postId).lean();
@@ -172,13 +167,12 @@ class PostService {
     await Post.deleteOne({ _id: postId });
     return true;
   }
-
   async toggleLike(user, postId) {
     await PolicyService.canAccessPost(user, postId);
     const { liked, author } = await toggleLikeTx(user, postId);
 
     if (liked && author.toString() !== user.toString()) {
-      notificationService.likeNotification({
+      await notificationService.likeNotification({
         postId,
         fromUser: user,
         toUser: author,
@@ -186,7 +180,6 @@ class PostService {
     }
     return { liked };
   }
-
   async toggleArchivePost(user, postId) {
     const post = await Post.findOneAndUpdate(
       { _id: postId, author: user },
@@ -206,7 +199,6 @@ class PostService {
 
     return post.isArchived ? null : post.toObject();
   }
-
   async removeImage(user, postId, url) {
     const post = await Post.findOne({
       _id: postId,
@@ -219,11 +211,12 @@ class PostService {
     if (user.toString() != post.author) {
       throw new ConflictException("Cannot access to delete this image");
     }
-    const splitted = url.split("/");
-    const [fname, ext] = splitted.at(-1).split(".");
-    const key = splitted.at(-2) + "/" + fname;
+    const imageObj = post.images.find((img) => img.url === url);
+    if (!imageObj) {
+      throw new NotFoundException("Image not found");
+    }
+    await mediaService.delete([imageObj.key]);
 
-    await mediaService.delete([key]);
     return await Post.findOneAndUpdate(
       { _id: postId, author: user },
       { $pull: { images: { key } } },

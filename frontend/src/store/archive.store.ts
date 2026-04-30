@@ -1,25 +1,13 @@
 import { create } from "zustand";
 import { api } from "../lib/axios.config";
-
-export interface ArchiveMedia {
-  url: string;
-  key: string;
-  type: "image" | "video";
-  duration?: number;
-  backgroundMusic?: String;
-  thumbnail: String;
-}
-
-export interface ArchiveItem {
-  _id: string;
-  media: ArchiveMedia;
-  viewsCount: number;
-  createdAt: string;
-  archivedAt: string;
-}
+import type { IArchiveStoryData } from "../types/story.types";
+import type { IPost } from "../types/user.types";
 
 interface ArchiveState {
-  archives: ArchiveItem[];
+  archivedPosts: IPost[];
+  loadingPosts: boolean;
+  fetchArchivedPosts: (page?: number) => Promise<void>;
+  archives: IArchiveStoryData[];
   loading: boolean;
   loadingMore: boolean;
   nextCursor: string | null;
@@ -34,6 +22,23 @@ export const useArchiveStore = create<ArchiveState>((set, get) => ({
   loadingMore: false,
   nextCursor: null,
   hasMore: true,
+  archivedPosts: [],
+  loadingPosts: true,
+
+  fetchArchivedPosts: async (page = 1) => {
+    set({ loadingPosts: true });
+    try {
+      const { data } = await api.get(`/posts/archived?page=${page}&limit=20`);
+      set((state) => ({
+        archivedPosts:
+          page === 1 ? data.payload : [...state.archivedPosts, ...data.payload],
+        loadingPosts: false,
+      }));
+    } catch (error) {
+      console.error("Failed to fetch archived posts", error);
+      set({ loadingPosts: false });
+    }
+  },
 
   fetchArchives: async (reset = false) => {
     const { nextCursor, loadingMore, hasMore } = get();

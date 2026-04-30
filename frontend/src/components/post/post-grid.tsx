@@ -27,7 +27,6 @@ export const PostGrid = ({ posts, onPostClick }: PostGridProps) => {
   return (
     <div className="grid grid-cols-3 gap-[1px] px-0">
       {posts.map((post) => {
-        // SAFEGUARD: Եթե post-ի data-ն վնասված է, բաց ենք թողնում որ չտրաքի
         if (!post || !post.images || post.images.length === 0) return null;
 
         return (
@@ -37,7 +36,7 @@ export const PostGrid = ({ posts, onPostClick }: PostGridProps) => {
             className="relative aspect-square cursor-pointer group bg-neutral-900 overflow-hidden rounded-sm transition-all active:scale-95"
           >
             <img
-              src={post.images[0]?.url || (post.images[0] as unknown as string)}
+              src={post.images[0]?.url}
               alt="post thumbnail"
               style={{
                 filter:
@@ -47,7 +46,6 @@ export const PostGrid = ({ posts, onPostClick }: PostGridProps) => {
               }}
               className="w-full h-full object-cover"
             />
-
             <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
               {post.isReposted && (
                 <Repeat size={16} className="text-white drop-shadow-md" />

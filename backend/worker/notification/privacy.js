@@ -3,6 +3,7 @@ const Setting = require("@models/setting");
 const Follow = require("@models/follow");
 const Participant = require("@models/participants");
 const Chat = require("@models/chat");
+const AggregationHelperParticipant = require("@models/aggregations/participant");
 
 class PrivacyPolicy {
   static async chekNotificationSetting(userId, prop) {
@@ -17,33 +18,10 @@ class PrivacyPolicy {
     const chatIdObj = new mongoose.Types.ObjectId(chatId);
     const withoutObjs = without.map((id) => new mongoose.Types.ObjectId(id));
 
-    return await Participant.aggregate([
-      { $match: { chatId: chatIdObj, user: { $nin: withoutObjs } } },
-      {
-        $lookup: {
-          from: "settings",
-          localField: "user",
-          foreignField: "user",
-          as: "setting",
-        },
-      },
-      {
-        $addFields: {
-          settings: { $arrayElemAt: ["$setting", 0] },
-        },
-      },
-      {
-        $project: {
-          user: 1,
-          role: 1,
-          isMuted: 1,
-          participantName: 1,
-          lastReadMessage: 1,
-          unreadCount: 1,
-          notificationSettings: "$settings.notifications",
-        },
-      },
-    ]);
+    return await AggregationHelperParticipant.participantsSettings(
+      chatIdObj,
+      withoutObjs,
+    );
   }
 
   static async checkNotificationFollowers(fromUser, action = "post") {

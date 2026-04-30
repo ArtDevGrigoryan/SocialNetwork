@@ -13,7 +13,7 @@ class SocketEvent {
     socket.join(`socket:${id}`);
     const cacheKey = createSocketCacheKey(id);
     await Promise.all([
-      redis.set(cacheKey, socket.user),
+      redis.set(cacheKey, socket.user.toJSON()),
       userService.updateStatus(id, "ONLINE"),
     ]);
   }

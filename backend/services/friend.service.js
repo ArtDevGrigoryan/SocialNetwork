@@ -6,7 +6,7 @@ const acceptRequestTx = require("@models/transactions/friendship/accept-request"
 const declineRequestTx = require("@models/transactions/friendship/decline-request");
 const Follow = require("@models/follow");
 const FriendRequest = require("@models/friend-request");
-const { SocketConflictException } = require("@helpers/socket-errors");
+const AggregationHelperUser = require("@models/aggregations/user");
 const {
   ConflictException,
   NotFoundException,
@@ -123,9 +123,6 @@ class FriendService {
       .populate("receiver", "_id username avatar bio");
   }
   async getSuggestions(userId, limit = 5) {
-    const User = require("@models/user");
-    const Follow = require("@models/follow");
-
     const myFollowings = await Follow.find({ follower: userId })
       .select("following")
       .lean();
@@ -133,59 +130,11 @@ class FriendService {
 
     const excludeIds = [...followingIds, new mongoose.Types.ObjectId(userId)];
 
-    const suggestions = await User.aggregate([
-      {
-        $match: {
-          _id: { $nin: excludeIds },
-          deactived: false,
-        },
-      },
-      {
-        $lookup: {
-          from: "follows",
-          let: { potentialUserId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$following", "$$potentialUserId"] },
-                    { $in: ["$follower", followingIds] },
-                  ],
-                },
-              },
-            },
-          ],
-          as: "mutualConnections",
-        },
-      },
-      {
-        $addFields: {
-          mutualCount: { $size: "$mutualConnections" },
-        },
-      },
-      {
-        $sort: { mutualCount: -1, followersCount: -1 },
-      },
-      {
-        $limit: 20,
-      },
-      {
-        $sample: { size: Number(limit) },
-      },
-      {
-        $project: {
-          _id: 1,
-          username: 1,
-          avatar: 1,
-          bio: 1,
-          followersCount: 1,
-          mutualCount: 1,
-        },
-      },
-    ]);
-
-    return suggestions;
+    return await AggregationHelperUser.getSuggestions(
+      excludeIds,
+      followingIds,
+      limit,
+    );
   }
 }
 

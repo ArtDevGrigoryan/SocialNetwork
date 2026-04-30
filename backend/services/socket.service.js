@@ -8,7 +8,7 @@ class SocketService {
   async notify(notif) {
     const key = `socket:${notif.toUser}`;
 
-    const isOnline = await redis.get(key);
+    const isOnline = JSON.parse(await redis.get(key));
 
     if (isOnline) {
       ioEmitter.to(key).emit("receive_notification", notif);
@@ -20,7 +20,7 @@ class SocketService {
     const sended = [];
     for (const notif of notifs) {
       const key = `socket:${notif.toUser}`;
-      const isOnline = !!(await redis.get(key));
+      const isOnline = !!JSON.parse(await redis.get(key));
       if (isOnline) {
         ioEmitter.to(key).emit("receive_notification", notif);
         sended.push(notif._id);
@@ -93,7 +93,7 @@ class SocketService {
   }
   async emitNewRequest(userId, requestObj) {
     const key = `socket:${userId}`;
-    const isOnline = await redis.get(key);
+    const isOnline = JSON.parse(await redis.get(key));
     if (isOnline) {
       ioEmitter.to(key).emit("receive_request", requestObj);
     }

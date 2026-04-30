@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   Heart,
   MessageCircle,
@@ -46,7 +46,7 @@ export const MobilePostDetail = ({
   const author =
     typeof post.author === "object" ? (post.author as IUser) : null;
   const isOwner = currentUser?._id === author?._id;
-
+  const location = useLocation();
   const [isLiked, setIsLiked] = useState(Boolean(post.isLiked));
   const [isSaved, setIsSaved] = useState(Boolean(post.isSaved));
   const [isReposted, setIsReposted] = useState(Boolean(post.isReposted));
@@ -151,7 +151,6 @@ export const MobilePostDetail = ({
     return () => observer.disconnect();
   }, [post._id, setActivePost]);
 
-  // Կառավարում ենք երգը ըստ activePostId-ի
   useEffect(() => {
     if (!audioRef.current || !post.music?.url) return;
     audioRef.current.muted = isMuted;
@@ -225,7 +224,12 @@ export const MobilePostDetail = ({
     }
   };
 
-  if (isDeleted || isArchived) return null;
+  if (
+    isDeleted ||
+    (isArchived && !location.pathname.includes("settings/archive"))
+  ) {
+    return null;
+  }
 
   const caption = post.content || "";
   const visibleCaption =
@@ -245,7 +249,7 @@ export const MobilePostDetail = ({
         onClick={handleImageTap}
       >
         <img
-          src={post.images[0]?.url || (post.images[0] as unknown as string)}
+          src={post.images[0]?.url}
           style={{
             filter:
               post.images[0]?.filter !== "none"
