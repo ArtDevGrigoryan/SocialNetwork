@@ -6,6 +6,8 @@ import RightPanel from "../../components/layout/right-panel";
 import { useAuthStore } from "../../store/auth.store";
 import { useSocketStore } from "../../store/socket.store";
 import { useUIStore } from "../../store/ui.store";
+import { useChatStore } from "../../store/chat.store";
+import { useNotificationStore } from "../../store/notification.store";
 import { api } from "../../lib/axios.config";
 import type { IResponse } from "../../types/api.types";
 import type { IUser } from "../../types/user.types";
@@ -18,8 +20,10 @@ export default function MainLayout() {
   useNotificationSocket();
 
   const { isAuthenticated, accessToken, user, setUser } = useAuthStore();
-  const { connect, disconnect, socket } = useSocketStore();
-  const { toasts, addToast } = useUIStore();
+  const { connect, disconnect } = useSocketStore();
+  const { toasts } = useUIStore();
+  const fetchChats = useChatStore((state) => state.fetchChats);
+  const fetchNotifications = useNotificationStore((state) => state.fetchData);
 
   const isFullscreenPage =
     pathname.includes("/message") || pathname.includes("/settings");
@@ -47,37 +51,19 @@ export default function MainLayout() {
   useEffect(() => {
     if (isAuthenticated && user && accessToken) {
       connect(accessToken);
+      fetchChats();
+      fetchNotifications();
     }
     return () => disconnect();
-  }, [isAuthenticated, user, accessToken, connect, disconnect]);
-
-  useEffect(() => {
-    if (!socket) return;
-    const onNotification = (notification: any) => {
-      const from = notification?.fromUser?.username || "Someone";
-      const type = String(notification?.type || "").toUpperCase();
-      const message =
-        type === "MESSAGE"
-          ? `${from} sent you a message`
-          : `${from} sent you a notification`;
-      addToast(message);
-    };
-
-    const onMessage = (message: any) => {
-      if (!pathnameRef.current.startsWith("/messages")) {
-        const from = message?.sender?.username || "Someone";
-        addToast(`${from}: ${message?.text || "New message"}`);
-      }
-    };
-
-    socket.on("notification", onNotification);
-    socket.on("receive_message", onMessage);
-
-    return () => {
-      socket.off("notification", onNotification);
-      socket.off("receive_message", onMessage);
-    };
-  }, [addToast, socket]);
+  }, [
+    isAuthenticated,
+    user,
+    accessToken,
+    connect,
+    disconnect,
+    fetchChats,
+    fetchNotifications,
+  ]);
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 

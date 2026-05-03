@@ -6,6 +6,7 @@ import { useSocketStore } from "../../store/socket.store";
 import { useShallow } from "zustand/react/shallow";
 import type { IPost, IUser } from "../../types/user.types";
 import toast from "react-hot-toast";
+import { X } from "lucide-react";
 
 export interface IComment {
   _id: string;
@@ -69,10 +70,10 @@ export default function CommentModal({
         );
         if (duplicateIndex >= 0) {
           return prev.map((item, index) =>
-            index === duplicateIndex ? (comment as IComment) : item,
+            index === duplicateIndex ? comment : item,
           );
         }
-        return [comment as IComment, ...prev];
+        return [comment, ...prev];
       });
     };
 
@@ -161,17 +162,14 @@ export default function CommentModal({
   if (!isOpen) return null;
 
   return (
-    // Backdrop: Centered on desktop, aligned to bottom on mobile
     <div
-      className="fixed inset-0 z-[120] flex sm:items-center items-end justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[150] flex sm:items-center items-end justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={onClose}
     >
-      {/* Modal Container: Bottom sheet on mobile, standard modal on desktop */}
       <div
         onClick={(e) => e.stopPropagation()}
         className="bg-[#1a1a1a] w-full sm:max-w-md h-[70vh] sm:h-[600px] rounded-t-3xl sm:rounded-xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300"
       >
-        {/* Mobile Drag Handle */}
         <div className="w-12 h-1.5 bg-neutral-600 rounded-full mx-auto mt-3 mb-1 sm:hidden" />
 
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
@@ -179,30 +177,9 @@ export default function CommentModal({
           <h2 className="font-semibold text-white text-[15px]">Comments</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-neutral-800 rounded-full transition-colors"
+            className="p-2 hover:bg-neutral-800 rounded-full transition-colors text-white"
           >
-            <svg fill="white" height="24" viewBox="0 0 24 24" width="24">
-              <line
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                x1="21"
-                x2="3"
-                y1="3"
-                y2="21"
-              />
-              <line
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                x1="21"
-                x2="3"
-                y1="21"
-                y2="3"
-              />
-            </svg>
+            <X size={24} />
           </button>
         </div>
 

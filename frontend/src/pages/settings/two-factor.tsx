@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   Shield,
   ShieldCheck,
-  ChevronLeft,
   Copy,
   CheckCircle2,
   Loader2,
@@ -18,7 +17,6 @@ export default function TwoFactorAuth() {
   const { showAlert } = useOutletContext<{
     showAlert: (type: AlertType, message: string) => void;
   }>();
-  const navigate = useNavigate();
   const { user, patchUser } = useAuthStore();
 
   const [step, setStep] = useState<"idle" | "setup" | "enabled">(
@@ -121,21 +119,16 @@ export default function TwoFactorAuth() {
 
   return (
     <div className="flex flex-col h-full bg-black text-white w-full mx-auto md:border-x md:border-neutral-900 min-h-[100dvh] md:min-h-[auto] relative animate-in fade-in duration-300">
-      <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-black/90 backdrop-blur-md border-b border-neutral-900">
+      {/* Hidden on Mobile because Universal Header is handling it */}
+      <div className="hidden md:flex sticky top-0 z-20 items-center justify-between px-4 py-3 bg-black/90 backdrop-blur-md border-b border-neutral-900">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-1 -ml-1 text-white hover:opacity-70 transition-opacity"
-          >
-            <ChevronLeft size={28} strokeWidth={2} />
-          </button>
-          <h1 className="text-xl font-bold tracking-tight">
+          <h1 className="text-xl font-bold tracking-tight px-2">
             Two-Factor Authentication
           </h1>
         </div>
       </div>
 
-      <div className="flex-1 p-4 overflow-y-auto pb-10 custom-scrollbar">
+      <div className="flex-1 p-4 pb-10">
         {step === "idle" && (
           <div className="flex flex-col h-full mt-6 animate-in slide-in-from-bottom-4 duration-300">
             <div className="flex flex-col items-center text-center mb-8">
@@ -185,6 +178,7 @@ export default function TwoFactorAuth() {
                   {secret}
                 </code>
                 <button
+                  type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(secret);
                     showAlert("info", "Key copied to clipboard.");
@@ -347,21 +341,16 @@ export default function TwoFactorAuth() {
         {showDisableModal && (
           <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
             <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 w-full max-w-sm flex flex-col items-center animate-in zoom-in-95 duration-200 shadow-2xl">
-              <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
-                <Shield size={28} className="text-red-500" />
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+                <Shield size={24} className="text-red-500" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">
-                Disable 2FA?
-              </h3>
-              <p className="text-sm text-neutral-400 text-center mb-6 leading-relaxed">
-                Your account will be much less secure. Enter your authenticator
-                code to confirm.
+              <h3 className="text-lg font-bold mb-2">Disable 2FA?</h3>
+              <p className="text-sm text-neutral-400 text-center mb-6">
+                Your account will be less secure without two-factor
+                authentication. Enter your authenticator code to confirm.
               </p>
 
-              <form
-                onSubmit={disable2FA}
-                className="w-full flex flex-col gap-3"
-              >
+              <form onSubmit={disable2FA} className="w-full">
                 <input
                   type="text"
                   value={token}
@@ -369,30 +358,32 @@ export default function TwoFactorAuth() {
                     setToken(e.target.value.replace(/\D/g, "").slice(0, 6))
                   }
                   placeholder="000000"
-                  className="w-full text-center tracking-[0.5em] font-mono bg-black border border-neutral-800 rounded-xl px-4 py-3.5 text-white text-xl placeholder-neutral-700 focus:outline-none focus:border-red-500/50 transition-colors"
+                  className="w-full text-center tracking-[0.5em] font-mono bg-black border border-neutral-800 rounded-xl px-4 py-3 text-white placeholder-neutral-700 focus:outline-none focus:border-neutral-500 mb-4"
                 />
-                <button
-                  type="submit"
-                  disabled={loading || token.length < 6}
-                  className="w-full bg-[#ed4956] hover:bg-[#ed4956]/90 active:scale-[0.98] text-white font-semibold py-3 rounded-xl text-sm disabled:opacity-50 transition-all flex items-center justify-center mt-2"
-                >
-                  {loading ? (
-                    <Loader2 size={20} className="animate-spin" />
-                  ) : (
-                    "Turn Off"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowDisableModal(false);
-                    setToken("");
-                  }}
-                  disabled={loading}
-                  className="w-full text-neutral-400 hover:text-white font-semibold py-2.5 text-sm transition mt-1"
-                >
-                  Cancel
-                </button>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDisableModal(false);
+                      setToken("");
+                    }}
+                    className="flex-1 bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-white font-semibold py-2.5 rounded-xl transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading || token.length < 6}
+                    className="flex-1 bg-red-500 hover:bg-red-600 active:scale-95 text-white font-semibold py-2.5 rounded-xl transition-all disabled:opacity-50 flex justify-center items-center"
+                  >
+                    {loading ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      "Disable"
+                    )}
+                  </button>
+                </div>
               </form>
             </div>
           </div>

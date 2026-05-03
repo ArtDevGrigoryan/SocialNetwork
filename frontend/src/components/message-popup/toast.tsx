@@ -19,8 +19,7 @@ export function InAppToast() {
 
   if (!activeToast) return null;
 
-  const toast = activeToast as StrictNotification;
-
+  const toast = activeToast;
   const primaryUser =
     toast.fromUser && typeof toast.fromUser === "object"
       ? toast.fromUser
@@ -35,13 +34,12 @@ export function InAppToast() {
       case "LIKE":
         if (toast.entityModel === "Story") {
           if (primaryUser) href = `/profile/${primaryUser._id}`;
-        } else {
-          // Գնում ենք Explore
-          href = `/explore?postId=${typeof toast.entity === "string" ? toast.entity : toast.entity._id}`;
+        } else if (toast.entityModel === "Post") {
+          href = `/explore?postId=${typeof toast.entity === "string" ? toast.entity : (toast.entity as any)._id}`;
         }
         break;
       case "COMMENT":
-        href = `/explore?postId=${typeof toast.entity === "string" ? toast.entity : (toast.entity as any).post || toast.entity._id}`;
+        href = `/explore?postId=${typeof toast.entity === "string" ? toast.entity : (toast.entity as any).post || (toast.entity as any)._id}`;
         break;
       case "FOLLOW":
       case "REQUEST":
@@ -53,13 +51,13 @@ export function InAppToast() {
         if (primaryUser) href = `/profile/${primaryUser._id}`;
         break;
       case "MESSAGE":
-        href = `/messages/${(toast.entity as any).chat}`;
+        href = `/messages/${typeof toast.entity === "string" ? toast.entity : (toast.entity as any).chat || (toast.entity as any)._id}`;
         break;
       case "NEW_POST":
-        href = `/explore?postId=${toast.entity._id}`;
+        href = `/explore?postId=${typeof toast.entity === "string" ? toast.entity : (toast.entity as any)._id}`;
         break;
       case "NEW_GROUP":
-        href = `/messages/${toast.entity._id}`;
+        href = `/messages/${typeof toast.entity === "string" ? toast.entity : (toast.entity as any)._id}`;
         break;
       case "SYSTEM":
       case "GROUP_DISJOIN":
@@ -113,7 +111,7 @@ export function InAppToast() {
       text = "added a new story.";
       break;
     case "NEW_GROUP":
-      text = `added you to a new group: ${(toast.entity as any)?.groupName || "Chat"}.`;
+      text = `added you to a new group: ${typeof toast.entity === "object" && toast.entity !== null && "groupName" in toast.entity ? toast.entity.groupName : "Chat"}.`;
       break;
     case "GROUP_REMOVED":
       text = "deleted the group.";
@@ -136,7 +134,7 @@ export function InAppToast() {
   const avatarUrl = primaryUser?.avatar || "/default-avatar.png";
 
   return (
-    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-5 fade-in duration-300 w-[90%] max-w-sm">
+    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-in slide-in-from-top-5 fade-in duration-300 w-[90%] max-w-sm">
       <div
         onClick={handleClick}
         className="bg-neutral-900 border border-neutral-800 shadow-2xl rounded-2xl p-3 flex items-center justify-between gap-3 backdrop-blur-md bg-opacity-95 cursor-pointer hover:bg-neutral-800/80 transition-colors"

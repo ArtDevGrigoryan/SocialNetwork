@@ -3,6 +3,7 @@ import { X, Check, Loader2, ChevronLeft } from "lucide-react";
 import { useArchiveStore } from "../../store/archive.store";
 import { useHighlightStore } from "../../store/highlight.store";
 import toast from "react-hot-toast";
+import { api } from "../../lib/axios.config";
 
 export const CreateHighlightModal = () => {
   const {
@@ -10,22 +11,48 @@ export const CreateHighlightModal = () => {
     fetchArchives,
     loading: archivesLoading,
   } = useArchiveStore();
-  const { isCreateModalOpen, setCreateModalOpen, createHighlight } =
-    useHighlightStore();
+  const {
+    isCreateModalOpen,
+    setCreateModalOpen,
+    createHighlight,
+    updateHighlight,
+    editingHighlightId,
+  } = useHighlightStore();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [title, setTitle] = useState("Highlights");
   const [step, setStep] = useState<"select" | "details">("select");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingEditData, setLoadingEditData] = useState(false);
 
   useEffect(() => {
     if (isCreateModalOpen) {
       fetchArchives(true);
-      setSelectedIds([]);
-      setTitle("Highlights");
-      setStep("select");
+      if (editingHighlightId) {
+        setLoadingEditData(true);
+        api
+          .get(`/highlights/${editingHighlightId}`)
+          .then(({ data }) => {
+            setTitle(data.payload.title);
+            setSelectedIds(data.payload.archives.map((a: any) => a._id));
+            setLoadingEditData(false);
+          })
+          .catch(() => {
+            toast.error("Failed to load highlight details");
+            setCreateModalOpen(false);
+          });
+      } else {
+        setSelectedIds([]);
+        setTitle("Highlights");
+        setStep("select");
+      }
     }
-  }, [isCreateModalOpen, fetchArchives]);
+  }, [
+    isCreateModalOpen,
+    fetchArchives,
+    editingHighlightId,
+    setCreateModalOpen,
+  ]);
 
   if (!isCreateModalOpen) return null;
 
@@ -43,7 +70,7 @@ export const CreateHighlightModal = () => {
     setStep("details");
   };
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     if (!title.trim()) {
       toast.error("Please enter a title");
       return;
@@ -54,13 +81,20 @@ export const CreateHighlightModal = () => {
       const coverUrl =
         coverArchive?.media?.thumbnail || coverArchive?.media?.url || "";
 
-      await createHighlight(title, String(coverUrl), selectedIds);
-      toast.success("Highlight created successfully!");
-      setCreateModalOpen(false);
+      if (editingHighlightId) {
+        await updateHighlight(
+          editingHighlightId,
+          title,
+          String(coverUrl),
+          selectedIds,
+        );
+        toast.success("Highlight updated successfully!");
+      } else {
+        await createHighlight(title, String(coverUrl), selectedIds);
+        toast.success("Highlight created successfully!");
+      }
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.message || "Failed to create highlight",
-      );
+      toast.error(error.response?.data?.message || "Failed to save highlight");
     } finally {
       setIsSubmitting(false);
     }
@@ -74,7 +108,6 @@ export const CreateHighlightModal = () => {
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="bg-[#262626] w-full max-w-md rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[70vh] sm:h-[600px] animate-in zoom-in-95">
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-neutral-800">
           <div className="flex items-center gap-3">
             {step === "details" ? (
@@ -93,7 +126,11 @@ export const CreateHighlightModal = () => {
               </button>
             )}
             <h2 className="text-white font-bold text-lg">
-              {step === "select" ? "New Highlight" : "Title"}
+              {editingHighlightId
+                ? "Edit Highlight"
+                : step === "select"
+                  ? "New Highlight"
+                  : "Title"}
             </h2>
           </div>
 
@@ -106,23 +143,22 @@ export const CreateHighlightModal = () => {
             </button>
           ) : (
             <button
-              onClick={handleCreate}
+              onClick={handleSave}
               disabled={isSubmitting}
               className="text-[#0095f6] font-semibold text-[15px] hover:text-white transition disabled:opacity-50 flex items-center gap-2"
             >
               {isSubmitting ? (
                 <Loader2 size={18} className="animate-spin" />
               ) : (
-                "Add"
+                "Save"
               )}
             </button>
           )}
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-black/20">
           {step === "select" ? (
-            archivesLoading ? (
+            archivesLoading || loadingEditData ? (
               <div className="flex justify-center items-center h-full">
                 <Loader2 className="animate-spin text-neutral-500 w-8 h-8" />
               </div>
@@ -153,11 +189,9 @@ export const CreateHighlightModal = () => {
                           alt="archive"
                         />
                       )}
-
                       <div
                         className={`absolute inset-0 transition-all ${isSelected ? "bg-white/30" : "group-hover:bg-black/20"}`}
                       />
-
                       <div
                         className={`absolute bottom-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? "bg-[#0095f6] border-[#0095f6]" : "border-white/70 bg-black/20"}`}
                       >
@@ -187,7 +221,6 @@ export const CreateHighlightModal = () => {
                   )}
                 </div>
               </div>
-
               <div className="w-full relative">
                 <input
                   type="text"

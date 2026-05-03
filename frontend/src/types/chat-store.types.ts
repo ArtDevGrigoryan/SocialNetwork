@@ -13,11 +13,15 @@ export interface ChatState {
   loadingChats: boolean;
   loadingMessages: boolean;
   sending: boolean;
+  totalUnreadCount: number;
+
+  addChat: (chat: IChat) => void;
   addMessage: (message: IMessage) => void;
   addReaction: (messageId: string, reaction: IReaction) => void;
   removeMessage: (messageId: string) => void;
-  updateMessage: (messageId: string, text: string) => void;
+  updateMessage: (messageId: string, text: string, media?: any[]) => void;
   removeReaction: (messageId: string, participantId: string) => void;
+
   setChats: (chats: IChat[] | ((prev: IChat[]) => IChat[])) => void;
   setMessages: (
     messages: IMessage[] | ((prev: IMessage[]) => IMessage[]),
@@ -25,6 +29,7 @@ export interface ChatState {
 
   removeChat: (chatId: string) => void;
   updateChatLocal: (chatId: string, data: Partial<IChat>) => void;
+  handleChatRead: (chatId: string, userId: string) => void;
 
   fetchChats: () => Promise<void>;
   fetchMessages: (chatId: string) => Promise<void>;

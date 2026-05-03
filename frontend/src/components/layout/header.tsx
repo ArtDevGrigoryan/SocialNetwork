@@ -1,61 +1,45 @@
 import { Heart, MessageCircle } from "lucide-react";
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../../lib/axios.config";
-import { useAuthStore } from "../../store/auth.store";
+import { useChatStore } from "../../store/chat.store";
+import { useNotificationStore } from "../../store/notification.store";
 
 export default function Header() {
-  const currentUser = useAuthStore((state) => state.user);
-  const [messageUnreadCount, setMessageUnreadCount] = useState(0);
-  const [notificationCount, setNotificationCount] = useState(0);
+  const { totalUnreadCount } = useChatStore();
+  const { unreadCount, incomingRequests } = useNotificationStore();
 
-  useEffect(() => {
-    const fetchCounters = async () => {
-      try {
-        const [notificationsRes, chatsRes] = await Promise.all([
-          api.get("/notifications/unread-count"),
-          api.get("/chats?limit=50"),
-        ]);
-        setNotificationCount(notificationsRes.data?.payload?.count || 0);
-        const chats = chatsRes.data?.payload?.chats || chatsRes.data?.payload || [];
-        const unreadTotal = chats.reduce((acc: number, chat: any) => {
-          const mine = (chat.participants || []).find(
-            (participant: any) => participant.user?._id === currentUser?._id,
-          );
-          return acc + (mine?.unreadCount || 0);
-        }, 0);
-        setMessageUnreadCount(unreadTotal);
-      } catch (error) {
-        console.error("Failed to load mobile header counters", error);
-      }
-    };
-    fetchCounters();
+  const totalNotifsCount = unreadCount + incomingRequests.length;
 
-    const refresh = () => fetchCounters();
-    window.addEventListener("notifications:changed", refresh);
-    window.addEventListener("messages:changed", refresh);
-    return () => {
-      window.removeEventListener("notifications:changed", refresh);
-      window.removeEventListener("messages:changed", refresh);
-    };
-  }, [currentUser?._id]);
+  const displayMsgCount = totalUnreadCount > 9 ? "10+" : totalUnreadCount;
+  const displayNotifCount = totalNotifsCount > 9 ? "10+" : totalNotifsCount;
 
   return (
-    <div className="md:hidden sticky top-0 z-40 bg-black/85 backdrop-blur-md border-b border-neutral-900 px-4 py-3 flex items-center justify-between">
+    <div className="md:hidden sticky top-0 z-[100] bg-black/85 backdrop-blur-md border-b border-neutral-900 px-4 py-3 flex items-center justify-between">
       <h2 className="text-[30px] leading-none font-serif italic tracking-tight">
         Bardiner
       </h2>
       <div className="flex items-center gap-4">
-        <Link to="/notifications" className="text-white relative" aria-label="Open notifications">
+        <Link
+          to="/notifications"
+          className="text-white relative"
+          aria-label="Open notifications"
+        >
           <Heart size={24} />
-          {notificationCount > 0 ? (
-            <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500" />
+          {totalNotifsCount > 0 ? (
+            <span className="absolute -right-2 -top-1.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] leading-4 text-white text-center font-semibold">
+              {displayNotifCount}
+            </span>
           ) : null}
         </Link>
-        <Link to="/messages" className="text-white relative" aria-label="Open messages">
+        <Link
+          to="/messages"
+          className="text-white relative"
+          aria-label="Open messages"
+        >
           <MessageCircle size={24} />
-          {messageUnreadCount > 0 ? (
-            <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-blue-500" />
+          {totalUnreadCount > 0 ? (
+            <span className="absolute -right-2 -top-1.5 min-w-4 h-4 px-1 rounded-full bg-blue-500 text-[10px] leading-4 text-white text-center font-semibold">
+              {displayMsgCount}
+            </span>
           ) : null}
         </Link>
       </div>

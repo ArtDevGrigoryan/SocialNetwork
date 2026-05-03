@@ -10,7 +10,7 @@ export const createImage = (url: string): Promise<HTMLImageElement> =>
 export default async function getCroppedImg(
   imageSrc: string,
   pixelCrop: { x: number; y: number; width: number; height: number },
-  fileName: string = "cropped.jpeg",
+  fileName: string = "story-media.jpeg",
 ): Promise<File | null> {
   const image = await createImage(imageSrc);
   const canvas = document.createElement("canvas");
@@ -18,12 +18,11 @@ export default async function getCroppedImg(
 
   if (!ctx) return null;
 
-  canvas.width = pixelCrop.width;
-  canvas.height = pixelCrop.height;
+  // Instagram HD չափսեր, որպեսզի նկարը երբեք չձգվի կամ չաղավաղվի
+  canvas.width = 1080;
+  canvas.height = 1920;
 
-  ctx.fillStyle = "#000000";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+  // Նկարում ենք ճիշտ այն հատվածը (pixelCrop), ինչը յուզերը տեսնումա կենտրոնում
   ctx.drawImage(
     image,
     pixelCrop.x,
@@ -32,8 +31,8 @@ export default async function getCroppedImg(
     pixelCrop.height,
     0,
     0,
-    pixelCrop.width,
-    pixelCrop.height,
+    1080,
+    1920,
   );
 
   return new Promise((resolve) => {
@@ -47,7 +46,7 @@ export default async function getCroppedImg(
         resolve(file);
       },
       "image/jpeg",
-      0.95,
+      0.95, // Բարձր որակ
     );
   });
 }

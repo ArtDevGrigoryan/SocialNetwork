@@ -33,7 +33,7 @@ export default function StoryViewer({
   const [progress, setProgress] = useState(0);
 
   const [isPaused, setIsPaused] = useState(false);
-  const [isHolding, setIsHolding] = useState(false); // UI թաքցնելու վիճակը
+  const [isHolding, setIsHolding] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [viewers, setViewers] = useState<ViewerReaction[]>([]);

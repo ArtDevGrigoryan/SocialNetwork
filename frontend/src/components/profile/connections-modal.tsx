@@ -3,6 +3,8 @@ import { X, Search, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/axios.config";
 import type { IUser } from "../../types/user.types";
+import { useAuthStore } from "../../store/auth.store";
+import toast from "react-hot-toast";
 
 interface ConnectionsModalProps {
   isOpen: boolean;
@@ -19,7 +21,8 @@ export default function ConnectionsModal({
   type,
   title,
 }: ConnectionsModalProps) {
-  const [users, setUsers] = useState<IUser[]>([]);
+  const { user: currentUser } = useAuthStore();
+  const [users, setUsers] = useState<(IUser & { isFollowing?: boolean })[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -35,15 +38,22 @@ export default function ConnectionsModal({
     const fetchConnections = async () => {
       try {
         setLoading(true);
-        // Եթե search դաշտը դատարկ է, բերում ենք հիմնական ցուցակը
         const endpoint = search.trim()
           ? `/friends/${type}/${userId}?search=${search}`
           : `/friends/${type}/${userId}?page=1&limit=50`;
-
         const { data } = await api.get(endpoint);
-        // backend-ը վերադարձնում է կամ օգտատերերի array կամ follow օբյեկտների array
-        const results = data.payload.map(
-          (item: any) => item.follower || item.following || item,
+
+        // Populate isFollowing state manually if not returned by backend
+        const results = await Promise.all(
+          data.payload.map(async (item: any) => {
+            const u = item.follower || item.following || item;
+            try {
+              const userDetail = await api.get(`/users/${u._id}`);
+              return { ...u, isFollowing: userDetail.data.payload.isFollowing };
+            } catch (e) {
+              return { ...u, isFollowing: false };
+            }
+          }),
         );
         setUsers(results);
       } catch (error) {
@@ -59,13 +69,36 @@ export default function ConnectionsModal({
         fetchConnections();
       },
       search.trim() ? 400 : 0,
-    ); // Debounce search-ի համար
-
+    );
     return () => {
       clearTimeout(timer);
       document.body.style.overflow = "unset";
     };
   }, [isOpen, userId, type, search]);
+
+  const handleToggleFollow = async (
+    targetUser: IUser & { isFollowing?: boolean },
+  ) => {
+    try {
+      if (targetUser.isFollowing) {
+        await api.post(`/friends/unfollow/${targetUser._id}`);
+        setUsers(
+          users.map((u) =>
+            u._id === targetUser._id ? { ...u, isFollowing: false } : u,
+          ),
+        );
+      } else {
+        await api.post(`/friends/follow/${targetUser._id}`);
+        setUsers(
+          users.map((u) =>
+            u._id === targetUser._id ? { ...u, isFollowing: true } : u,
+          ),
+        );
+      }
+    } catch (error) {
+      toast.error("Failed to toggle follow status");
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -78,7 +111,6 @@ export default function ConnectionsModal({
         className="bg-[#262626] w-full sm:max-w-md h-[80vh] sm:h-[600px] rounded-t-3xl sm:rounded-xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full sm:zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Mobile handle & Header */}
         <div className="w-12 h-1.5 bg-neutral-600 rounded-full mx-auto mt-3 mb-2 sm:hidden" />
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800 shrink-0">
           <div className="w-8" />
@@ -91,7 +123,6 @@ export default function ConnectionsModal({
           </button>
         </div>
 
-        {/* Search Input */}
         <div className="p-3 border-b border-neutral-800 shrink-0 relative">
           <Search
             size={18}
@@ -109,7 +140,6 @@ export default function ConnectionsModal({
           />
         </div>
 
-        {/* List */}
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           {loading || isSearching ? (
             <div className="flex justify-center mt-10">
@@ -147,6 +177,14 @@ export default function ConnectionsModal({
                       )}
                     </div>
                   </Link>
+                  {currentUser?._id !== u._id && (
+                    <button
+                      onClick={() => handleToggleFollow(u)}
+                      className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${u.isFollowing ? "bg-neutral-800 text-white hover:bg-neutral-700" : "bg-blue-500 text-white hover:bg-blue-600"}`}
+                    >
+                      {u.isFollowing ? "Following" : "Follow"}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

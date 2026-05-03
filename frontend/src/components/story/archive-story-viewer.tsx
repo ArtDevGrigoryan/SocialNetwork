@@ -14,6 +14,7 @@ export default function ArchiveStoryViewer({
   archives,
   initialIndex,
   onClose,
+  isOwner = false,
 }: ArchiveStoryViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [progress, setProgress] = useState(0);
@@ -174,7 +175,8 @@ export default function ArchiveStoryViewer({
 
   // 5. Fetch Viewers
   useEffect(() => {
-    if (isDrawerOpen && currentStory) {
+    if (isDrawerOpen && currentStory && isOwner) {
+      // <- Միայն owner-ի համար ենք կանչում
       const fetchViewers = async () => {
         setLoadingViewers(true);
         try {
@@ -190,7 +192,7 @@ export default function ArchiveStoryViewer({
       };
       fetchViewers();
     }
-  }, [isDrawerOpen, currentStory?._id]);
+  }, [isDrawerOpen, currentStory?._id, isOwner]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -210,7 +212,8 @@ export default function ArchiveStoryViewer({
     const diff = touchStartY - e.targetTouches[0].clientY;
 
     if (diff > 50) {
-      if (!isDrawerOpen) {
+      if (isOwner && !isDrawerOpen) {
+        // <- Թույլ ենք տալիս բացել միայն owner-ին
         setIsDrawerOpen(true);
         setIsPaused(true);
       }
@@ -298,8 +301,8 @@ export default function ArchiveStoryViewer({
             progress={progress}
           />
           <StoryHeader
-            avatar="/default-avatar.png"
-            username="Memory"
+            avatar={currentStory.user?.avatar || "/default-avatar.png"}
+            username={currentStory.user?.username || "Memory"}
             timeText={formatDate(currentStory.createdAt)}
             hasAudio={Boolean(hasAudio)}
             isMuted={isMuted}
@@ -323,16 +326,18 @@ export default function ArchiveStoryViewer({
             isHolding ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
         >
-          <ViewersDrawer
-            isOpen={isDrawerOpen}
-            setIsOpen={(val) => {
-              setIsDrawerOpen(val);
-              setIsPaused(val);
-            }}
-            viewsCount={currentStory.viewsCount}
-            viewers={viewers}
-            loadingViewers={loadingViewers}
-          />
+          {isOwner && ( // <- Ստուգում ենք, որ մենակ հեղինակը տեսնի ViewersDrawer-ը
+            <ViewersDrawer
+              isOpen={isDrawerOpen}
+              setIsOpen={(val) => {
+                setIsDrawerOpen(val);
+                setIsPaused(val);
+              }}
+              viewsCount={currentStory.viewsCount}
+              viewers={viewers}
+              loadingViewers={loadingViewers}
+            />
+          )}
         </div>
       </div>
     </div>

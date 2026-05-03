@@ -3,12 +3,20 @@ const { sendSuccess } = require("@helpers/api-response");
 
 class HighlightController {
   async create(req, res) {
-    // Այստեղ req.validated.body-ն արդեն Zod-ով մաքրված ու ստուգված տվյալներն են
     const highlight = await highlightService.create(
       req.user._id,
       req.validated.body,
     );
     return sendSuccess(res, highlight, 201);
+  }
+
+  async update(req, res) {
+    const highlight = await highlightService.update(
+      req.user._id,
+      req.params.id,
+      req.validated.body,
+    );
+    return sendSuccess(res, highlight, 200, "Highlight updated successfully");
   }
 
   async getUserHighlights(req, res) {

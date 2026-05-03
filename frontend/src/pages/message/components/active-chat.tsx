@@ -1,3 +1,6 @@
+// ==========================================
+// FILE: ./src/pages/message/components/active-chat.tsx
+// ==========================================
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Loader2, Send, ChevronDown, Users } from "lucide-react";
@@ -45,7 +48,9 @@ export default function ActiveChat() {
     (p) => p.user._id === currentUser?._id,
   )?._id;
 
-  const lastPinnedMessage = chat?.pinned?.[chat?.pinned.length - 1];
+  const validPinnedMessages = chat?.pinned?.filter((p) => !!p) || [];
+  const lastPinnedMessage = validPinnedMessages[validPinnedMessages.length - 1];
+
   const chatTheme = chat?.theme || "default";
 
   useEffect(() => {
@@ -138,7 +143,10 @@ export default function ActiveChat() {
         </div>
 
         {lastPinnedMessage && (
-          <PinnedTab message={lastPinnedMessage} onScrollTo={scrollToMessage} />
+          <PinnedTab
+            message={lastPinnedMessage as IMessage}
+            onScrollTo={scrollToMessage}
+          />
         )}
 
         <div className="flex-1 relative flex flex-col min-h-0">
@@ -215,10 +223,15 @@ export default function ActiveChat() {
                     isMe &&
                     otherParticipant?.unreadCount === 0;
 
-                  const isPinned = chat?.pinned?.some((p) => {
-                    if (typeof p === "string") return p === msg._id;
-                    return p._id === msg._id;
-                  });
+                  // Ահա խիստ ստուգումը, որ անիմաստ true չտա
+                  const isPinned = Boolean(
+                    Array.isArray(chat?.pinned) &&
+                    chat.pinned.some((p: any) => {
+                      if (!p || !msg._id) return false;
+                      const pId = typeof p === "string" ? p : p._id;
+                      return String(pId) === String(msg._id);
+                    }),
+                  );
 
                   return (
                     <MessageBubble

@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/auth.store";
-import { useSocketStore } from "../../store/socket.store";
+import { useChatStore } from "../../store/chat.store";
 import { useNotificationStore } from "../../store/notification.store";
-import { api } from "../../lib/axios.config";
 import {
   Home,
   MessageCircle,
@@ -17,12 +16,14 @@ import CreatePostModal from "../post/create-post-modal";
 export default function Sidebar() {
   const { pathname } = useLocation();
   const { user } = useAuthStore();
-  const socket = useSocketStore((state) => state.socket);
-  const { unreadCount, incomingRequests, fetchData } = useNotificationStore();
+  const { unreadCount, incomingRequests } = useNotificationStore();
+  const { totalUnreadCount } = useChatStore();
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
-  const [messageUnreadCount, setMessageUnreadCount] = useState(0);
 
   const totalNotifsCount = unreadCount + incomingRequests.length;
+
+  const displayMsgCount = totalUnreadCount > 9 ? "10+" : totalUnreadCount;
+  const displayNotifCount = totalNotifsCount > 9 ? "10+" : totalNotifsCount;
 
   const navItems = useMemo(
     () => [
@@ -41,53 +42,9 @@ export default function Sidebar() {
     [user?._id],
   );
 
-  useEffect(() => {
-    if (!user?._id) return;
-
-    fetchData();
-
-    const fetchChats = async () => {
-      try {
-        const chatsRes = await api.get("/chats?limit=50");
-        const chats =
-          chatsRes.data?.payload?.chats || chatsRes.data?.payload || [];
-        const unreadTotal = chats.reduce((acc: number, chat: any) => {
-          const participant = (chat.participants || []).find(
-            (item: any) => item.user?._id === user?._id,
-          );
-          return acc + (participant?.unreadCount || 0);
-        }, 0);
-        setMessageUnreadCount(unreadTotal);
-      } catch (error) {
-        console.error("Failed to load sidebar chat counters", error);
-      }
-    };
-
-    fetchChats();
-    window.addEventListener("messages:changed", fetchChats);
-    return () => window.removeEventListener("messages:changed", fetchChats);
-  }, [user?._id, fetchData]);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    const onMessage = (message: any) => {
-      if (!pathname.startsWith("/messages")) {
-        if (message?.sender?._id && message.sender._id !== user?._id) {
-          setMessageUnreadCount((value) => value + 1);
-        }
-      }
-    };
-    socket.on("receive_message", onMessage);
-
-    return () => {
-      socket.off("receive_message", onMessage);
-    };
-  }, [pathname, socket, user?._id]);
-
   return (
     <>
-      <aside className="group/sidebar hidden md:flex fixed left-0 top-0 h-screen border-r border-neutral-800 flex-col px-3 py-6 w-[76px] hover:w-[244px] bg-black z-50 transition-all duration-300 overflow-hidden">
+      <aside className="group/sidebar hidden md:flex fixed left-0 top-0 h-screen border-r border-neutral-800 flex-col px-3 py-6 w-[76px] hover:w-[244px] bg-black z-[100] transition-all duration-300 overflow-hidden">
         <div className="px-3 mb-8 h-8 flex items-center">
           <h1 className="text-xl font-semibold font-serif italic tracking-tight opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-300 absolute whitespace-nowrap">
             Bardiner
@@ -112,14 +69,14 @@ export default function Sidebar() {
                     strokeWidth={isActive ? 2.4 : 2}
                     className="transition-transform duration-200 group-hover:scale-105"
                   />
-                  {item.name === "Messages" && messageUnreadCount > 0 ? (
-                    <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-blue-500 text-[10px] leading-4 text-white text-center border border-black">
-                      {Math.min(messageUnreadCount, 99)}
+                  {item.name === "Messages" && totalUnreadCount > 0 ? (
+                    <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-blue-500 text-[10px] leading-4 text-white text-center border border-black font-semibold">
+                      {displayMsgCount}
                     </span>
                   ) : null}
                   {item.name === "Notifications" && totalNotifsCount > 0 ? (
-                    <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] leading-4 text-white text-center border border-black">
-                      {Math.min(totalNotifsCount, 99)}
+                    <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] leading-4 text-white text-center border border-black font-semibold">
+                      {displayNotifCount}
                     </span>
                   ) : null}
                 </div>
@@ -150,7 +107,7 @@ export default function Sidebar() {
         </nav>
       </aside>
       <nav
-        className={`md:hidden fixed bottom-0 w-full z-50 bg-black border-t border-neutral-800 px-2 py-2 ${
+        className={`md:hidden fixed bottom-0 w-full z-[100] bg-black border-t border-neutral-800 px-2 py-2 ${
           pathname.startsWith("/messages/") && pathname.length > 10
             ? "hidden"
             : "block"
@@ -188,14 +145,14 @@ export default function Sidebar() {
                 >
                   <div className="relative">
                     <Icon size={25} strokeWidth={isActive ? 2.4 : 2} />
-                    {item.name === "Messages" && messageUnreadCount > 0 ? (
-                      <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-blue-500 text-[10px] leading-4 text-white text-center">
-                        {Math.min(messageUnreadCount, 99)}
+                    {item.name === "Messages" && totalUnreadCount > 0 ? (
+                      <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-blue-500 text-[10px] leading-4 text-white text-center font-semibold">
+                        {displayMsgCount}
                       </span>
                     ) : null}
                     {item.name === "Notifications" && totalNotifsCount > 0 ? (
-                      <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] leading-4 text-white text-center">
-                        {Math.min(totalNotifsCount, 99)}
+                      <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] leading-4 text-white text-center font-semibold">
+                        {displayNotifCount}
                       </span>
                     ) : null}
                   </div>

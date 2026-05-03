@@ -1,17 +1,9 @@
 import { create } from "zustand";
 import { api } from "../lib/axios.config";
-
-export interface SuggestionUser {
-  _id: string;
-  username: string;
-  avatar?: string;
-  bio?: string;
-  followersCount: number;
-  mutualCount: number;
-}
+import type { IResponse, ISuggestionsResponse } from "../types/api.types";
 
 interface SuggestionState {
-  suggestions: SuggestionUser[];
+  suggestions: ISuggestionsResponse[];
   loading: boolean;
   fetchSuggestions: () => Promise<void>;
   removeSuggestion: (id: string) => void;
@@ -23,7 +15,9 @@ export const useSuggestionStore = create<SuggestionState>((set) => ({
   fetchSuggestions: async () => {
     set({ loading: true });
     try {
-      const { data } = await api.get("/friends/suggestions?limit=5");
+      const { data } = await api.get<IResponse<ISuggestionsResponse[]>>(
+        "/friends/suggestions?limit=5",
+      );
       set({ suggestions: data.payload || [], loading: false });
     } catch (error) {
       console.error("Failed to fetch suggestions", error);

@@ -1,3 +1,6 @@
+// ==========================================
+// FILE: ./src/pages/message/components/chat-details-main.tsx
+// ==========================================
 import { useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useChatStore } from "../../../store/chat.store";
@@ -21,7 +24,7 @@ import ChatMediaTab from "./chat-media-tab";
 import ChatSharedTab from "./chat-shared-tab";
 import ChatLinksTab from "./chat-links-tab";
 import ChatPinnedTab from "./chat-pinned-tab";
-import type { IChat } from "../types";
+import type { IChat, IMessage } from "../types";
 
 export default function ChatDetailsMain({
   onPinnedMessageClick,
@@ -123,6 +126,9 @@ export default function ChatDetailsMain({
         return "Default";
     }
   };
+
+  // Ստուգում ենք, որ pinned-ում միայն իրականում pin եղածները լինեն
+  const validPinnedMessages = chat.pinned?.filter((p) => !!p) || [];
 
   return (
     <div className="flex flex-col animate-in fade-in duration-200">
@@ -315,20 +321,25 @@ export default function ChatDetailsMain({
               {store.activeTab === "links" && (
                 <ChatLinksTab links={store.sharedData.links} />
               )}
-              {store.activeTab === "pinned" &&
-                chat.pinned?.map((p) => {
-                  const pKey = typeof p === "string" ? p : p._id;
-                  return (
-                    <ChatPinnedTab
-                      key={pKey}
-                      message={p}
-                      onScrollTo={
-                        onPinnedMessageClick || ((_: string) => undefined)
-                      }
-                      onUnpin={handleUnpin}
-                    />
-                  );
-                })}
+              {store.activeTab === "pinned" && validPinnedMessages.length > 0
+                ? validPinnedMessages.map((p) => {
+                    const pKey = typeof p === "string" ? p : p._id;
+                    return (
+                      <ChatPinnedTab
+                        key={pKey}
+                        message={p as IMessage}
+                        onScrollTo={
+                          onPinnedMessageClick || ((_: string) => undefined)
+                        }
+                        onUnpin={handleUnpin}
+                      />
+                    );
+                  })
+                : store.activeTab === "pinned" && (
+                    <p className="text-neutral-500 text-center mt-10 text-sm">
+                      No pinned messages
+                    </p>
+                  )}
             </>
           )}
         </div>

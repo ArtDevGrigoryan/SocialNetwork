@@ -44,6 +44,7 @@ export default function CreateStoryModal() {
   const [editorMode, setEditorMode] = useState<EditorMode>("none");
   const [croppedPixels, setCroppedPixels] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessingCrop, setIsProcessingCrop] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -102,7 +103,41 @@ export default function CreateStoryModal() {
 
   const closeEditor = () => setEditorMode("none");
 
+  // Նոր ֆունկցիա՝ հենց Adjust-ն ավարտում ենք, ֆիզիկապես կտրում է
+  const handleApplyCrop = async () => {
+    if (store.draftType === "image" && croppedPixels && store.draftPreview) {
+      try {
+        setIsProcessingCrop(true);
+        const croppedFile = await getCroppedImg(
+          store.draftPreview,
+          croppedPixels,
+          "cropped-story.jpeg",
+        );
+
+        if (croppedFile) {
+          const oldPreview = store.draftPreview;
+          // State-ը թարմացնում ենք անմիջապես, առանց ջնջելու ստիկերները
+          useStoryStore.setState({
+            draftFile: croppedFile,
+            draftPreview: URL.createObjectURL(croppedFile),
+            mediaTransform: { scale: 1, x: 0, y: 0 },
+          });
+          URL.revokeObjectURL(oldPreview); // Ջնջում ենք հին URL-ը հիշողությունից
+        }
+      } catch (error) {
+        console.error("Failed to apply crop:", error);
+      } finally {
+        setIsProcessingCrop(false);
+        setEditorMode("none");
+      }
+    } else {
+      setEditorMode("none");
+    }
+  };
+
   const handleShareStory = async () => {
+    // Քանի որ մենք արդեն նկարը կտրում ենք Adjust-ի ժամանակ,
+    // այստեղ պարզապես ապահովագրում ենք այն դեպքը, եթե user-ը առանց Adjust մտնելու Share տա։
     if (store.draftType === "image" && croppedPixels && store.draftPreview) {
       try {
         setIsProcessing(true);
@@ -125,34 +160,39 @@ export default function CreateStoryModal() {
 
     await store.uploadStory(user?._id);
   };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/95 sm:p-4 animate-in fade-in duration-200">
       <button
         onClick={() => store.setCreateModalOpen(false)}
-        className="absolute top-4 right-4 text-white hover:scale-110 transition z-[110]"
+        className="absolute top-6 right-6 text-white hover:scale-110 transition z-[160] bg-black/40 p-2.5 rounded-full backdrop-blur-md hidden sm:block shadow-lg"
       >
-        <X size={30} />
+        <X size={24} strokeWidth={2.5} />
       </button>
 
-      <div className="relative bg-neutral-950 w-full max-w-[450px] aspect-[9/16] max-h-[90vh] rounded-xl overflow-hidden border border-neutral-800 flex flex-col shadow-2xl">
+      <div className="relative bg-black w-full h-[100dvh] sm:h-auto sm:aspect-[9/16] sm:max-h-[90vh] sm:rounded-2xl overflow-hidden flex flex-col sm:shadow-2xl">
         <audio ref={audioRef} loop={editorMode !== "trim"} />
 
         {!store.draftFile ? (
-          <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-            <div className="w-20 h-20 bg-neutral-900 rounded-full flex items-center justify-center mb-4">
-              <ImageIcon size={40} className="text-neutral-400" />
+          <div className="flex flex-col items-center justify-center h-full p-6 text-center bg-neutral-900">
+            <button
+              onClick={() => store.setCreateModalOpen(false)}
+              className="absolute top-[max(1rem,env(safe-area-inset-top))] left-4 text-white p-2 sm:hidden bg-black/40 rounded-full"
+            >
+              <X size={24} />
+            </button>
+            <div className="w-24 h-24 bg-neutral-800 rounded-full flex items-center justify-center mb-6 shadow-xl">
+              <ImageIcon size={48} className="text-white" strokeWidth={1.5} />
             </div>
-            <h2 className="text-xl font-semibold text-white mb-2">
-              Create Story
-            </h2>
-            <p className="text-sm text-neutral-400 mb-6">
-              Share a photo or video to your story.
+            <h2 className="text-2xl font-bold text-white mb-2">Add to Story</h2>
+            <p className="text-[15px] text-neutral-400 mb-8 max-w-[260px]">
+              Share a photo or video with your friends and followers.
             </p>
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium transition"
+              className="bg-[#0095F6] hover:bg-blue-600 active:scale-95 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-blue-500/20"
             >
-              Select from computer
+              Select from device
             </button>
             <input
               type="file"
@@ -163,8 +203,8 @@ export default function CreateStoryModal() {
             />
           </div>
         ) : (
-          <div className="relative w-full h-full flex flex-col bg-neutral-900 overflow-hidden">
-            <div className="absolute inset-0">
+          <div className="relative w-full h-full flex flex-col bg-black overflow-hidden">
+            <div className="absolute inset-0 z-10">
               <Cropper
                 image={
                   store.draftType === "image"
@@ -179,7 +219,6 @@ export default function CreateStoryModal() {
                 crop={{ x: store.mediaTransform.x, y: store.mediaTransform.y }}
                 zoom={store.mediaTransform.scale}
                 aspect={9 / 16}
-                objectFit="cover" // <-- ՍԱ Է ԳԼԽԱՎՈՐ ԼՈՒԾՈՒՄԸ
                 onCropChange={(crop) => {
                   if (editorMode === "adjust") {
                     store.setMediaTransform({
@@ -200,20 +239,19 @@ export default function CreateStoryModal() {
                 onCropComplete={(_, croppedAreaPixels) =>
                   setCroppedPixels(croppedAreaPixels)
                 }
-                restrictPosition={false}
                 showGrid={editorMode === "adjust"}
                 classes={{ containerClassName: "w-full h-full" }}
                 style={{
                   containerStyle: {
-                    background: "black",
+                    background: "transparent",
                     pointerEvents: editorMode === "adjust" ? "auto" : "none",
                   },
                   cropAreaStyle: {
                     border:
                       editorMode === "adjust"
-                        ? "1px solid rgba(255,255,255,0.3)"
+                        ? "1px solid rgba(255,255,255,0.5)"
                         : "none",
-                    boxShadow: "none",
+                    boxShadow: editorMode === "adjust" ? undefined : "none", // Թաքցնում է background-ի մութ մասերը կտրելուց հետո
                   },
                   mediaStyle: {
                     filter:
@@ -226,94 +264,104 @@ export default function CreateStoryModal() {
             </div>
 
             {/* Draggable Overlays */}
-            {store.storyLocation && (
-              <DraggableOverlay
-                item={{ id: "location", ...store.storyLocation }}
-                onUpdate={(_, updates) => store.updateLocation(updates as any)}
-                onRemove={() => store.setStoryLocation(null)}
-              >
-                <div className="bg-white/90 text-black px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-1.5 shadow-xl whitespace-nowrap">
-                  <MapPin size={16} className="text-blue-500" />{" "}
-                  {store.storyLocation.name}
-                </div>
-              </DraggableOverlay>
-            )}
-
-            {store.stickers.map((s) => (
-              <DraggableOverlay
-                key={s.id}
-                item={s}
-                onUpdate={store.updateSticker}
-                onRemove={store.removeSticker}
-              >
-                <span className="text-6xl drop-shadow-xl">{s.emoji}</span>
-              </DraggableOverlay>
-            ))}
-
-            {store.texts.map((t) => (
-              <DraggableOverlay
-                key={t.id}
-                item={t}
-                onUpdate={store.updateText}
-                onRemove={store.removeText}
-              >
-                <span
-                  className="text-3xl font-bold whitespace-pre-wrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
-                  style={{ color: t.color, fontFamily: t.fontFamily }}
+            <div className="absolute inset-0 z-20 pointer-events-none">
+              {store.storyLocation && (
+                <DraggableOverlay
+                  item={{ id: "location", ...store.storyLocation }}
+                  onUpdate={(_, updates) =>
+                    store.updateLocation(updates as any)
+                  }
+                  onRemove={() => store.setStoryLocation(null)}
                 >
-                  {t.content}
-                </span>
-              </DraggableOverlay>
-            ))}
+                  <div className="bg-white/95 text-black px-4 py-2 rounded-xl font-bold text-[15px] flex items-center gap-1.5 shadow-xl whitespace-nowrap">
+                    <MapPin size={18} className="text-[#0095F6]" />{" "}
+                    {store.storyLocation.name}
+                  </div>
+                </DraggableOverlay>
+              )}
+
+              {store.stickers.map((s) => (
+                <DraggableOverlay
+                  key={s.id}
+                  item={s}
+                  onUpdate={store.updateSticker}
+                  onRemove={store.removeSticker}
+                >
+                  <span className="text-7xl drop-shadow-2xl">{s.emoji}</span>
+                </DraggableOverlay>
+              ))}
+
+              {store.texts.map((t) => (
+                <DraggableOverlay
+                  key={t.id}
+                  item={t}
+                  onUpdate={store.updateText}
+                  onRemove={store.removeText}
+                >
+                  <span
+                    className="text-4xl font-bold whitespace-pre-wrap drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] px-2"
+                    style={{ color: t.color, fontFamily: t.fontFamily }}
+                  >
+                    {t.content}
+                  </span>
+                </DraggableOverlay>
+              ))}
+            </div>
 
             {/* Top Toolbar */}
             {editorMode === "none" && (
-              <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-30 bg-gradient-to-b from-black/60 to-transparent">
+              <div className="absolute top-0 left-0 right-0 pt-[max(1rem,env(safe-area-inset-top))] pb-6 px-4 md:px-6 flex justify-between items-start z-30 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none">
                 <button
                   onClick={() => store.setDraftFile(null)}
-                  className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md"
+                  className="w-11 h-11 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition active:scale-95 pointer-events-auto"
                 >
-                  <ChevronLeft size={20} />
+                  <ChevronLeft size={28} />
                 </button>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setEditorMode("adjust")}
-                    className="w-9 h-9 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition"
-                  >
-                    <Maximize size={18} />
-                  </button>
-                  <button
-                    onClick={() => setEditorMode("location")}
-                    className="w-9 h-9 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition"
-                  >
-                    <MapPin size={18} />
-                  </button>
-                  <button
-                    onClick={() => setEditorMode("text")}
-                    className="w-9 h-9 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition"
-                  >
-                    <Type size={18} />
-                  </button>
-                  <button
-                    onClick={() => setEditorMode("stickers")}
-                    className="w-9 h-9 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition"
-                  >
-                    <Smile size={18} />
-                  </button>
-                  <button
-                    onClick={() => setEditorMode("filters")}
-                    className="w-9 h-9 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition"
-                  >
-                    <Wand2 size={18} />
-                  </button>
+                <div className="flex flex-col gap-3 pointer-events-auto">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setEditorMode("adjust")}
+                      className="w-11 h-11 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition active:scale-95 shadow-md"
+                    >
+                      <Maximize size={22} />
+                    </button>
+                    <button
+                      onClick={() => setEditorMode("location")}
+                      className="w-11 h-11 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition active:scale-95 shadow-md"
+                    >
+                      <MapPin size={22} />
+                    </button>
+                    <button
+                      onClick={() => setEditorMode("text")}
+                      className="w-11 h-11 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition active:scale-95 shadow-md"
+                    >
+                      <Type size={22} />
+                    </button>
+                    <button
+                      onClick={() => setEditorMode("stickers")}
+                      className="w-11 h-11 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition active:scale-95 shadow-md"
+                    >
+                      <Smile size={22} />
+                    </button>
+                    <button
+                      onClick={() => setEditorMode("filters")}
+                      className="w-11 h-11 flex items-center justify-center bg-black/40 rounded-full text-white backdrop-blur-md hover:bg-black/60 transition active:scale-95 shadow-md"
+                    >
+                      <Wand2 size={22} />
+                    </button>
+                  </div>
                   <button
                     onClick={() =>
                       setEditorMode(store.selectedMusic ? "trim" : "music")
                     }
-                    className={`flex items-center gap-2 px-3 h-9 rounded-full backdrop-blur-md transition ${store.selectedMusic ? "bg-white text-black" : "bg-black/40 text-white hover:bg-black/60"}`}
+                    className={`flex items-center self-end gap-2 px-4 h-11 rounded-full backdrop-blur-md transition active:scale-95 shadow-lg ${
+                      store.selectedMusic
+                        ? "bg-white text-black font-bold"
+                        : "bg-black/40 text-white hover:bg-black/60 font-semibold"
+                    }`}
                   >
-                    <Music size={16} />
-                    <span className="text-sm font-semibold truncate max-w-[80px]">
+                    <Music size={20} />
+                    <span className="text-[15px] truncate max-w-[100px]">
                       {store.selectedMusic
                         ? store.selectedMusic.title
                         : "Music"}
@@ -325,29 +373,33 @@ export default function CreateStoryModal() {
 
             {/* Bottom Sharing Bar */}
             {editorMode === "none" && (
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-30 pointer-events-none flex gap-2">
+              <div className="absolute bottom-0 left-0 right-0 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-12 px-4 md:px-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent z-30 pointer-events-none flex justify-end items-end">
                 <button
                   onClick={handleShareStory}
                   disabled={store.isUploading || isProcessing}
-                  className="flex-1 bg-white text-black py-3 rounded-full font-semibold text-sm hover:bg-neutral-200 transition flex justify-center items-center gap-2 disabled:opacity-70 pointer-events-auto shadow-lg"
+                  className="bg-white text-black px-6 py-3.5 rounded-full font-bold text-[15px] hover:bg-neutral-200 transition flex justify-center items-center gap-2 disabled:opacity-70 pointer-events-auto shadow-2xl active:scale-[0.96]"
                 >
                   {(store.isUploading || isProcessing) && (
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={20} className="animate-spin" />
                   )}
                   {store.isUploading || isProcessing
                     ? "Sharing..."
-                    : "Share to Story"}
+                    : "Your Story"}
+                  <ChevronLeft size={20} className="rotate-180" />
                 </button>
               </div>
             )}
 
-            {/* Render Active Editor Mode */}
+            {/* Editor Modes */}
             {editorMode === "text" && <StoryTextEditor onClose={closeEditor} />}
             {editorMode === "location" && (
               <StoryLocationEditor onClose={closeEditor} />
             )}
             {editorMode === "adjust" && (
-              <StoryAdjustEditor onClose={closeEditor} />
+              <StoryAdjustEditor
+                onClose={handleApplyCrop}
+                isProcessing={isProcessingCrop}
+              />
             )}
             {editorMode === "stickers" && (
               <StoryStickersEditor onClose={closeEditor} />

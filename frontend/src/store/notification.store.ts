@@ -2,19 +2,20 @@ import { create } from "zustand";
 import { api } from "../lib/axios.config";
 import type {
   IMessageNotification,
-  INotification,
+  StrictNotification,
   IRequest,
 } from "../types/notification";
+import type { IFriendRequest, IResponse } from "../types/api.types";
 
 interface NotificationState {
-  notifications: INotification[];
+  notifications: StrictNotification[];
   incomingRequests: IRequest[];
   unreadCount: number;
   isLoading: boolean;
-  activeToast: INotification | null;
+  activeToast: StrictNotification | null;
   deleteNotification: (id: string) => Promise<void>;
   deleteAllNotifications: () => Promise<void>;
-  setActiveToast: (notification: INotification | null) => void;
+  setActiveToast: (notification: StrictNotification | null) => void;
   initPushNotifications: () => void;
   fetchData: () => Promise<void>;
   markAsRead: (id: string, isRead: boolean) => Promise<void>;
@@ -23,7 +24,7 @@ interface NotificationState {
     request: IRequest,
     action: "accept" | "decline" | "cancel",
   ) => Promise<void>;
-  addRealtimeNotification: (notification: INotification) => void;
+  addRealtimeNotification: (notification: StrictNotification) => void;
   addRealtimeRequest: (request: IRequest) => void;
 }
 
@@ -73,9 +74,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     set({ isLoading: true });
     try {
       const [notifRes, reqRes, unreadRes] = await Promise.all([
-        api.get("/notifications?limit=50"),
-        api.get("/friends/requests?type=incoming&limit=50"),
-        api.get("/notifications/unread-count"),
+        api.get<IResponse<StrictNotification[]>>("/notifications?limit=50"),
+        api.get<IResponse<IFriendRequest[]>>(
+          "/friends/requests?type=incoming&limit=50",
+        ),
+        api.get<IResponse<{ count: number }>>("/notifications/unread-count"),
       ]);
 
       set({
@@ -101,7 +104,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }));
 
     try {
-      await api.patch(`/notifications/${id}/read`);
+      await api.patch<IResponse<boolean>>(`/notifications/${id}/read`);
     } catch (error) {
       console.error("Failed to mark as read", error);
     }
@@ -109,7 +112,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   markAllAsRead: async () => {
     set((state) => ({
-      notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
+      notifications: state.notifications.map((n) => ({
+        ...n,
+        isRead: true,
+      })) as StrictNotification[],
       unreadCount: 0,
     }));
     try {
@@ -140,8 +146,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     if (notification.type === "MESSAGE") {
       const notif = notification as IMessageNotification;
       const currentPath = window.location.pathname;
-      const id = notif.entity.chat;
-      const isInChat = currentPath.includes(id);
+      const id =
+        typeof notif.entity === "string"
+          ? notif.entity
+          : (notif.entity as any).chat;
+      const isInChat = currentPath.includes(id || "");
 
       if (isInChat) {
         return;

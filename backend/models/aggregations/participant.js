@@ -17,7 +17,6 @@ class AggregationHelperParticipant {
       })
       .unwind("$chat");
 
-    // Սա լուծում է հին կոդի բագը, որտեղ chat.lastActivityAt-ը պտտվում էր դեռ lookup չարած
     if (cursor) {
       const [lastActivityAt, lastId] = cursor.split("_");
       builder.match({
@@ -90,11 +89,12 @@ class AggregationHelperParticipant {
         path: "$chat.lastMessage",
         preserveNullAndEmptyArrays: true,
       })
+      // Ահա շտկված $lookup-ը
       .lookup({
         from: "messages",
-        localField: "chat.pinned",
-        foreignField: "_id",
+        let: { pinnedIds: { $ifNull: ["$chat.pinned", []] } },
         pipeline: [
+          { $match: { $expr: { $in: ["$_id", "$$pinnedIds"] } } },
           {
             $lookup: {
               from: "users",

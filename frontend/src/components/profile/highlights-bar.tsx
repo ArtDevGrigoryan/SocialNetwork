@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Edit3, Trash2, MoreVertical } from "lucide-react";
 import { useHighlightStore } from "../../store/highlight.store";
 import { api } from "../../lib/axios.config";
 import ArchiveStoryViewer from "../story/archive-story-viewer";
@@ -21,6 +21,7 @@ export const HighlightsBar = ({ userId, isOwner }: HighlightsBarProps) => {
   } = useHighlightStore();
   const [activeArchives, setActiveArchives] = useState<any[]>([]);
   const [viewingLoading, setViewingLoading] = useState(false);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -36,6 +37,7 @@ export const HighlightsBar = ({ userId, isOwner }: HighlightsBarProps) => {
   };
 
   const openHighlight = async (highlight: any) => {
+    if (menuOpenId === highlight._id) return;
     setViewingLoading(true);
     try {
       const { data } = await api.get(`/highlights/${highlight._id}`);
@@ -47,9 +49,8 @@ export const HighlightsBar = ({ userId, isOwner }: HighlightsBarProps) => {
     }
   };
 
-  const handleContextMenu = async (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    if (isOwner && window.confirm("Delete this highlight?")) {
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Delete this highlight?")) {
       try {
         await deleteHighlight(id);
         toast.success("Highlight deleted");
@@ -57,20 +58,18 @@ export const HighlightsBar = ({ userId, isOwner }: HighlightsBarProps) => {
         toast.error("Failed to delete highlight");
       }
     }
+    setMenuOpenId(null);
   };
 
-  if (!loading && highlights.length === 0 && !isOwner) {
-    return null;
-  }
+  if (!loading && highlights.length === 0 && !isOwner) return null;
 
   return (
     <>
       <style>{`.hide-scroll::-webkit-scrollbar { display: none; }`}</style>
-
       <div
         ref={scrollRef}
         onWheel={handleScroll}
-        className="px-4 md:px-0 py-4 flex gap-4 overflow-x-auto hide-scroll snap-x border-b border-neutral-800 items-start"
+        className="px-4 md:px-0 py-4 flex gap-4 overflow-x-auto hide-scroll snap-x border-b border-neutral-800 items-start relative"
       >
         {isOwner && (
           <div
@@ -103,11 +102,12 @@ export const HighlightsBar = ({ userId, isOwner }: HighlightsBarProps) => {
           highlights.map((highlight) => (
             <div
               key={highlight._id}
-              onClick={() => openHighlight(highlight)}
-              onContextMenu={(e) => handleContextMenu(e, highlight._id)}
-              className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer snap-start transition-transform hover:scale-[1.02]"
+              className="relative flex flex-col items-center gap-1.5 shrink-0 snap-start"
             >
-              <div className="w-[66px] h-[66px] rounded-full bg-neutral-800 border border-neutral-600 p-[2px] hover:border-neutral-400 transition-colors">
+              <div
+                onClick={() => openHighlight(highlight)}
+                className="w-[66px] h-[66px] rounded-full bg-neutral-800 border border-neutral-600 p-[2px] hover:border-neutral-400 transition-colors cursor-pointer"
+              >
                 <img
                   src={highlight.cover || "/default-avatar.png"}
                   className="w-full h-full rounded-full object-cover bg-black"
@@ -117,6 +117,40 @@ export const HighlightsBar = ({ userId, isOwner }: HighlightsBarProps) => {
               <span className="text-xs font-semibold text-white truncate w-16 text-center">
                 {highlight.title}
               </span>
+
+              {isOwner && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpenId(
+                      menuOpenId === highlight._id ? null : highlight._id,
+                    );
+                  }}
+                  className="absolute -top-1 -right-1 bg-black/80 rounded-full p-1 text-white hover:text-gray-300"
+                >
+                  <MoreVertical size={14} />
+                </button>
+              )}
+
+              {menuOpenId === highlight._id && (
+                <div className="absolute top-10 right-0 z-50 bg-[#262626] border border-neutral-700 rounded-lg shadow-xl w-32 overflow-hidden flex flex-col">
+                  <button
+                    onClick={() => {
+                      setCreateModalOpen(true, highlight._id);
+                      setMenuOpenId(null);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-2"
+                  >
+                    <Edit3 size={14} /> Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(highlight._id)}
+                    className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-neutral-700 flex items-center gap-2"
+                  >
+                    <Trash2 size={14} /> Delete
+                  </button>
+                </div>
+              )}
             </div>
           ))
         )}
@@ -133,10 +167,9 @@ export const HighlightsBar = ({ userId, isOwner }: HighlightsBarProps) => {
           archives={activeArchives}
           initialIndex={0}
           onClose={() => setActiveArchives([])}
-          isOwner={isOwner} // <--- Սա պարտադիր է
+          isOwner={isOwner}
         />
       )}
-
       {isOwner && <CreateHighlightModal />}
     </>
   );

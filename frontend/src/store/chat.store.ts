@@ -2,6 +2,18 @@ import { create } from "zustand";
 import { api } from "../lib/axios.config";
 import type { ChatState } from "../types/chat-store.types";
 import type { IChat, IMessage, IReaction } from "../pages/message/types";
+import { useAuthStore } from "./auth.store";
+
+const calculateTotalUnread = (
+  chats: IChat[],
+  currentUserId?: string,
+): number => {
+  if (!currentUserId) return 0;
+  return chats.reduce((acc, chat) => {
+    const p = chat.participants.find((p) => p.user._id === currentUserId);
+    return acc + (p?.unreadCount || 0);
+  }, 0);
+};
 
 export const useChatStore = create<ChatState>((set, get) => ({
   chats: [],
@@ -9,11 +21,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
   loadingChats: true,
   loadingMessages: false,
   sending: false,
+  totalUnreadCount: 0,
 
   setChats: (updater) =>
-    set((state) => ({
-      chats: typeof updater === "function" ? updater(state.chats) : updater,
-    })),
+    set((state) => {
+      const newChats =
+        typeof updater === "function" ? updater(state.chats) : updater;
+      const currentUserId = useAuthStore.getState().user?._id;
+      return {
+        chats: newChats,
+        totalUnreadCount: calculateTotalUnread(newChats, currentUserId),
+      };
+    }),
 
   setMessages: (updater) =>
     set((state) => ({
@@ -21,15 +40,58 @@ export const useChatStore = create<ChatState>((set, get) => ({
         typeof updater === "function" ? updater(state.messages) : updater,
     })),
 
+  addChat: (chat: IChat) =>
+    set((state) => {
+      if (state.chats.some((c) => c._id === chat._id)) return state;
+      const newChats = [chat, ...state.chats];
+      const currentUserId = useAuthStore.getState().user?._id;
+      return {
+        chats: newChats,
+        totalUnreadCount: calculateTotalUnread(newChats, currentUserId),
+      };
+    }),
+
   removeChat: (chatId: string) =>
-    set((state) => ({
-      chats: state.chats.filter((c) => c._id !== chatId),
-    })),
+    set((state) => {
+      const newChats = state.chats.filter((c) => c._id !== chatId);
+      const currentUserId = useAuthStore.getState().user?._id;
+      return {
+        chats: newChats,
+        totalUnreadCount: calculateTotalUnread(newChats, currentUserId),
+      };
+    }),
 
   updateChatLocal: (chatId: string, data: Partial<IChat>) =>
-    set((state) => ({
-      chats: state.chats.map((c) => (c._id === chatId ? { ...c, ...data } : c)),
-    })),
+    set((state) => {
+      const newChats = state.chats.map((c) =>
+        c._id === chatId ? { ...c, ...data } : c,
+      );
+      const currentUserId = useAuthStore.getState().user?._id;
+      return {
+        chats: newChats,
+        totalUnreadCount: calculateTotalUnread(newChats, currentUserId),
+      };
+    }),
+
+  handleChatRead: (chatId: string, userId: string) =>
+    set((state) => {
+      const newChats = state.chats.map((c) => {
+        if (c._id === chatId) {
+          return {
+            ...c,
+            participants: c.participants.map((p) =>
+              p.user._id === userId ? { ...p, unreadCount: 0 } : p,
+            ),
+          };
+        }
+        return c;
+      });
+      const currentUserId = useAuthStore.getState().user?._id;
+      return {
+        chats: newChats,
+        totalUnreadCount: calculateTotalUnread(newChats, currentUserId),
+      };
+    }),
 
   addMessage: (message: IMessage) =>
     set((state) => {
@@ -43,10 +105,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: state.messages.filter((m) => m._id !== messageId),
     })),
 
-  updateMessage: (messageId: string, text: string) =>
+  updateMessage: (messageId: string, text: string, media?: any[]) =>
     set((state) => ({
       messages: state.messages.map((m) =>
-        m._id === messageId ? { ...m, text } : m,
+        m._id === messageId
+          ? { ...m, text, media: media ? media : m.media }
+          : m,
       ),
     })),
 
@@ -83,8 +147,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ loadingChats: true });
     try {
       const { data } = await api.get("/chats?limit=50");
+      const chats = data.payload?.chats || data.payload || [];
+      const currentUserId = useAuthStore.getState().user?._id;
       set({
-        chats: data.payload?.chats || data.payload || [],
+        chats: chats,
+        totalUnreadCount: calculateTotalUnread(chats, currentUserId),
         loadingChats: false,
       });
     } catch (error) {
@@ -98,6 +165,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const { data } = await api.get(`/messages/${chatId}`);
       set({ messages: data.payload?.reverse() || [], loadingMessages: false });
+
+      const userId = useAuthStore.getState().user?._id;
+      if (userId) {
+        get().handleChatRead(chatId, userId);
+      }
+
       await api.patch(`/chats/read/${chatId}`);
     } catch (error) {
       console.error("Failed to load messages", error);
@@ -187,9 +260,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
 
       if (data?.payload) {
-        set((state) => ({
-          chats: state.chats.map((c) => (c._id === chatId ? data.payload : c)),
-        }));
+        get().updateChatLocal(chatId, data.payload);
       }
     } catch (error) {
       console.error("Failed to pin message", error);

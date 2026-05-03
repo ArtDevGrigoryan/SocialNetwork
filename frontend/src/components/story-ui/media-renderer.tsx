@@ -6,7 +6,7 @@ export const StoryMedia = ({
   isMuted,
   videoRef,
   setIsPaused,
-  setIsHolding, // Ավելացված է
+  setIsHolding,
   onPrev,
   onNext,
 }: StoryMediaProps) => {
@@ -37,6 +37,8 @@ export const StoryMedia = ({
           alt="Story"
           style={{
             filter: media.filter !== "none" ? media.filter : undefined,
+            // Բեքենդ ուղարկելիս transform-ը դառնում է {x:0, y:0, scale:1},
+            // ուստի այս տողը ուղղակի compatibility-ի համար է մնացել
             transform: `scale(${transform.scale}) translate(${transform.x}px, ${transform.y}px)`,
           }}
           className="w-full h-full object-cover pointer-events-none transition-transform duration-200"

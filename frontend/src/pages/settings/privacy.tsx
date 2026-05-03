@@ -69,8 +69,8 @@ export default function PrivacySettings() {
       </h2>
 
       <div className="space-y-4 md:space-y-6">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 md:p-6 shadow-sm flex items-center justify-between gap-6">
-          <div className="flex gap-4">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 md:p-6 shadow-sm flex items-center justify-between gap-4 w-full">
+          <div className="flex gap-4 flex-1 min-w-0">
             <div className="mt-1 shrink-0">
               {isPrivate ? (
                 <EyeOff className="text-neutral-400 w-6 h-6" />
@@ -78,11 +78,11 @@ export default function PrivacySettings() {
                 <Globe className="text-[#0095f6] w-6 h-6" />
               )}
             </div>
-            <div>
+            <div className="flex flex-col min-w-0">
               <p className="font-semibold text-white text-base">
                 Private Account
               </p>
-              <p className="text-sm text-neutral-400 mt-1.5 leading-relaxed max-w-[400px]">
+              <p className="text-sm text-neutral-400 mt-1.5 leading-relaxed break-words">
                 When your account is private, only people you approve can see
                 your photos and videos.
               </p>
@@ -101,8 +101,8 @@ export default function PrivacySettings() {
           </button>
         </div>
 
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 md:p-6 shadow-sm flex items-center justify-between gap-6">
-          <div className="flex gap-4">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 md:p-6 shadow-sm flex items-center justify-between gap-4 w-full">
+          <div className="flex gap-4 flex-1 min-w-0">
             <div className="mt-1.5 shrink-0">
               <div className="w-6 h-6 flex items-center justify-center space-x-0.5">
                 <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce" />
@@ -110,13 +110,13 @@ export default function PrivacySettings() {
                 <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce delay-150" />
               </div>
             </div>
-            <div>
+            <div className="flex flex-col min-w-0">
               <p className="font-semibold text-white text-base">
                 Show Activity Status
               </p>
-              <p className="text-sm text-neutral-400 mt-1.5 leading-relaxed max-w-[400px]">
+              <p className="text-sm text-neutral-400 mt-1.5 leading-relaxed break-words">
                 Allow accounts you follow and anyone you message to see when you
-                are active or typing.
+                are typing.
               </p>
             </div>
           </div>

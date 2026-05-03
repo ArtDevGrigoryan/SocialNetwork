@@ -152,6 +152,7 @@ export default function ArchiveSettings() {
       {selectedStoryIndex !== null && (
         <ArchiveStoryViewer
           archives={archives}
+          isOwner={true}
           initialIndex={selectedStoryIndex}
           onClose={() => setSelectedStoryIndex(null)}
         />

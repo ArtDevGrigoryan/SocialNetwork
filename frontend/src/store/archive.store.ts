@@ -1,13 +1,17 @@
 import { create } from "zustand";
 import { api } from "../lib/axios.config";
-import type { IArchiveStoryData } from "../types/story.types";
-import type { IPost } from "../types/user.types";
+import type {
+  IResponse,
+  IPost,
+  IStoryArchive,
+  IArchiveListResponse,
+} from "../types/api.types";
 
 interface ArchiveState {
   archivedPosts: IPost[];
   loadingPosts: boolean;
   fetchArchivedPosts: (page?: number) => Promise<void>;
-  archives: IArchiveStoryData[];
+  archives: IStoryArchive[];
   loading: boolean;
   loadingMore: boolean;
   nextCursor: string | null;
@@ -28,7 +32,9 @@ export const useArchiveStore = create<ArchiveState>((set, get) => ({
   fetchArchivedPosts: async (page = 1) => {
     set({ loadingPosts: true });
     try {
-      const { data } = await api.get(`/posts/archived?page=${page}&limit=20`);
+      const { data } = await api.get<IResponse<IPost[]>>(
+        `/posts/archived?page=${page}&limit=20`,
+      );
       set((state) => ({
         archivedPosts:
           page === 1 ? data.payload : [...state.archivedPosts, ...data.payload],
@@ -57,7 +63,7 @@ export const useArchiveStore = create<ArchiveState>((set, get) => ({
         ? `/archives?limit=15&cursor=${currentCursor}`
         : `/archives?limit=15`;
 
-      const { data } = await api.get(url);
+      const { data } = await api.get<IResponse<IArchiveListResponse>>(url);
 
       const newItems = data.payload?.items || [];
       const newNextCursor = data.payload?.nextCursor || null;
@@ -81,7 +87,7 @@ export const useArchiveStore = create<ArchiveState>((set, get) => ({
     }));
 
     try {
-      await api.delete(`/archives/${id}`);
+      await api.delete<IResponse<null>>(`/archives/${id}`);
     } catch (error) {
       console.error("Failed to delete archive", error);
       get().fetchArchives(true);

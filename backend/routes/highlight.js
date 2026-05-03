@@ -14,6 +14,11 @@ router.get(
   validate(schemas.getHighlight),
   highlightController.getHighlight,
 );
+router.patch(
+  "/:id",
+  validate(schemas.updateHighlight),
+  highlightController.update,
+);
 router.delete(
   "/:id",
   validate(schemas.getHighlight),

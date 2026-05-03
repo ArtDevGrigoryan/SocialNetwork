@@ -13,7 +13,7 @@ class SocketEvent {
     socket.join(`socket:${id}`);
     const cacheKey = createSocketCacheKey(id);
     await Promise.all([
-      redis.set(cacheKey, socket.user.toJSON()),
+      redis.set(cacheKey, JSON.stringify(socket.user.toJSON())),
       userService.updateStatus(id, "ONLINE"),
     ]);
   }
@@ -21,7 +21,7 @@ class SocketEvent {
     const id = socket.user._id;
     const cacheKey = createSocketCacheKey(id);
     await redis.del(cacheKey);
-    await userService.updateStatus(id);
+    await userService.updateStatus(id, "OFFLINE");
   }
   async join_chat(socket, data) {
     const { chatId } = data;

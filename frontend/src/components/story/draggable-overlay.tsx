@@ -36,14 +36,14 @@ export const DraggableOverlay = ({
   const handleWheel = (e: React.WheelEvent) => {
     const newScale = Math.max(
       0.5,
-      Math.min(3, item.scale + (e.deltaY > 0 ? -0.1 : 0.1)),
+      Math.min(4, item.scale + (e.deltaY > 0 ? -0.1 : 0.1)),
     );
     onUpdate(item.id, { scale: newScale });
   };
 
   return (
     <div
-      className="absolute cursor-move touch-none select-none group z-20"
+      className={`absolute cursor-move select-none group z-20 touch-none ${isDragging ? "scale-105 opacity-90" : "transition-transform"}`}
       style={{
         left: "50%",
         top: "50%",
@@ -63,9 +63,9 @@ export const DraggableOverlay = ({
             e.stopPropagation();
             onRemove(item.id);
           }}
-          className="remove-btn absolute -top-4 -right-4 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow-lg pointer-events-auto"
+          className="remove-btn absolute -top-5 -right-5 bg-black/80 backdrop-blur border border-neutral-700 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition shadow-xl pointer-events-auto hover:bg-red-500 hover:border-red-500"
         >
-          <X size={14} />
+          <X size={16} strokeWidth={3} />
         </button>
       )}
     </div>

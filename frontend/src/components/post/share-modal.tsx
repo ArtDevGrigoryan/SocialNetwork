@@ -119,7 +119,6 @@ export default function ShareModal({
     const backendType = typeMapping[type];
 
     try {
-      // Create an array of requests for all selected chats
       const sharePromises = selectedChats.map((chat) =>
         api.post(`/messages/${chat._id}/share`, {
           participantId: chat.myParticipantId,
@@ -143,29 +142,29 @@ export default function ShareModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div className="bg-white dark:bg-neutral-900 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="bg-[#1a1a1a] w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-neutral-800">
-          <h2 className="text-lg font-semibold dark:text-white">Share</h2>
+        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+          <h2 className="text-lg font-semibold text-white">Share</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-full transition"
+            className="p-2 hover:bg-neutral-800 rounded-full transition text-white"
           >
-            <X className="w-5 h-5 dark:text-gray-300" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Search */}
-        <div className="p-3 border-b border-gray-200 dark:border-neutral-800">
+        <div className="p-3 border-b border-neutral-800">
           <div className="relative">
-            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input
               type="text"
               placeholder="Search friends or groups..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-gray-100 dark:bg-neutral-800 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm dark:text-white focus:ring-1 focus:ring-blue-500"
+              className="w-full bg-neutral-800 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm text-white focus:ring-1 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -174,10 +173,10 @@ export default function ShareModal({
         <div className="flex-1 overflow-y-auto p-2 min-h-[300px]">
           {isLoading ? (
             <div className="flex justify-center items-center h-full">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+              <Loader2 className="w-6 h-6 animate-spin text-neutral-500" />
             </div>
           ) : filteredChats.length === 0 ? (
-            <div className="text-center text-gray-500 mt-10">
+            <div className="text-center text-neutral-500 mt-10">
               No chats found
             </div>
           ) : (
@@ -187,15 +186,15 @@ export default function ShareModal({
                 <div
                   key={chat._id}
                   onClick={() => toggleSelect(chat)}
-                  className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-neutral-800 rounded-xl cursor-pointer transition"
+                  className="flex items-center justify-between p-3 hover:bg-neutral-800 rounded-xl cursor-pointer transition"
                 >
                   <div className="flex items-center gap-3">
                     <img
                       src={chat.displayAvatar}
                       alt={chat.displayTitle}
-                      className="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-neutral-700"
+                      className="w-12 h-12 rounded-full object-cover border border-neutral-700"
                     />
-                    <span className="font-medium text-sm dark:text-gray-200">
+                    <span className="font-medium text-sm text-gray-200">
                       {chat.displayTitle}
                     </span>
                   </div>
@@ -203,7 +202,7 @@ export default function ShareModal({
                     className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
                       isSelected
                         ? "bg-blue-500 border-blue-500"
-                        : "border-gray-300 dark:border-neutral-600"
+                        : "border-neutral-600"
                     }`}
                   >
                     {isSelected && <Check className="w-4 h-4 text-white" />}
@@ -215,13 +214,13 @@ export default function ShareModal({
         </div>
 
         {selectedChats.length > 0 && (
-          <div className="p-4 border-t border-gray-200 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900">
+          <div className="p-4 border-t border-neutral-800 bg-neutral-900">
             <input
               type="text"
               placeholder="Add a message (optional)"
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
-              className="w-full bg-white dark:bg-neutral-800 rounded-xl py-2.5 px-4 outline-none text-sm dark:text-white border border-gray-200 dark:border-neutral-700 focus:border-blue-500 mb-3"
+              className="w-full bg-neutral-800 rounded-xl py-2.5 px-4 outline-none text-sm text-white border border-neutral-700 focus:border-blue-500 mb-3"
             />
             <button
               onClick={handleShare}
