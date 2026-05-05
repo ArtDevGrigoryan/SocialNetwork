@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Loader2,
   AlertCircle,
+  AtSign,
 } from "lucide-react";
 import { api } from "../../lib/axios.config";
 import { useAuthStore } from "../../store/auth.store";
@@ -41,7 +42,6 @@ export default function StoryViewer({
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -72,7 +72,6 @@ export default function StoryViewer({
         const { data } = await api.get(`/stories/user/${userId}`);
         const fetchedStories: IStoryData[] = data.payload || [];
         setStories(fetchedStories);
-
         if (fetchedStories.length > 0) {
           const firstUnseenIndex = fetchedStories.findIndex(
             (s) => !s.viewer?.seen,
@@ -141,7 +140,6 @@ export default function StoryViewer({
       const updatedStories = stories.filter((s) => s._id !== currentStory._id);
       setShowDeleteConfirm(false);
       setIsDeleting(false);
-
       if (updatedStories.length === 0) {
         onClose();
       } else {
@@ -160,7 +158,6 @@ export default function StoryViewer({
 
   useEffect(() => {
     if (loading || !currentStory) return;
-
     progressRef.current = 0;
     setProgress(0);
     lastTimeRef.current = performance.now();
@@ -191,8 +188,20 @@ export default function StoryViewer({
       if (currentStory.media.type === "image") {
         progressRef.current += (deltaTime / mediaDuration) * 100;
       } else if (videoRef.current && videoRef.current.duration) {
-        progressRef.current =
-          (videoRef.current.currentTime / videoRef.current.duration) * 100;
+        const vidStart = currentStory.media.videoStartTime || 0;
+        const actualDur =
+          currentStory.media.videoDuration || videoRef.current.duration;
+        const vidDur = actualDur > 0 ? actualDur : 15;
+        const curr = videoRef.current.currentTime;
+
+        if (curr >= vidStart + vidDur || curr >= videoRef.current.duration) {
+          progressRef.current = 100;
+        } else {
+          progressRef.current = Math.max(
+            0,
+            Math.min(100, ((curr - vidStart) / vidDur) * 100),
+          );
+        }
       }
 
       if (progressRef.current >= 100) handleNext();
@@ -222,7 +231,9 @@ export default function StoryViewer({
         audioRef.current.src = String(currentStory.media.musicUrl);
         audioRef.current.currentTime = currentStory.media.musicStartTime || 0;
       }
-      if (videoRef.current) videoRef.current.currentTime = 0;
+      if (videoRef.current) {
+        videoRef.current.currentTime = currentStory.media.videoStartTime || 0;
+      }
     }
   }, [currentStory?._id]);
 
@@ -286,7 +297,6 @@ export default function StoryViewer({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchStartY) return;
     const diff = touchStartY - e.targetTouches[0].clientY;
-
     if (diff > 50) {
       if (isOwner && !isDrawerOpen) {
         setIsDrawerOpen(true);
@@ -309,7 +319,6 @@ export default function StoryViewer({
     if (isDrawerOpenRef.current || showDeleteConfirmRef.current) return;
     setIsPaused(val);
   };
-
   const handleSetIsHolding = (val: boolean) => {
     if (isDrawerOpenRef.current || showDeleteConfirmRef.current) return;
     setIsHolding(val);
@@ -332,14 +341,13 @@ export default function StoryViewer({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black sm:bg-black/95"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       <audio ref={audioRef} loop muted={isMuted} />
 
-      {/* Արտաքին Navigation Կոճակներ (Թաքնվում են click անելիս) */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -365,8 +373,7 @@ export default function StoryViewer({
         <X size={30} />
       </button>
 
-      <div className="relative w-full h-full sm:w-[400px] sm:h-[90vh] bg-neutral-900 sm:rounded-xl overflow-hidden flex flex-col shadow-2xl">
-        {/* Հեդեր և Պրոգրես Բար (Թաքնվում են) */}
+      <div className="relative w-full h-[100dvh] sm:h-[85vh] sm:w-[calc(85vh*9/16)] sm:min-w-[340px] sm:max-w-[480px] bg-neutral-900 sm:rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl sm:border-[8px] sm:border-neutral-950 shrink-0">
         <div
           className={`transition-opacity duration-300 z-50 ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         >
@@ -384,29 +391,43 @@ export default function StoryViewer({
             onToggleMute={() => setIsMuted(!isMuted)}
             onClose={onClose}
           />
+
+          {currentStory.mentions && currentStory.mentions.length > 0 && (
+            <div className="absolute top-24 left-0 right-0 flex flex-wrap justify-center gap-2 px-4 z-[60] pointer-events-auto">
+              {currentStory.mentions.map((username: string, idx: number) => (
+                <div
+                  key={idx}
+                  className="bg-gradient-to-tr from-fuchsia-600 to-orange-500 text-white px-3 py-1.5 rounded-full font-bold text-[13px] shadow-lg flex items-center gap-1 cursor-pointer hover:scale-105 transition-transform"
+                  onClick={() => {
+                    setIsPaused(true);
+                  }}
+                >
+                  <AtSign size={14} strokeWidth={3} />
+                  {username}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Media Կոնտեյներ */}
         <StoryMedia
           media={currentStory.media}
           isMuted={isMuted}
           videoRef={videoRef}
           setIsPaused={handleSetIsPaused}
-          setIsHolding={handleSetIsHolding} // Փոխանցում ենք նոր handler-ը
+          setIsHolding={handleSetIsHolding}
           onPrev={handlePrev}
           onNext={handleNext}
         />
 
-        {/* Reactions (Չեն թաքնվում) */}
         <FloatingReactions
           reaction={currentStory.viewer?.reaction}
           liked={currentStory.viewer?.liked}
           storyId={currentStory._id}
         />
 
-        {/* Ներքևի գործիքներ (Թաքնվում են) */}
         <div
-          className={`transition-opacity duration-300 z-50 ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+          className={`transition-opacity duration-300 z-[70] ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         >
           {isOwner ? (
             <ViewersDrawer
@@ -445,9 +466,8 @@ export default function StoryViewer({
           )}
         </div>
 
-        {/* Ջնջելու հաստատման մոդալ (Մնում է տեսանելի) */}
         {showDeleteConfirm && (
-          <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 pointer-events-auto">
             <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-[280px] p-5 flex flex-col items-center text-center shadow-2xl">
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
                 <AlertCircle className="text-red-500" size={24} />

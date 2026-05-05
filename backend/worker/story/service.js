@@ -29,6 +29,7 @@ class StoryJobService {
           {
             originalStoryId: story._id,
             user: story.user,
+            mentions: story.mentions || [],
             media: story.media,
             viewsCount: story.viewsCount || 0,
             createdAt: story.createdAt,
@@ -73,7 +74,7 @@ class StoryJobService {
       const expiredStories = await Story.find({
         expiresAt: { $lte: now },
       })
-        .select("_id user media viewsCount createdAt expiresAt")
+        .select("_id user mentions media viewsCount createdAt expiresAt")
         .lean()
         .session(session);
 
@@ -100,6 +101,7 @@ class StoryJobService {
             {
               originalStoryId: story._id,
               user: story.user,
+              mentions: story.mentions || [],
               media: story.media,
               viewsCount: story.viewsCount || 0,
               createdAt: story.createdAt,

@@ -4,25 +4,28 @@ export const StoryProgressBar = ({
   total,
   currentIndex,
   progress,
-}: StoryProgressBarProps) => (
-  <div className="absolute top-0 left-0 right-0 z-20 flex gap-1 p-2 bg-gradient-to-b from-black/60 to-transparent">
-    {Array.from({ length: total }).map((_, idx) => (
-      <div
-        key={idx}
-        className="h-[2px] flex-1 bg-white/30 rounded-full overflow-hidden"
-      >
+}: StoryProgressBarProps) => {
+  return (
+    <div className="absolute top-2 left-2 right-2 flex gap-1 z-[60] drop-shadow-md">
+      {Array.from({ length: total }).map((_, i) => (
         <div
-          className="h-full bg-white transition-none"
-          style={{
-            width:
-              idx === currentIndex
-                ? `${progress}%`
-                : idx < currentIndex
+          key={i}
+          className="h-0.5 sm:h-1 rounded-full bg-white/30 overflow-hidden flex-1 backdrop-blur-sm"
+        >
+          <div
+            className="h-full bg-white"
+            style={{
+              width:
+                i < currentIndex
                   ? "100%"
-                  : "0%",
-          }}
-        />
-      </div>
-    ))}
-  </div>
-);
+                  : i === currentIndex
+                    ? `${progress}%`
+                    : "0%",
+              transition: i === currentIndex ? "none" : "width 0.2s ease",
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+};

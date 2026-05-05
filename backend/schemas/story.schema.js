@@ -14,12 +14,17 @@ const getFeedStories = z.object({
 
 const addSchema = z.object({
   type: z.enum(["image", "video"]),
+  mentions: z.string().optional(),
   musicUrl: z.string().optional(),
   musicTitle: z.string().optional(),
+  musicCover: z.string().optional(),
   musicStartTime: z.coerce.number().optional(),
   musicDuration: z.coerce.number().optional(),
+  isVideoMuted: z.string().optional(),
+  musicWidget: z.string().optional(),
   filter: z.string().optional(),
   location: z.string().optional(),
+  linkSticker: z.string().optional(),
   transform: z.string().optional(),
   stickers: z.string().optional(),
   texts: z.string().optional(),

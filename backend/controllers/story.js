@@ -3,41 +3,41 @@ const storyService = require("@services/story.service");
 
 class StoryController {
   async getViewers(req, res) {
-    const viewers = await storyService.getStoryViewers(
-      req.user._id,
-      req.params.id,
+    return sendSuccess(
+      res,
+      await storyService.getStoryViewers(req.user._id, req.params.id),
     );
-    return sendSuccess(res, viewers);
   }
   async stories(req, res) {
-    const stories = await storyService.stories(
-      req.user._id,
-      req.validated?.query,
+    return sendSuccess(
+      res,
+      await storyService.stories(req.user._id, req.validated?.query),
     );
-    return sendSuccess(res, stories);
   }
   async uniqueStory(req, res) {
-    const story = await storyService.uniqueStory(req.user._id, req.params.id);
-    return sendSuccess(res, story);
+    return sendSuccess(
+      res,
+      await storyService.uniqueStory(req.user._id, req.params.id),
+    );
   }
   async profileStories(req, res) {
-    const stories = await storyService.guestStories(
-      req.user._id,
-      req.params.id,
+    return sendSuccess(
+      res,
+      await storyService.guestStories(req.user._id, req.params.id),
     );
-    return sendSuccess(res, stories);
   }
   async add(req, res) {
-    const story = await storyService.add(req.user._id, req.body, req.file);
-    return sendSuccess(res, story);
+    return sendSuccess(
+      res,
+      await storyService.add(req.user._id, req.body, req.file),
+    );
   }
   async remove(req, res) {
     await storyService.remove(req.user, req.params.id);
     return sendSuccess(res);
   }
   async reaction(req, res) {
-    const { reaction } = req.body;
-    await storyService.reaction(req.user._id, req.params.id, reaction);
+    await storyService.reaction(req.user._id, req.params.id, req.body.reaction);
     return sendSuccess(res);
   }
   async like(req, res) {
@@ -45,5 +45,4 @@ class StoryController {
     return sendSuccess(res);
   }
 }
-
 module.exports = new StoryController();

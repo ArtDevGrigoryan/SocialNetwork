@@ -1,3 +1,4 @@
+// ==================== ./frontend/src/components/story/story-music.tsx ====================
 import { useState, useEffect, useRef } from "react";
 import {
   X,
@@ -88,7 +89,6 @@ export const StoryMusicLibrary = ({
             <Loader2 size={16} className="text-neutral-400 animate-spin" />
           </div>
         )}
-
         {store.isSearchingMusic && store.musicResults.length === 0 ? (
           <div className="flex justify-center py-8">
             <Loader2 size={24} className="text-neutral-500 animate-spin" />
@@ -124,9 +124,7 @@ export const StoryMusicLibrary = ({
                 </div>
                 <div className="truncate pr-2">
                   <p
-                    className={`text-[13px] font-semibold truncate ${
-                      previewId === music.id ? "text-blue-500" : "text-white"
-                    }`}
+                    className={`text-[13px] font-semibold truncate ${previewId === music.id ? "text-blue-500" : "text-white"}`}
                   >
                     {music.title}
                   </p>
@@ -193,6 +191,7 @@ export const StoryMusicTrimmer = ({
           </button>
         </div>
       </div>
+
       <div className="flex items-center justify-between mb-4">
         <span className="text-neutral-400 text-xs font-medium">
           <SlidersHorizontal size={14} className="inline mr-1" /> Duration
@@ -202,17 +201,14 @@ export const StoryMusicTrimmer = ({
             <button
               key={dur}
               onClick={() => store.setMusicDuration(dur)}
-              className={`px-3 py-1 rounded-md text-xs font-medium ${
-                store.musicDuration === dur
-                  ? "bg-neutral-600 text-white"
-                  : "text-neutral-400"
-              }`}
+              className={`px-3 py-1 rounded-md text-xs font-medium ${store.musicDuration === dur ? "bg-neutral-600 text-white" : "text-neutral-400"}`}
             >
               {dur}s
             </button>
           ))}
         </div>
       </div>
+
       <div className="relative w-full h-12 bg-neutral-800 rounded-lg overflow-hidden flex items-center px-1 mb-2">
         <input
           type="range"
@@ -230,6 +226,28 @@ export const StoryMusicTrimmer = ({
           }}
         />
       </div>
+
+      {/* 🔥 ՆՈՐ: STICKER TOGGLE */}
+      {store.musicWidget && (
+        <div className="flex items-center justify-between mt-6 bg-neutral-800/50 p-3 rounded-xl border border-neutral-800">
+          <span className="text-white text-sm font-medium">
+            Show Sticker on Story
+          </span>
+          <button
+            onClick={() =>
+              store.setMusicWidget({
+                ...store.musicWidget!,
+                isHidden: !store.musicWidget?.isHidden,
+              })
+            }
+            className={`w-11 h-6 rounded-full transition-colors relative ${!store.musicWidget?.isHidden ? "bg-[#0095F6]" : "bg-neutral-600"}`}
+          >
+            <div
+              className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${!store.musicWidget?.isHidden ? "translate-x-5" : "translate-x-0"}`}
+            />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

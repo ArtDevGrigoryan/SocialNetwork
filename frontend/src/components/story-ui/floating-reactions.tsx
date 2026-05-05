@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Heart } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { FloatingReactionsProps, Particle } from "../../types/story.types";
 
 export const FloatingReactions = ({
@@ -10,86 +10,56 @@ export const FloatingReactions = ({
   const [particles, setParticles] = useState<Particle[]>([]);
 
   useEffect(() => {
-    if (!reaction && !liked) {
-      setParticles([]);
-      return;
-    }
+    if (!reaction && !liked) return;
 
-    const newParticles: Particle[] = [];
-    const count = 12;
+    const newParticles: Particle[] = Array.from({ length: 6 }).map((_, i) => ({
+      id: Date.now() + i,
+      type: liked ? "like" : "reaction",
+      value: reaction || "❤️",
+      left: 20 + Math.random() * 60,
+      delay: Math.random() * 0.2,
+      size: 24 + Math.random() * 24,
+      duration: 1.5 + Math.random() * 1,
+      dxMid: (Math.random() - 0.5) * 100,
+      dxEnd: (Math.random() - 0.5) * 150,
+    }));
 
-    for (let i = 0; i < count; i++) {
-      const isLike = liked && (!reaction || Math.random() > 0.5);
+    setParticles((prev) => [...prev, ...newParticles]);
 
-      newParticles.push({
-        id: Math.random(),
-        type: isLike ? "like" : "reaction",
-        value: reaction || undefined,
-        left: Math.random() * 60 + 20,
-        delay: Math.random() * 0.3,
-        size: Math.random() * 16 + 24,
-        duration: Math.random() * 1 + 1.5,
-        dxMid: (Math.random() - 0.5) * 60,
-        dxEnd: (Math.random() - 0.5) * 120,
-      });
-    }
-
-    setParticles(newParticles);
-
-    // Մաքրում ենք DOM-ը անիմացիայի ավարտից հետո (3 վայրկյանը բավական է)
     const timer = setTimeout(() => {
-      setParticles([]);
+      setParticles((prev) =>
+        prev.filter((p) => !newParticles.find((np) => np.id === p.id)),
+      );
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [storyId, reaction, liked]); // Աշխատում է հենց սթորին կամ ռեակցիան փոխվում է
-
-  if (particles.length === 0) return null;
+  }, [reaction, liked, storyId]);
 
   return (
-    <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden">
-      {/* Գլոբալ Keyframe անիմացիան դնում ենք հենց այստեղ, որ լրիվ isolated լինի */}
-      <style>{`
-        @keyframes floatUpOrganic {
-          0% { 
-            transform: translate(0, 100px) scale(0.5); 
-            opacity: 0; 
-          }
-          20% { 
-            opacity: 1; 
-            transform: translate(var(--dx-mid), 0px) scale(1.2); 
-          }
-          100% { 
-            transform: translate(var(--dx-end), -400px) scale(1.5); 
-            opacity: 0; 
-          }
-        }
-      `}</style>
-
-      {particles.map((p) => (
-        <div
-          key={p.id}
-          className="absolute bottom-24 opacity-0 flex justify-center items-center"
-          style={
-            {
-              left: `${p.left}%`,
-              fontSize: `${p.size}px`,
-              animation: `floatUpOrganic ${p.duration}s ease-out ${p.delay}s forwards`,
-              "--dx-mid": `${p.dxMid}px`,
-              "--dx-end": `${p.dxEnd}px`,
-            } as React.CSSProperties
-          }
-        >
-          {p.type === "like" ? (
-            <Heart
-              className="text-red-500 fill-red-500 drop-shadow-2xl"
-              size={p.size}
-            />
-          ) : (
-            <span className="drop-shadow-2xl">{p.value}</span>
-          )}
-        </div>
-      ))}
+    <div className="absolute inset-0 pointer-events-none z-[45] overflow-hidden">
+      <AnimatePresence>
+        {particles.map((p) => (
+          <motion.div
+            key={p.id}
+            initial={{ opacity: 0, y: 100, x: 0, scale: 0.5 }}
+            animate={{
+              opacity: [0, 1, 1, 0],
+              y: -window.innerHeight * 0.6,
+              x: [0, p.dxMid, p.dxEnd],
+              scale: [0.5, 1.2, 1],
+            }}
+            transition={{
+              duration: p.duration,
+              delay: p.delay,
+              ease: "easeOut",
+            }}
+            className="absolute bottom-16 drop-shadow-2xl"
+            style={{ left: `${p.left}%`, fontSize: p.size }}
+          >
+            {p.type === "like" ? "❤️" : p.value}
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 };

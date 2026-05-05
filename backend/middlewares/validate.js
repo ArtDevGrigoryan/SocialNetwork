@@ -5,7 +5,7 @@ module.exports = function validate(params) {
   const schemas = params[0];
   const options = params[1] ?? { defaults: true };
   return function (req, res, next) {
-    try {
+    try {console.log(req.query)
       req.validated = req.validated || { body: {}, query: {}, params: {} };
       validationSources.forEach((source) => {
         const schema = schemas[source];

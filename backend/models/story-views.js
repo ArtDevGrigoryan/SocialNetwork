@@ -2,26 +2,13 @@ const mongoose = require("mongoose");
 
 const storyViewerSchema = new mongoose.Schema(
   {
-    story: {
-      type: mongoose.Types.ObjectId,
-      ref: "Story",
-      required: true,
-    },
+    story: { type: mongoose.Types.ObjectId, ref: "Story", required: true },
     liked: { type: Boolean, default: false },
-    viewer: {
-      type: mongoose.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
+    viewer: { type: mongoose.Types.ObjectId, ref: "User", required: true },
     reaction: String,
-    viewedAt: {
-      type: Date,
-      default: Date.now,
-    },
+    viewedAt: { type: Date, default: Date.now },
   },
-  {
-    timestamps: false,
-  },
+  { timestamps: false },
 );
 
 storyViewerSchema.index({ story: 1, viewer: 1 }, { unique: true });

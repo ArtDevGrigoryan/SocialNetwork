@@ -1,4 +1,4 @@
-import { X, Volume2, VolumeX } from "lucide-react";
+import { Volume2, VolumeX, X } from "lucide-react";
 import type { StoryHeaderProps } from "../../types/story.types";
 
 export const StoryHeader = ({
@@ -9,46 +9,47 @@ export const StoryHeader = ({
   isMuted,
   onToggleMute,
   onClose,
-}: StoryHeaderProps) => (
-  <div className="absolute top-4 left-0 right-0 z-[60] flex items-center justify-between px-4 pt-2 pointer-events-none">
-    <div className="flex items-center gap-2 drop-shadow-md pointer-events-auto">
-      <img
-        src={avatar || "/default-avatar.png"}
-        alt={username}
-        className="w-8 h-8 rounded-full object-cover border border-neutral-700"
-      />
-      <div className="flex flex-col">
-        <span className="text-white font-semibold text-sm drop-shadow-lg">
-          {username}
-        </span>
-        <span className="text-neutral-200 text-xs drop-shadow-lg font-medium">
-          {timeText}
-        </span>
+}: StoryHeaderProps) => {
+  return (
+    <div className="absolute top-0 left-0 right-0 pt-6 px-4 pb-12 bg-gradient-to-b from-black/80 to-transparent z-50 flex justify-between items-start pointer-events-none">
+      <div className="flex items-center gap-2.5 pointer-events-auto">
+        <div className="w-8 h-8 rounded-full overflow-hidden bg-neutral-800 border border-white/20">
+          <img
+            src={avatar || "/default-avatar.png"}
+            alt={username}
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="flex items-center gap-2 drop-shadow-md">
+          <span className="text-white font-semibold text-[14px]">
+            {username}
+          </span>
+          <span className="text-white/60 text-[13px]">{timeText}</span>
+        </div>
       </div>
-    </div>
-    <div className="flex items-center gap-2 pointer-events-auto relative z-[70]">
-      {hasAudio && onToggleMute && (
+
+      <div className="flex items-center gap-4 pointer-events-auto">
+        {hasAudio && onToggleMute && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleMute();
+            }}
+            className="text-white hover:text-neutral-300 drop-shadow-md transition-colors"
+          >
+            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          </button>
+        )}
         <button
           onClick={(e) => {
-            e.preventDefault();
             e.stopPropagation();
-            onToggleMute();
+            onClose();
           }}
-          className="text-white p-2 sm:p-1.5 drop-shadow-md bg-black/30 hover:bg-black/50 rounded-full transition pointer-events-auto"
+          className="text-white hover:text-neutral-300 drop-shadow-md transition-colors sm:hidden"
         >
-          {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          <X size={24} />
         </button>
-      )}
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onClose();
-        }}
-        className="text-white sm:hidden p-2 drop-shadow-md bg-black/30 rounded-full ml-1"
-      >
-        <X size={20} />
-      </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};

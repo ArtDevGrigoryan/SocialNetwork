@@ -26,7 +26,6 @@ export default function ArchiveStoryViewer({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [viewers, setViewers] = useState<ViewerReaction[]>([]);
   const [loadingViewers, setLoadingViewers] = useState(false);
-
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -41,7 +40,6 @@ export default function ArchiveStoryViewer({
   useEffect(() => {
     isPausedRef.current = isPaused;
   }, [isPaused]);
-
   useEffect(() => {
     isDrawerOpenRef.current = isDrawerOpen;
   }, [isDrawerOpen]);
@@ -64,10 +62,8 @@ export default function ArchiveStoryViewer({
     }
   }, [currentIndex]);
 
-  // 1. Progress Animation
   useEffect(() => {
     if (!currentStory) return;
-
     progressRef.current = 0;
     setProgress(0);
     lastTimeRef.current = performance.now();
@@ -75,7 +71,6 @@ export default function ArchiveStoryViewer({
     const musicSrc =
       currentStory.media.musicUrl || currentStory.media.backgroundMusic;
     const hasValidMusic = musicSrc && musicSrc !== "none";
-
     const mediaDuration =
       currentStory.media.type === "image" && hasValidMusic
         ? (currentStory.media.musicDuration || 15) * 1000
@@ -87,33 +82,41 @@ export default function ArchiveStoryViewer({
         animationRef.current = requestAnimationFrame(animate);
         return;
       }
-
       const deltaTime = time - lastTimeRef.current;
       lastTimeRef.current = time;
 
       if (currentStory.media.type === "image") {
         progressRef.current += (deltaTime / mediaDuration) * 100;
       } else if (videoRef.current && videoRef.current.duration) {
-        progressRef.current =
-          (videoRef.current.currentTime / videoRef.current.duration) * 100;
+        const vidStart = currentStory.media.videoStartTime || 0;
+        const actualDur =
+          currentStory.media.videoDuration || videoRef.current.duration;
+        const vidDur = actualDur > 0 ? actualDur : 15;
+        const curr = videoRef.current.currentTime;
+
+        if (curr >= vidStart + vidDur || curr >= videoRef.current.duration) {
+          progressRef.current = 100;
+        } else {
+          progressRef.current = Math.max(
+            0,
+            Math.min(100, ((curr - vidStart) / vidDur) * 100),
+          );
+        }
       }
 
-      if (progressRef.current >= 100) {
-        handleNext();
-      } else {
+      if (progressRef.current >= 100) handleNext();
+      else {
         setProgress(progressRef.current);
         animationRef.current = requestAnimationFrame(animate);
       }
     };
 
     animationRef.current = requestAnimationFrame(animate);
-
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, [currentStory?._id, handleNext]);
 
-  // 2. Initial Audio/Video Load
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -124,32 +127,28 @@ export default function ArchiveStoryViewer({
         currentStory.media.musicUrl || currentStory.media.backgroundMusic;
       const hasValidMusic =
         musicSrc && musicSrc !== "none" && musicSrc.startsWith("http");
-
       if (hasValidMusic && audioRef.current) {
         audioRef.current.src = String(musicSrc);
         audioRef.current.currentTime = currentStory.media.musicStartTime || 0;
       }
-      if (videoRef.current) videoRef.current.currentTime = 0;
+      if (videoRef.current)
+        videoRef.current.currentTime = currentStory.media.videoStartTime || 0;
     }
   }, [currentStory?._id]);
 
-  // 3. Play/Pause Controller
   useEffect(() => {
     if (!currentStory) return;
     const shouldPause = isPaused || isDrawerOpen;
-
     if (shouldPause) {
       videoRef.current?.pause();
       audioRef.current?.pause();
     } else {
-      if (currentStory.media.type === "video") {
+      if (currentStory.media.type === "video")
         videoRef.current?.play().catch(() => {});
-      }
       const musicSrc =
         currentStory.media.musicUrl || currentStory.media.backgroundMusic;
       const hasValidMusic =
         musicSrc && musicSrc !== "none" && musicSrc.startsWith("http");
-
       if (hasValidMusic && audioRef.current) {
         audioRef.current.muted = isMuted;
         audioRef.current.play().catch((e) => console.log("Audio skipped:", e));
@@ -157,7 +156,6 @@ export default function ArchiveStoryViewer({
     }
   }, [isPaused, isDrawerOpen, isMuted, currentStory?._id]);
 
-  // 4. Music Trimmer Loop
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentStory) return;
@@ -173,10 +171,8 @@ export default function ArchiveStoryViewer({
     return () => audio.removeEventListener("timeupdate", handleTimeUpdate);
   }, [currentStory?._id]);
 
-  // 5. Fetch Viewers
   useEffect(() => {
     if (isDrawerOpen && currentStory && isOwner) {
-      // <- Միայն owner-ի համար ենք կանչում
       const fetchViewers = async () => {
         setLoadingViewers(true);
         try {
@@ -203,17 +199,13 @@ export default function ArchiveStoryViewer({
     });
   };
 
-  // Swipe Up / Down Handlers
   const handleTouchStart = (e: React.TouchEvent) =>
     setTouchStartY(e.targetTouches[0].clientY);
-
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchStartY) return;
     const diff = touchStartY - e.targetTouches[0].clientY;
-
     if (diff > 50) {
       if (isOwner && !isDrawerOpen) {
-        // <- Թույլ ենք տալիս բացել միայն owner-ին
         setIsDrawerOpen(true);
         setIsPaused(true);
       }
@@ -234,7 +226,6 @@ export default function ArchiveStoryViewer({
     if (isDrawerOpenRef.current) return;
     setIsPaused(val);
   };
-
   const handleSetIsHolding = (val: boolean) => {
     if (isDrawerOpenRef.current) return;
     setIsHolding(val);
@@ -249,51 +240,40 @@ export default function ArchiveStoryViewer({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black sm:bg-black/95"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       <audio ref={audioRef} loop muted={isMuted} />
-
       <button
         onClick={(e) => {
           e.stopPropagation();
           handlePrev();
         }}
-        className={`absolute left-4 top-1/2 -translate-y-1/2 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${
-          isHolding ? "opacity-0 pointer-events-none" : "opacity-100"
-        }`}
+        className={`absolute left-4 top-1/2 -translate-y-1/2 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
       >
         <ChevronLeft size={30} />
       </button>
-
       <button
         onClick={(e) => {
           e.stopPropagation();
           handleNext();
         }}
-        className={`absolute right-4 top-1/2 -translate-y-1/2 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${
-          isHolding ? "opacity-0 pointer-events-none" : "opacity-100"
-        }`}
+        className={`absolute right-4 top-1/2 -translate-y-1/2 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
       >
         <ChevronRight size={30} />
       </button>
-
       <button
         onClick={onClose}
-        className={`absolute top-6 right-6 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${
-          isHolding ? "opacity-0 pointer-events-none" : "opacity-100"
-        }`}
+        className={`absolute top-6 right-6 text-white z-50 p-2 hover:bg-neutral-800 rounded-full transition-opacity duration-300 hidden sm:block ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
       >
         <X size={30} />
       </button>
 
-      <div className="relative w-full h-full sm:w-[400px] sm:h-[90vh] bg-neutral-900 sm:rounded-xl overflow-hidden flex flex-col shadow-2xl">
+      <div className="relative w-full h-[100dvh] sm:h-[85vh] sm:w-[calc(85vh*9/16)] sm:min-w-[340px] sm:max-w-[480px] bg-neutral-900 sm:rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl sm:border-[8px] sm:border-neutral-950 shrink-0">
         <div
-          className={`transition-opacity duration-300 z-50 ${
-            isHolding ? "opacity-0 pointer-events-none" : "opacity-100"
-          }`}
+          className={`transition-opacity duration-300 z-50 ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         >
           <StoryProgressBar
             total={archives.length}
@@ -322,11 +302,9 @@ export default function ArchiveStoryViewer({
         />
 
         <div
-          className={`transition-opacity duration-300 ${
-            isHolding ? "opacity-0 pointer-events-none" : "opacity-100"
-          }`}
+          className={`transition-opacity duration-300 z-[70] ${isHolding ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         >
-          {isOwner && ( // <- Ստուգում ենք, որ մենակ հեղինակը տեսնի ViewersDrawer-ը
+          {isOwner && (
             <ViewersDrawer
               isOpen={isDrawerOpen}
               setIsOpen={(val) => {
